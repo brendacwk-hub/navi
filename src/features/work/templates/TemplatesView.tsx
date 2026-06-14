@@ -238,6 +238,8 @@ function RunModal({ template, area, onClose }: { template: WorkTemplate; area: W
   const { addCycle } = useWorkData()
   const [name, setName] = useState(template.title)
   const [due, setDue] = useState('')
+  const [urgent, setUrgent] = useState(false)
+  const [notes, setNotes] = useState('')
   const [done, setDone] = useState(false)
   const accent = AREA_ACCENT[area]
 
@@ -246,7 +248,8 @@ function RunModal({ template, area, onClose }: { template: WorkTemplate; area: W
     const ts = Date.now()
     addCycle(area, {
       id: `cycle-${ts}`, area, title: name.trim(), effort: template.effort,
-      must: template.must, urgent: false, subArea: template.subArea, triggerLabel: due, status: 'active',
+      must: template.must, urgent, subArea: template.subArea, triggerLabel: due, status: 'active',
+      notes: notes.trim() || undefined,
       items: template.items.map((item, i) => ({ id: `${ts}-i${i}`, label: item.label, status: 'todo' as const, effort: template.effort, must: false, optional: item.optional })),
     })
     setDone(true)
@@ -280,6 +283,25 @@ function RunModal({ template, area, onClose }: { template: WorkTemplate; area: W
               ))}
             </div>
           </div>
+          {/* Urgent + Notes */}
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-white/60">Urgent</span>
+            <button onClick={() => setUrgent(u => !u)}
+              className={`relative w-10 h-6 rounded-full transition-all ${urgent ? 'bg-orange-500' : 'bg-white/15'}`}>
+              <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${urgent ? 'left-5' : 'left-1'}`} />
+            </button>
+          </div>
+          <div>
+            <label className="block text-[11px] text-white/35 uppercase tracking-widest mb-1.5">Notes</label>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Optional notes…"
+              rows={2}
+              className="w-full bg-white/6 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors resize-none"
+            />
+          </div>
+
           <div>
             <p className="text-[11px] text-white/30 uppercase tracking-widest mb-2">{template.items.length} steps</p>
             <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
