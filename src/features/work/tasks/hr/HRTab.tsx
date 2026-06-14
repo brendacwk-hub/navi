@@ -113,7 +113,7 @@ function HRTabInner() {
 
       {/* Sub-area underline tab bar */}
       <div className="relative border-b border-white/8">
-        <div className="flex overflow-x-auto scrollbar-none px-3 sm:pr-12">
+        <div className="flex overflow-x-auto overflow-y-hidden scrollbar-none px-3">
           <button
             onClick={() => setSubArea(null)}
             className={`flex-shrink-0 px-4 py-2.5 text-[13px] font-medium border-b-2 -mb-px whitespace-nowrap transition-all ${
@@ -121,14 +121,6 @@ function HRTabInner() {
             }`}
           >
             All
-          </button>
-          <button
-            onClick={() => setSubArea('Templates')}
-            className={`flex-shrink-0 px-4 py-2.5 text-[13px] font-medium border-b-2 -mb-px whitespace-nowrap transition-all ${
-              activeSub === 'Templates' ? 'border-navi-blue text-navi-blue' : 'border-transparent text-white/30 hover:text-white/55'
-            }`}
-          >
-            Templates
           </button>
           {sortedSubAreas.map(sub => (
             <button
@@ -144,18 +136,18 @@ function HRTabInner() {
               </span>
             </button>
           ))}
+          <button
+            onClick={() => setSubArea('Templates')}
+            className={`flex-shrink-0 px-4 py-2.5 text-[13px] font-medium border-b-2 -mb-px whitespace-nowrap transition-all ${
+              activeSub === 'Templates' ? 'border-navi-blue text-navi-blue' : 'border-transparent text-white/30 hover:text-white/55'
+            }`}
+          >
+            Templates
+          </button>
         </div>
 
         <div className="hidden sm:flex absolute right-0 top-0 bottom-0 items-stretch pointer-events-none">
           <div className="w-8 bg-gradient-to-l from-[rgba(12,12,12,1)] to-transparent" />
-        </div>
-        <div className="hidden sm:flex absolute right-0 top-0 bottom-0 items-center">
-          <button
-            onClick={() => setOverflowOpen(o => !o)}
-            className="h-full px-3 text-white/40 hover:text-white/70 text-sm font-bold transition-colors bg-[rgba(12,12,12,0.95)] border-b-2 border-transparent -mb-px"
-          >
-            ···
-          </button>
         </div>
 
         {overflowOpen && (
