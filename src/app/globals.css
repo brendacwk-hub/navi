@@ -16,6 +16,7 @@ html, body {
   background: #171717;
   color: #f5f5f5;
   -webkit-font-smoothing: antialiased;
+  touch-action: manipulation;
 }
 
 .scrollbar-none {
