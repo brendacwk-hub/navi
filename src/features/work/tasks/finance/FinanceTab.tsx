@@ -10,7 +10,6 @@ import { type CycleFilter, cycleHasMatchingItems, CADENCE_FILTERS } from '@/shar
 import { computeSortDate, extractFlatItems, formatSortDate } from '@/shared/lib/sort-utils'
 import type { Cycle } from '@/shared/types'
 import { TemplatesView } from '@/features/work/templates/TemplatesView'
-import { financeTemplates } from '@/features/work/templates/data'
 
 const CHIP_FILTERS: CycleFilter[] = ['All', 'Latest', '⚠️ Urgent', 'Light', 'Medium', 'Heavy', 'Weekly', 'Monthly']
 
@@ -190,7 +189,7 @@ function FinanceTabInner() {
       </div>
 
       {activeSub === 'Templates' ? (
-        <TemplatesView area="finance" templates={financeTemplates} />
+        <TemplatesView area="finance" />
       ) : (
       <>
       {/* Chip filter row */}

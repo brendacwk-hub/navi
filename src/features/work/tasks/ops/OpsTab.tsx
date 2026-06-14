@@ -10,7 +10,6 @@ import { type CycleFilter, cycleHasMatchingItems, CADENCE_FILTERS } from '@/shar
 import { computeSortDate } from '@/shared/lib/sort-utils'
 import type { Cycle } from '@/shared/types'
 import { TemplatesView } from '@/features/work/templates/TemplatesView'
-import { opsTemplates } from '@/features/work/templates/data'
 import { Settings } from 'lucide-react'
 
 const CHIP_FILTERS: CycleFilter[] = ['All', '⚠️ Urgent', 'Light', 'Medium', 'Heavy']
@@ -178,7 +177,7 @@ function OpsTabInner() {
       </div>
 
       {activeSub === 'Templates' ? (
-        <TemplatesView area="ops" templates={opsTemplates} />
+        <TemplatesView area="ops" />
       ) : (
       <>
       {/* Chip filter row */}

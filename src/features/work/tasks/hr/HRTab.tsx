@@ -10,7 +10,6 @@ import { type CycleFilter, cycleHasMatchingItems, CADENCE_FILTERS } from '@/shar
 import { computeSortDate, extractFlatItems, formatSortDate } from '@/shared/lib/sort-utils'
 import type { Cycle } from '@/shared/types'
 import { TemplatesView } from '@/features/work/templates/TemplatesView'
-import { hrTemplates } from '@/features/work/templates/data'
 
 const CHIP_FILTERS: CycleFilter[] = ['All', 'Latest', '⚠️ Urgent', 'Light', 'Medium', 'Heavy']
 
@@ -180,7 +179,7 @@ function HRTabInner() {
       </div>
 
       {activeSub === 'Templates' ? (
-        <TemplatesView area="hr" templates={hrTemplates} />
+        <TemplatesView area="hr" />
       ) : (
       <>
       {/* Chip filter row */}
