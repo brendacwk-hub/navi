@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { ExternalLink, MessageSquare, Clock, ChevronRight, Pencil } from 'lucide-react'
+import { ExternalLink, MessageSquare, Clock, ChevronRight, Pencil, X, Calendar } from 'lucide-react'
 import type { ChecklistItem as ChecklistItemType, Effort } from '@/shared/types'
 
 const effortDot: Record<Effort, string> = {
@@ -16,6 +16,8 @@ const effortLabel: Record<Effort, string> = {
   heavy: 'Heavy',
 }
 
+const DUE_PRESETS = ['Today', 'Tomorrow', 'This week', 'Next week']
+
 interface Props {
   item: ChecklistItemType
   depth?: number
@@ -23,23 +25,23 @@ interface Props {
   onNoteChange: (id: string, note: string) => void
   onLabelChange: (id: string, label: string) => void
   onUrgentChange?: (id: string, urgent: boolean) => void
+  onDueChange?: (id: string, due: string) => void
+  onDelete?: (id: string) => void
 }
 
-export function ChecklistItem({ item, depth = 0, onToggle, onNoteChange, onLabelChange, onUrgentChange }: Props) {
-  const [noteOpen, setNoteOpen] = useState(false)
+export function ChecklistItem({ item, depth = 0, onToggle, onNoteChange, onLabelChange, onUrgentChange, onDueChange, onDelete }: Props) {
+  const [noteOpen, setNoteOpen]       = useState(false)
+  const [dueOpen, setDueOpen]         = useState(false)
   const [subExpanded, setSubExpanded] = useState(true)
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(item.label)
+  const [editing, setEditing]         = useState(false)
+  const [draft, setDraft]             = useState(item.label)
   const [localUrgent, setLocalUrgent] = useState(item.urgent ?? false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Sync local state when context value changes externally
   useEffect(() => { setLocalUrgent(item.urgent ?? false) }, [item.urgent])
   useEffect(() => { if (!editing) setDraft(item.label) }, [item.label, editing])
-
-  useEffect(() => {
-    if (editing) inputRef.current?.focus()
-  }, [editing])
+  useEffect(() => { if (editing) inputRef.current?.focus() }, [editing])
 
   const saveEdit = () => {
     const trimmed = draft.trim()
@@ -122,6 +124,11 @@ export function ChecklistItem({ item, depth = 0, onToggle, onNoteChange, onLabel
                   <Clock className="w-2.5 h-2.5" /> Waiting On
                 </span>
               )}
+              {item.due && (
+                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-navi-blue/15 text-navi-blue/80 border border-navi-blue/20">
+                  <Calendar className="w-2.5 h-2.5" /> {item.due}
+                </span>
+              )}
               {item.effort && depth === 0 && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-white/40">
                   <span className={`w-1.5 h-1.5 rounded-full ${effortDot[item.effort]}`} />
@@ -132,9 +139,27 @@ export function ChecklistItem({ item, depth = 0, onToggle, onNoteChange, onLabel
           )}
         </div>
 
-        {/* Actions — shown on hover */}
-        {!editing && (
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+        {/* Actions — visible on mobile, hover on desktop */}
+        {!editing && !confirmDelete && (
+          <div className="flex items-center gap-1 opacity-40 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0">
+            {onUrgentChange && (
+              <button
+                onClick={toggleUrgent}
+                className={`p-1 rounded transition-colors ${localUrgent ? 'text-orange-400' : 'text-white/40 hover:text-orange-400'}`}
+                title={localUrgent ? 'Remove urgent' : 'Mark urgent'}
+              >
+                <span className="text-[12px] leading-none">⚠</span>
+              </button>
+            )}
+            {onDueChange && (
+              <button
+                onClick={() => { setDueOpen(o => !o); setNoteOpen(false) }}
+                className={`p-1 rounded transition-colors ${dueOpen || item.due ? 'text-navi-blue' : 'text-white/40 hover:text-navi-blue'}`}
+                title="Set due date"
+              >
+                <Calendar className="w-3 h-3" />
+              </button>
+            )}
             <button
               onClick={() => { setDraft(item.label); setEditing(true) }}
               className="p-1 rounded text-white/40 hover:text-white/70 transition-colors"
@@ -148,7 +173,7 @@ export function ChecklistItem({ item, depth = 0, onToggle, onNoteChange, onLabel
               </button>
             )}
             <button
-              onClick={() => setNoteOpen(!noteOpen)}
+              onClick={() => { setNoteOpen(!noteOpen); setDueOpen(false) }}
               className={`p-1 rounded transition-colors ${noteOpen || item.notes ? 'text-navi-blue' : 'text-white/40 hover:text-white/70'}`}
               title="Add note"
             >
@@ -162,9 +187,61 @@ export function ChecklistItem({ item, depth = 0, onToggle, onNoteChange, onLabel
                 <ChevronRight className={`w-3 h-3 transition-transform ${subExpanded ? 'rotate-90' : ''}`} />
               </button>
             )}
+            {onDelete && (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="p-1 rounded text-white/40 hover:text-red-400 transition-colors"
+                title="Delete"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Inline delete confirm */}
+        {confirmDelete && (
+          <div className="flex items-center gap-2 flex-shrink-0 text-xs">
+            <span className="text-white/50">Delete?</span>
+            <button
+              onClick={() => { onDelete?.(item.id); setConfirmDelete(false) }}
+              className="px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 font-semibold transition-all"
+            >
+              Yes
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="px-2 py-0.5 rounded text-white/40 hover:text-white/70 transition-colors"
+            >
+              No
+            </button>
           </div>
         )}
       </div>
+
+      {/* Due date picker */}
+      {dueOpen && onDueChange && (
+        <div style={{ paddingLeft: `${28 + indent}px` }} className="pb-2 pr-2 flex flex-wrap gap-1.5">
+          {DUE_PRESETS.map(preset => (
+            <button key={preset}
+              onClick={() => { onDueChange(item.id, preset); setDueOpen(false) }}
+              className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all ${
+                item.due === preset
+                  ? 'bg-navi-blue/20 border-navi-blue/40 text-navi-blue font-semibold'
+                  : 'border-white/10 text-white/50 hover:border-white/25 hover:text-white/75'
+              }`}
+            >
+              {preset}
+            </button>
+          ))}
+          {item.due && (
+            <button onClick={() => { onDueChange(item.id, ''); setDueOpen(false) }}
+              className="text-[11px] px-2.5 py-1 rounded-lg border border-white/10 text-white/30 hover:text-white/55">
+              Clear
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Note field */}
       {noteOpen && (
@@ -192,6 +269,8 @@ export function ChecklistItem({ item, depth = 0, onToggle, onNoteChange, onLabel
               onNoteChange={onNoteChange}
               onLabelChange={onLabelChange}
               onUrgentChange={onUrgentChange}
+              onDueChange={onDueChange}
+              onDelete={onDelete}
             />
           ))}
         </div>

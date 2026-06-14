@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, ChevronRight, Zap, Lock, Pencil } from 'lucide-react'
+import { ChevronDown, ChevronRight, Zap, Lock, Pencil, X } from 'lucide-react'
 import type { Cycle, CyclePhase, Effort } from '@/shared/types'
 import { ChecklistItem } from './ChecklistItem'
 import { useWorkData } from '@/shared/lib/work-data-context'
+import { useToast } from '@/shared/lib/toast-context'
 import { type CycleFilter, filterToLeaves, CADENCE_FILTERS } from '@/shared/lib/filter-utils'
 
 const effortColors: Record<Effort, { bg: string; text: string; border: string }> = {
@@ -32,7 +33,7 @@ type WorkAreaLocal = 'finance' | 'hr' | 'ops' | 'others'
 
 function PhaseSection({ phase, cycle, filter }: { phase: CyclePhase; cycle: Cycle; filter: CycleFilter }) {
   const [open, setOpen] = useState(phase.status === 'active')
-  const { toggleItem, setItemLabel, setItemNote, setItemUrgent } = useWorkData()
+  const { toggleItem, setItemLabel, setItemNote, setItemUrgent, setItemDue, deleteItem } = useWorkData()
   const area = cycle.area as WorkAreaLocal
   const cycleId = cycle.id
 
@@ -71,6 +72,8 @@ function PhaseSection({ phase, cycle, filter }: { phase: CyclePhase; cycle: Cycl
               onNoteChange={(id, note) => setItemNote(area, cycleId, id, note)}
               onLabelChange={(id, label) => setItemLabel(area, cycleId, id, label)}
               onUrgentChange={(id, urgent) => setItemUrgent(area, cycleId, id, urgent)}
+              onDueChange={(id, due) => setItemDue(area, cycleId, id, due)}
+              onDelete={id => deleteItem(area, cycleId, id)}
             />
           ))}
         </div>
@@ -85,14 +88,16 @@ interface Props {
 }
 
 export function CycleCard({ cycle, filter = 'All' }: Props) {
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
   const [draft, setDraft] = useState(cycle.title)
   const [editMust, setEditMust] = useState(cycle.must)
   const [editUrgent, setEditUrgent] = useState(cycle.urgent ?? false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const titleInputRef = useRef<HTMLInputElement>(null)
 
-  const { updateCycle, toggleItem, setItemLabel, setItemNote, setItemUrgent } = useWorkData()
+  const { updateCycle, deleteCycle, deleteItem, toggleItem, setItemLabel, setItemNote, setItemUrgent, setItemDue } = useWorkData()
+  const { showToast } = useToast()
   const area = cycle.area as WorkAreaLocal
 
   useEffect(() => { if (filter !== 'All') setExpanded(true) }, [filter])
@@ -195,23 +200,70 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
               </span>
               <button
                 onClick={e => { e.stopPropagation(); startEditing() }}
-                className="opacity-0 group-hover/card:opacity-100 p-0.5 rounded text-white/35 hover:text-white/70 transition-all"
+                className="opacity-30 sm:opacity-0 sm:group-hover/card:opacity-100 p-0.5 rounded text-white/35 hover:text-white/70 transition-all"
                 title="Edit cycle"
               >
                 <Pencil className="w-3 h-3" />
               </button>
+              <button
+                onClick={e => { e.stopPropagation(); setConfirmDelete(true) }}
+                className="opacity-30 sm:opacity-0 sm:group-hover/card:opacity-100 p-0.5 rounded text-white/35 hover:text-red-400 transition-all"
+                title="Delete cycle"
+              >
+                <X className="w-3 h-3" />
+              </button>
             </div>
           )}
           <div className="text-[11px] text-white/35 mt-0.5">{cycle.triggerLabel}</div>
+          {cycle.nextDueAt && (
+            <div className="text-[10px] mt-0.5 px-1.5 py-0.5 rounded bg-green-500/10 text-green-400/70 border border-green-500/15 w-fit">
+              ✓ Resets {new Date(cycle.nextDueAt + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          <div className="text-[11px] text-white/40 tabular-nums">{totals.done}/{totals.total}</div>
-          <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
-            <div className={`h-full rounded-full transition-all ${style.progress}`} style={{ width: `${pct}%` }} />
-          </div>
+          {cycle.nextDueAt ? (
+            <div className="text-[10px] text-green-400/60 font-medium">Done</div>
+          ) : (
+            <>
+              <div className="text-[11px] text-white/40 tabular-nums">{totals.done}/{totals.total}</div>
+              <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all ${style.progress}`} style={{ width: `${pct}%` }} />
+              </div>
+            </>
+          )}
         </div>
       </div>
+
+      {/* Delete confirm modal */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setConfirmDelete(false)}>
+          <div
+            className="bg-[#1e1e1e] border border-white/12 rounded-2xl shadow-2xl w-80 p-6"
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="text-sm font-semibold text-white mb-1">Delete cycle?</p>
+            <p className="text-xs text-white/45 mb-5 leading-relaxed">
+              &ldquo;{cycle.title}&rdquo; will be permanently removed. This cannot be undone.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="text-xs px-4 py-2 rounded-lg text-white/45 hover:text-white/70 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { deleteCycle(area, cycle.id); setConfirmDelete(false); showToast(`"${cycle.title}" deleted`) }}
+                className="text-xs px-4 py-2 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 font-semibold transition-all"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Body */}
       {expanded && (
@@ -233,6 +285,8 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
                     onNoteChange={(id, note) => setItemNote(area, cycle.id, id, note)}
                     onLabelChange={(id, label) => setItemLabel(area, cycle.id, id, label)}
                     onUrgentChange={(id, urgent) => setItemUrgent(area, cycle.id, id, urgent)}
+                    onDueChange={(id, due) => setItemDue(area, cycle.id, id, due)}
+                    onDelete={id => deleteItem(area, cycle.id, id)}
                   />
                 ))
               )}

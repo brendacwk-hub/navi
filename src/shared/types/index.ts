@@ -15,6 +15,7 @@ export interface ChecklistItem {
   urgent?: boolean
   must?: boolean
   notes?: string
+  due?: string
   url?: string
   subItems?: ChecklistItem[]
   optional?: boolean
@@ -34,6 +35,7 @@ export interface Cycle {
   id: string
   title: string
   area: Area
+  subArea?: string
   effort: Effort
   must: boolean
   urgent?: boolean
@@ -42,6 +44,10 @@ export interface Cycle {
   items?: ChecklistItem[]
   status: 'upcoming' | 'active' | 'in-progress' | 'complete'
   completionPercent?: number
+  notes?: string
+  location?: 'hk' | 'abu-dhabi'
+  lastCompletedAt?: string
+  nextDueAt?: string
 }
 
 export interface Task {

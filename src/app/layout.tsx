@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Comfortaa } from "next/font/google";
+import { PortraitLock } from "@/shared/components/PortraitLock";
 import "./globals.css";
 
 const comfortaa = Comfortaa({
@@ -37,7 +38,10 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Navi" />
       </head>
-      <body className={`h-full bg-[#171717] text-white ${comfortaa.className}`}>{children}</body>
+      <body className={`h-full bg-[#171717] text-white ${comfortaa.className}`}>
+        <PortraitLock />
+        {children}
+      </body>
     </html>
   );
 }

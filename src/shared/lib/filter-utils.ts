@@ -1,6 +1,6 @@
 import type { Cycle, ChecklistItem } from '@/shared/types'
 
-export type CycleFilter = 'All' | '⚠️ Urgent' | 'Light' | 'Medium' | 'Heavy' | 'Weekly' | 'Monthly'
+export type CycleFilter = 'All' | '⚠️ Urgent' | 'Light' | 'Medium' | 'Heavy' | 'Weekly' | 'Monthly' | 'Latest'
 
 export const CADENCE_FILTERS = new Set<CycleFilter>(['Weekly', 'Monthly'])
 
@@ -37,7 +37,7 @@ export function filterToLeaves(items: ChecklistItem[], cycle: Cycle, filter: Cyc
 }
 
 export function cycleHasMatchingItems(cycle: Cycle, filter: CycleFilter): boolean {
-  if (filter === 'All') return true
+  if (filter === 'All' || filter === 'Latest') return true
   const leaves = cycle.phases
     ? cycle.phases.flatMap(p => getLeaves(p.items))
     : getLeaves(cycle.items ?? [])
