@@ -65,6 +65,8 @@ interface HabitCtx {
   isWorkday: boolean
   logHabit: (id: string) => void
   unlogHabit: (id: string) => void
+  logHabitForDate: (id: string, date: string) => void
+  unlogHabitForDate: (id: string, date: string) => void
   addHabit: (h: Omit<WorkHabit, 'id' | 'order'>) => void
   updateHabit: (id: string, patch: Partial<Omit<WorkHabit, 'id' | 'order'>>) => void
   deleteHabit: (id: string) => void
@@ -154,6 +156,24 @@ export function HabitProvider({ children }: { children: React.ReactNode }) {
     })
   }, [weekLogs, persistLogs])
 
+  const logHabitForDate = useCallback((id: string, date: string) => {
+    setWeekLogs(prev => {
+      const dayLog = { ...(prev[date] ?? {}), [id]: (prev[date]?.[id] ?? 0) + 1 }
+      dbWrite({ table: 'habit_logs', operation: 'upsert', data: { id: date, logs: dayLog } })
+      return { ...prev, [date]: dayLog }
+    })
+  }, [])
+
+  const unlogHabitForDate = useCallback((id: string, date: string) => {
+    setWeekLogs(prev => {
+      const current = prev[date]?.[id] ?? 0
+      if (current <= 0) return prev
+      const dayLog = { ...(prev[date] ?? {}), [id]: current - 1 }
+      dbWrite({ table: 'habit_logs', operation: 'upsert', data: { id: date, logs: dayLog } })
+      return { ...prev, [date]: dayLog }
+    })
+  }, [])
+
   const persistHabits = useCallback((next: WorkHabit[]) => {
     setHabits(next)
     dbWrite({ table: 'habit_definitions', operation: 'upsert', data: { id: 'singleton', habits: next } })
@@ -184,7 +204,7 @@ export function HabitProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
-    <HabitContext.Provider value={{ habits, todayLogs, weekLogs, isWorkday, logHabit, unlogHabit, addHabit, updateHabit, deleteHabit }}>
+    <HabitContext.Provider value={{ habits, todayLogs, weekLogs, isWorkday, logHabit, unlogHabit, logHabitForDate, unlogHabitForDate, addHabit, updateHabit, deleteHabit }}>
       {children}
     </HabitContext.Provider>
   )

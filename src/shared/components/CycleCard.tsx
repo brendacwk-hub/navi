@@ -353,6 +353,30 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
                   >
                     → Tomorrow
                   </button>
+                  <button
+                    onClick={e => {
+                      e.stopPropagation()
+                      const d = new Date()
+                      const daysToFri = (5 - d.getDay() + 7) % 7 || 7
+                      d.setDate(d.getDate() + daysToFri)
+                      updateCycle(area, cycle.id, { triggerLabel: d.toISOString().slice(0, 10) })
+                    }}
+                    className="text-[10px] text-white/30 hover:text-white/60 transition-colors"
+                    title="Push to this Friday"
+                  >
+                    → This Fri
+                  </button>
+                  <button
+                    onClick={e => {
+                      e.stopPropagation()
+                      const d = new Date(); d.setDate(d.getDate() + 7)
+                      updateCycle(area, cycle.id, { triggerLabel: d.toISOString().slice(0, 10) })
+                    }}
+                    className="text-[10px] text-white/30 hover:text-white/60 transition-colors"
+                    title="Push one week"
+                  >
+                    → Next wk
+                  </button>
                 </>
               ) : (
                 <span className="text-[11px] text-white/35">{dueLabelDisplay}</span>

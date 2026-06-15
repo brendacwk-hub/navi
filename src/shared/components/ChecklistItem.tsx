@@ -168,7 +168,11 @@ export function ChecklistItem({ item, depth = 0, onToggle, onNoteChange, onLabel
               <Pencil className="w-3 h-3" />
             </button>
             {item.url && (
-              <button className="p-1 rounded text-white/40 hover:text-navi-blue transition-colors" title="Open link">
+              <button
+                onClick={() => window.open(item.url!, '_blank', 'noopener,noreferrer')}
+                className="p-1 rounded text-white/40 hover:text-navi-blue transition-colors"
+                title={item.url}
+              >
                 <ExternalLink className="w-3 h-3" />
               </button>
             )}
@@ -246,12 +250,12 @@ export function ChecklistItem({ item, depth = 0, onToggle, onNoteChange, onLabel
       {/* Note field */}
       {noteOpen && (
         <div style={{ paddingLeft: `${28 + indent}px` }} className="pb-1 pr-2">
-          <input
-            type="text"
+          <textarea
             value={item.notes || ''}
             onChange={(e) => onNoteChange(item.id, e.target.value)}
             placeholder="Quick note..."
-            className="w-full text-xs bg-white/5 border border-white/10 rounded px-2 py-1 text-white/70 placeholder-white/25 focus:outline-none focus:border-navi-blue/50"
+            rows={2}
+            className="w-full text-xs bg-white/5 border border-white/10 rounded px-2 py-1 text-white/70 placeholder-white/25 focus:outline-none focus:border-navi-blue/50 resize-none"
             autoFocus
           />
         </div>

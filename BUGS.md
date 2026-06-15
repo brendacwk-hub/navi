@@ -119,6 +119,56 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+## UX Bugs (session 4 power-user audit)
+
+### B-14 · Monthly Chain hidden for half the month
+**Symptom:** Monthly Chain section disappeared from Today view between the 6th and 16th of every month.  
+**Root cause:** Date gate `showChain = dayOfMonth >= 17 || dayOfMonth <= 5` was intended to show chain only near month-close but also hid it mid-cycle.  
+**Fix:** Removed the gate entirely. Chain is always visible when `chainItems.length > 0`. Items are already styled active/done/upcoming so context is clear.  
+**Lesson:** Visibility gates in date-sensitive views need an escape hatch or should not exist at all.
+
+---
+
+### B-15 · QuickAdd form silently destroyed on backdrop tap
+**Symptom:** Tapping outside the QuickAdd form while composing a multi-step cycle destroyed all work with no warning.  
+**Root cause:** Backdrop `onClick` called `handleClose()` unconditionally.  
+**Fix:** Changed backdrop `onClick` to `() => { if (!title.trim()) handleClose() }` — only closes when form is empty.  
+**Lesson:** Mobile form backdrops must not destroy in-progress work. Guard on content before dismissing.
+
+---
+
+### B-16 · WeeklyReview hard-locked at exactly 3 focus items
+**Symptom:** If user had fewer than 3 must/urgent cycles, they could not complete the Weekly Review — the Commit button stayed disabled.  
+**Root cause:** `disabled={focusIds.length !== 3}` — strict equality check.  
+**Fix:** Changed to `disabled={focusIds.length < 1}`. Now 1–3 items are all valid.  
+**Lesson:** Minimum thresholds are good; hard-exact requirements usually aren't. Don't block users from completing a flow because their data is lighter than expected.
+
+---
+
+### B-17 · ExternalLink button on checklist items did nothing
+**Symptom:** Clicking the link icon on a checklist item with a URL had no effect.  
+**Root cause:** Button had no `onClick`, no `href` — it was just a decorative icon.  
+**Fix:** Added `onClick={() => window.open(item.url!, '_blank', 'noopener,noreferrer')}` and `title={item.url}` tooltip.  
+**Lesson:** Any interactive-looking element must do something. Dead buttons erode trust.
+
+---
+
+### B-18 · Inbox capture bar always defaulted new items to Finance
+**Symptom:** Capturing from Inbox always created a Finance-tagged item regardless of what you were working on.  
+**Root cause:** `addItem()` in inbox-context.tsx hardcoded `area: 'finance'`.  
+**Fix:** Added `area` parameter to `addItem(title, area = 'finance')`. Added area pill selector above the Inbox capture bar so users pick the area before capturing.  
+**Lesson:** Defaults should match context or be explicitly choosable. A hidden default that's always wrong is worse than no default.
+
+---
+
+### B-19 · Today view: Must/Urgent cycles buried under plain tasks
+**Symptom:** Recurring cycles marked Must or Urgent appeared after all plain tasks in Today view, regardless of priority.  
+**Root cause:** Render order was always `visibleTasks` (plain) → `cyclesToday` (all cycles). No cross-type priority sort.  
+**Fix:** Render order is now: must/urgent cycles → plain tasks → other cycles.  
+**Lesson:** Priority flags (must, urgent) must be honored across all item types in a unified list view.
+
+---
+
 ## How to use this doc
 
 - After every fix session, add a new entry here.

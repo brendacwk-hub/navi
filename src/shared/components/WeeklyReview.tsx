@@ -330,10 +330,10 @@ export function WeeklyReview({ allCycles, onSave, onDismiss, todayStr }: WeeklyR
           {step === 4 && (
             <>
               <p className="text-sm font-semibold text-white/80">
-                Pick 3 things to protect this week.
+                Pick up to 3 things to protect this week.
               </p>
               <p className="text-xs text-white/40 -mt-2 leading-relaxed">
-                Not the full list — just 3 you commit to finishing.
+                Not the full list — just the ones you commit to finishing.
                 These stay pinned at the top of Today all week.
               </p>
 
@@ -389,9 +389,9 @@ export function WeeklyReview({ allCycles, onSave, onDismiss, todayStr }: WeeklyR
 
               <button
                 onClick={handleComplete}
-                disabled={focusIds.length !== 3 || saving}
+                disabled={focusIds.length < 1 || saving}
                 className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all ${
-                  focusIds.length === 3
+                  focusIds.length >= 1
                     ? 'bg-navi-blue/20 border border-navi-blue/40 text-navi-blue hover:bg-navi-blue/30'
                     : 'bg-white/4 border border-white/8 text-white/25 cursor-not-allowed'
                 }`}

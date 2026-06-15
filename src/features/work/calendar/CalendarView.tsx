@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { useWorkData } from '@/shared/lib/work-data-context'
 import { useHabits } from '@/shared/lib/habit-context'
@@ -318,11 +318,19 @@ function WeekView({ date, today, dayMap, onDayClick }: {
   dayMap: Map<string, DayData>
   onDayClick: (d: Date, data: DayData) => void
 }) {
-  const days  = getWeekDays(date)
-  const hours = Array.from({ length: DAY_END_H - DAY_START_H }, (_, i) => DAY_START_H + i)
+  const days      = getWeekDays(date)
+  const hours     = Array.from({ length: DAY_END_H - DAY_START_H }, (_, i) => DAY_START_H + i)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!scrollRef.current) return
+    const now  = new Date()
+    const mins = now.getHours() * 60 + now.getMinutes() - DAY_START_H * 60
+    scrollRef.current.scrollTop = Math.max(0, (mins / 60) * HOUR_HEIGHT - 120)
+  }, [])
 
   return (
-    <div className="flex-1 overflow-auto">
+    <div ref={scrollRef} className="flex-1 overflow-auto">
       {/* All-day strip */}
       <div className="grid grid-cols-[48px_repeat(7,1fr)] border-b border-white/8 sticky top-0 bg-[#111] z-10">
         <div className="text-[9px] text-white/25 flex items-end pb-1 pl-1">all‑day</div>

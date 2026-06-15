@@ -199,8 +199,8 @@ export function QuickAddButton() {
 
       {open && (
         <div className="fixed inset-0 z-50">
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/40" onClick={handleClose} />
+          {/* Backdrop — only closes if nothing has been typed yet */}
+          <div className="absolute inset-0 bg-black/40" onClick={() => { if (!title.trim()) handleClose() }} />
 
           {/* Content: suggestion strip + card, stacked at bottom */}
           <div className="absolute bottom-0 left-0 right-0 flex justify-center px-4 pb-6">

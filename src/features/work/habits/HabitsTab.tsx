@@ -246,13 +246,19 @@ function HabitModal({ initial, onSave, onDelete, onClose }: HabitModalProps) {
 
 // ── Horizontal 7-day week strip ───────────────────────────────────────────────
 
-function WeekStrip({ habits, weekLogs }: { habits: WorkHabit[]; weekLogs: Record<string, Record<string, number>> }) {
+function WeekStrip({ habits, weekLogs, onLog, onUnlog }: {
+  habits: WorkHabit[]
+  weekLogs: Record<string, Record<string, number>>
+  onLog: (id: string, date: string) => void
+  onUnlog: (id: string, date: string) => void
+}) {
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date()
     d.setDate(d.getDate() - (6 - i))
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     return {
       label: d.toLocaleDateString('en-GB', { weekday: 'short' }).slice(0, 2),
-      key: d.toISOString().slice(0, 10),
+      key,
       dow: d.getDay(),
       isToday: i === 6,
     }
@@ -260,6 +266,10 @@ function WeekStrip({ habits, weekLogs }: { habits: WorkHabit[]; weekLogs: Record
 
   return (
     <div className="border border-white/8 rounded-2xl p-3 bg-white/2">
+      <div className="flex items-center justify-between mb-2 px-1">
+        <span className="text-[10px] text-white/30 uppercase tracking-widest">Last 7 days</span>
+        <span className="text-[9px] text-white/20">Tap past dots to backfill</span>
+      </div>
       <div className="grid grid-cols-7 gap-1">
         {days.map(({ label, key, dow, isToday }) => {
           const logs = weekLogs[key] ?? {}
@@ -275,23 +285,26 @@ function WeekStrip({ habits, weekLogs }: { habits: WorkHabit[]; weekLogs: Record
               </span>
               {habits.map(h => {
                 const scheduled = isDayScheduled(h, dow)
-                const count = logs[h.id] ?? 0
-                const met   = count >= h.goal
+                const count     = logs[h.id] ?? 0
+                const met       = count >= h.goal
                 return (
-                  <div
-                    key={h.id}
-                    title={scheduled ? `${h.name}: ${count}/${h.goal}` : `${h.name}: not scheduled`}
-                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold transition-all ${
-                      !scheduled
-                        ? 'bg-white/4 opacity-25'
-                        : met
-                          ? 'bg-green-500/25 text-green-400'
-                          : count > 0
-                            ? 'bg-navi-blue/20 text-navi-blue/70'
-                            : 'bg-white/8'
-                    }`}
-                  >
-                    {scheduled && (met ? '✓' : count > 0 ? count : '')}
+                  <div key={h.id} className="flex flex-col items-center gap-0.5">
+                    <button
+                      onClick={() => scheduled && onLog(h.id, key)}
+                      onContextMenu={e => { e.preventDefault(); if (scheduled && count > 0) onUnlog(h.id, key) }}
+                      title={scheduled ? `${h.name}: ${count}/${h.goal} — tap to add, hold to remove` : `${h.name}: not scheduled`}
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold transition-all ${
+                        !scheduled
+                          ? 'bg-white/4 opacity-25 cursor-default'
+                          : met
+                            ? 'bg-green-500/25 text-green-400 active:scale-90'
+                            : count > 0
+                              ? 'bg-navi-blue/20 text-navi-blue/70 active:scale-90'
+                              : 'bg-white/8 hover:bg-white/14 active:scale-90'
+                      }`}
+                    >
+                      {scheduled && (met ? '✓' : count > 0 ? count : '')}
+                    </button>
                   </div>
                 )
               })}
@@ -379,7 +392,7 @@ function HabitCard({ habit, count, onLog, onUnlog, onEdit }: {
 // ── Main tab ──────────────────────────────────────────────────────────────────
 
 export function HabitsTab() {
-  const { habits, todayLogs, weekLogs, isWorkday, logHabit, unlogHabit, addHabit, updateHabit, deleteHabit } = useHabits()
+  const { habits, todayLogs, weekLogs, isWorkday, logHabit, unlogHabit, logHabitForDate, unlogHabitForDate, addHabit, updateHabit, deleteHabit } = useHabits()
   const [addOpen, setAddOpen]     = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
 
@@ -407,7 +420,7 @@ export function HabitsTab() {
         </div>
 
         {/* 7-day strip — horizontal */}
-        <WeekStrip habits={sorted} weekLogs={weekLogs} />
+        <WeekStrip habits={sorted} weekLogs={weekLogs} onLog={logHabitForDate} onUnlog={unlogHabitForDate} />
 
         {/* Habit grid */}
         {habits.length === 0 ? (

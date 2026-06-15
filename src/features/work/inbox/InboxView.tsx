@@ -518,6 +518,7 @@ export function InboxView() {
   const { items, unreadCount, addItem, approveItem } = useInbox()
   const { addCycle } = useWorkData()
   const [capture, setCapture]               = useState('')
+  const [captureArea, setCaptureArea]       = useState<InboxArea>('finance')
   const [confirmApproveAll, setConfirmApproveAll] = useState(false)
   const [searchQuery, setSearchQuery]        = useState('')
   const captureRef = useRef<HTMLInputElement>(null)
@@ -532,7 +533,7 @@ export function InboxView() {
 
   const handleCapture = () => {
     if (!capture.trim()) return
-    addItem(capture.trim())
+    addItem(capture.trim(), captureArea)
     setCapture('')
     captureRef.current?.focus()
   }
@@ -686,7 +687,23 @@ export function InboxView() {
       )}
 
       {/* Capture bar */}
-      <div className="flex-shrink-0 border-t border-white/8 bg-[#171717] px-6 py-3.5">
+      <div className="flex-shrink-0 border-t border-white/8 bg-[#171717] px-6 py-3">
+        {/* Area selector */}
+        <div className="flex items-center gap-1.5 mb-2">
+          {AREAS.map(a => (
+            <button
+              key={a}
+              onClick={() => setCaptureArea(a)}
+              className={`text-[10px] px-2.5 py-1 rounded-lg font-semibold transition-all border ${
+                captureArea === a
+                  ? areaStyle[a].chip
+                  : 'border-white/8 text-white/25 hover:text-white/50 hover:border-white/15'
+              }`}
+            >
+              {areaStyle[a].label}
+            </button>
+          ))}
+        </div>
         <div className="flex items-center gap-3">
           <input
             ref={captureRef}

@@ -46,7 +46,7 @@ function toRow(i: InboxItem) {
 interface InboxCtx {
   items: InboxItem[]
   unreadCount: number
-  addItem: (title: string) => void
+  addItem: (title: string, area?: InboxItem['area']) => void
   approveItem: (id: string) => void
   dismissItem: (id: string) => void
   updateItem: (id: string, patch: Partial<Pick<InboxItem, 'title' | 'area' | 'effort' | 'must' | 'urgent' | 'dueText' | 'notes'>>) => void
@@ -65,11 +65,11 @@ export function InboxProvider({ children }: { children: React.ReactNode }) {
     init()
   }, [])
 
-  const addItem = useCallback((title: string) => {
+  const addItem = useCallback((title: string, area: InboxItem['area'] = 'finance') => {
     const item: InboxItem = {
       id: `i-${Date.now()}`,
       title: title.trim(),
-      area: 'finance', effort: 'medium',
+      area, effort: 'medium',
       must: false, urgent: false, dueText: '',
       source: 'manual',
       capturedAt: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),

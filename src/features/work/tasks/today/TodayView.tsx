@@ -547,7 +547,7 @@ export function TodayView() {
         {/* Weekly focus strip (shown all week once review is done) */}
         {focusCycles.length > 0 && <WeeklyFocusStrip focusCycles={focusCycles} />}
 
-        {showChain && chainItems.length > 0 && (
+        {chainItems.length > 0 && (
           <div className="rounded-xl border border-navi-blue/25 bg-navi-blue/8 p-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-navi-blue uppercase tracking-wider">Monthly Chain</span>
@@ -585,8 +585,9 @@ export function TodayView() {
               </div>
             ) : (
               <>
+                {cyclesToday.filter(c => c.must || c.urgent).map(cycle => <CycleCard key={cycle.id} cycle={cycle} />)}
                 {visibleTasks.map(task => <TodayTaskCard key={task.id} task={task} />)}
-                {cyclesToday.map(cycle => <CycleCard key={cycle.id} cycle={cycle} />)}
+                {cyclesToday.filter(c => !c.must && !c.urgent).map(cycle => <CycleCard key={cycle.id} cycle={cycle} />)}
               </>
             )}
           </div>
