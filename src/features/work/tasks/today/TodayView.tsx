@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Zap, ChevronDown, Clock, ChevronRight, FileText, Pencil, X, Minus } from 'lucide-react'
 import { useSearch } from '@/shared/lib/search-context'
 import { useWorkData } from '@/shared/lib/work-data-context'
@@ -8,6 +8,7 @@ import { useInbox } from '@/shared/lib/inbox-context'
 import { useToast } from '@/shared/lib/toast-context'
 import { useHabits } from '@/shared/lib/habit-context'
 import { fuzzyMatch } from '@/shared/lib/search-utils'
+import { CycleCard } from '@/shared/components/CycleCard'
 import type { Cycle } from '@/shared/types'
 import type { TodayTaskData } from './data'
 
@@ -123,7 +124,7 @@ function TodayTaskCard({ task }: { task: TodayTaskData }) {
               )}
             </div>
           )}
-          <div className={`flex-1 min-w-0 text-sm font-medium ${allDone ? 'line-through text-white/35' : 'text-white/85'}`}>
+          <div className={`flex-1 min-w-0 text-sm font-bold ${allDone ? 'line-through text-white/35' : 'text-white/85'}`}>
             <EditableText value={task.label} onSave={v => updateTodayTaskLabel(task.id, v)} showIcon={false} />
           </div>
           <button
@@ -293,7 +294,7 @@ function ComingUpSection({ cycles }: { cycles: Cycle[] }) {
         <div className="px-4 py-3">
           <div className="flex items-center gap-2 mb-2">
             {cycle.must && <Zap className={`w-3 h-3 flex-shrink-0 ${areaAccent[cycle.area] ?? 'text-white/40'}`} />}
-            <span className="text-sm font-medium text-white/75 truncate">{cycle.title}</span>
+            <span className="text-sm font-bold text-white/75 truncate">{cycle.title}</span>
             <span className={`ml-auto text-[10px] font-semibold ${areaAccent[cycle.area] ?? 'text-white/35'}`}>
               {cycle.area.charAt(0).toUpperCase() + cycle.area.slice(1)}
             </span>
@@ -381,12 +382,34 @@ export function TodayView() {
   const dayOfMonth = today.getDate()
   const showChain = dayOfMonth >= 20 || dayOfMonth <= 5
 
+  // YYYY-MM-DD in local time for overdue comparison
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+
   const visibleTasks = todayTasks.filter(t => {
     if (!query.trim()) return true
     return fuzzyMatch(t.label, query) || (t.subItems ?? []).some(s => fuzzyMatch(s.label, query))
   })
 
+  // Cycles from all areas that are due today or overdue
+  const cyclesToday = useMemo(() => {
+    const all = [...financeCycles, ...hrCycles, ...opsCycles, ...othersCycles]
+    return all
+      .filter(c => {
+        if (!c.triggerLabel) return false
+        const label = c.triggerLabel.toLowerCase().trim()
+        if (label === 'today') return true
+        if (/^\d{4}-\d{2}-\d{2}$/.test(c.triggerLabel)) return c.triggerLabel <= todayStr
+        return false
+      })
+      .filter(c => !query.trim() || fuzzyMatch(c.title, query))
+      .sort((a, b) => {
+        const score = (c: Cycle) => (c.must ? 2 : 0) + (c.urgent ? 1 : 0)
+        return score(b) - score(a)
+      })
+  }, [financeCycles, hrCycles, opsCycles, othersCycles, todayStr, query])
+
   const allCycles = [...financeCycles, ...hrCycles, ...opsCycles, ...othersCycles]
+  const totalDueToday = visibleTasks.length + cyclesToday.length
 
   if (!todayLoaded) {
     return (
@@ -445,23 +468,26 @@ export function TodayView() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-[11px] font-semibold text-white/45 uppercase tracking-widest">Due Today</h3>
             <span className="text-[11px] text-white/25">
-              {visibleTasks.length} task{visibleTasks.length !== 1 ? 's' : ''}
+              {totalDueToday} task{totalDueToday !== 1 ? 's' : ''}
               {query && <span className="ml-1 text-white/40">— &quot;{query}&quot;</span>}
             </span>
           </div>
           <div className="space-y-2">
-            {visibleTasks.length === 0 ? (
+            {totalDueToday === 0 ? (
               <div className="py-4 text-center text-sm text-white/30">
                 {query ? `No tasks match "${query}"` : 'No tasks for today'}
               </div>
             ) : (
-              visibleTasks.map(task => <TodayTaskCard key={task.id} task={task} />)
+              <>
+                {visibleTasks.map(task => <TodayTaskCard key={task.id} task={task} />)}
+                {cyclesToday.map(cycle => <CycleCard key={cycle.id} cycle={cycle} />)}
+              </>
             )}
           </div>
         </div>
 
         {/* Coming up — shown when today list is empty and no search active */}
-        {visibleTasks.length === 0 && !query && (
+        {totalDueToday === 0 && !query && (
           <ComingUpSection cycles={allCycles} />
         )}
 

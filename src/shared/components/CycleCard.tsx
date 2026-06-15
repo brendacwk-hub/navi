@@ -93,6 +93,8 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
   const [draft, setDraft] = useState(cycle.title)
   const [editMust, setEditMust] = useState(cycle.must)
   const [editUrgent, setEditUrgent] = useState(cycle.urgent ?? false)
+  const [editEffort, setEditEffort] = useState<Effort>(cycle.effort)
+  const [editDue, setEditDue] = useState(cycle.triggerLabel ?? '')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const titleInputRef = useRef<HTMLInputElement>(null)
 
@@ -105,7 +107,13 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
 
   const saveTitle = () => {
     const trimmed = draft.trim()
-    updateCycle(area, cycle.id, { title: trimmed || cycle.title, must: editMust, urgent: editUrgent })
+    updateCycle(area, cycle.id, {
+      title: trimmed || cycle.title,
+      must: editMust,
+      urgent: editUrgent,
+      effort: editEffort,
+      triggerLabel: editDue || cycle.triggerLabel,
+    })
     if (!trimmed) setDraft(cycle.title)
     setEditingTitle(false)
   }
@@ -114,6 +122,8 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
     setDraft(cycle.title)
     setEditMust(cycle.must)
     setEditUrgent(cycle.urgent ?? false)
+    setEditEffort(cycle.effort)
+    setEditDue(cycle.triggerLabel ?? '')
     setEditingTitle(true)
   }
 
@@ -155,7 +165,7 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
 
         <div className="flex-1 min-w-0" onClick={editingTitle ? (e => e.stopPropagation()) : undefined}>
           {editingTitle ? (
-            <div className="space-y-2">
+            <div className="space-y-2" onClick={e => e.stopPropagation()}>
               <input
                 ref={titleInputRef}
                 value={draft}
@@ -166,6 +176,39 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
                 }}
                 className="w-full text-sm font-bold bg-white/8 border border-navi-blue/50 rounded px-2 py-0.5 text-white focus:outline-none"
               />
+              {/* Effort */}
+              <div className="flex gap-1.5 flex-wrap">
+                {(['quick', 'medium', 'heavy'] as Effort[]).map(e => (
+                  <button key={e} onMouseDown={ev => ev.preventDefault()} onClick={() => setEditEffort(e)}
+                    className={`text-[10px] px-2 py-0.5 rounded border transition-all capitalize ${
+                      editEffort === e
+                        ? e === 'quick'  ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                        : e === 'medium' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                        :                  'bg-orange-500/20 text-orange-400 border-orange-500/30'
+                        : 'border-white/15 text-white/30 hover:border-white/30 hover:text-white/55'
+                    }`}>
+                    {e}
+                  </button>
+                ))}
+              </div>
+              {/* Due date */}
+              <div className="flex gap-1.5 flex-wrap items-center">
+                {(['Today', 'Tomorrow', 'This Week', 'Next Week'] as const).map(d => (
+                  <button key={d} onMouseDown={ev => ev.preventDefault()} onClick={() => setEditDue(d)}
+                    className={`text-[10px] px-2 py-0.5 rounded border transition-all ${
+                      editDue === d ? 'bg-navi-blue/20 text-navi-blue border-navi-blue/40' : 'border-white/15 text-white/30 hover:border-white/30 hover:text-white/55'
+                    }`}>
+                    {d}
+                  </button>
+                ))}
+                <input
+                  type="date"
+                  value={/^\d{4}-\d{2}-\d{2}$/.test(editDue) ? editDue : ''}
+                  onChange={e => setEditDue(e.target.value)}
+                  className="text-[10px] px-2 py-0.5 rounded border border-white/15 bg-transparent text-white/55 focus:outline-none focus:border-navi-blue/50 [color-scheme:dark]"
+                />
+              </div>
+              {/* Must / Urgent / Save */}
               <div className="flex gap-2">
                 <button onMouseDown={e => e.preventDefault()} onClick={() => setEditMust(m => !m)}
                   className={`text-[10px] px-2 py-0.5 rounded border transition-all ${editMust ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'border-white/15 text-white/30 hover:border-white/30 hover:text-white/55'}`}>

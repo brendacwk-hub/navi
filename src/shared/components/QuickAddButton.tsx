@@ -167,18 +167,6 @@ export function QuickAddButton() {
       })
     }
 
-    // Also add a today_task so it appears in the Due Today list on the Today view
-    if (isToday && dueLabel === 'Today') {
-      addTodayTask({
-        label: title.trim(), area, effort, must, urgent,
-        due: 'Today',
-        notes: notes.trim() || undefined,
-        subItems: showSubs && filled.length > 0
-          ? filled.map((s, i) => ({ id: `sub-t-${ts}-${i}`, label: s, done: false }))
-          : undefined,
-      })
-    }
-
     setSaved(true)
     setTimeout(() => { setSaved(false); handleClose() }, 700)
   }
@@ -346,7 +334,7 @@ export function QuickAddButton() {
 
                   {/* Due date inline panel */}
                   {activePanel === 'due' && (
-                    <div className="pt-3 flex flex-wrap gap-2">
+                    <div className="pt-3 flex flex-wrap gap-2 items-center">
                       {(['Today', 'Tomorrow', 'This Week', 'Next Week'] as const).map(d => (
                         <button key={d}
                           onClick={() => { setDueLabel(prev => prev === d ? '' : d); setActivePanel(null) }}
@@ -359,6 +347,12 @@ export function QuickAddButton() {
                           {d}
                         </button>
                       ))}
+                      <input
+                        type="date"
+                        value={/^\d{4}-\d{2}-\d{2}$/.test(dueLabel) ? dueLabel : ''}
+                        onChange={e => { if (e.target.value) { setDueLabel(e.target.value); setActivePanel(null) } }}
+                        className="text-xs px-3 py-1.5 rounded-lg border border-white/10 bg-transparent text-white/50 focus:outline-none focus:border-navi-blue/40 [color-scheme:dark]"
+                      />
                       {dueLabel && (
                         <button
                           onClick={() => { setDueLabel(''); setActivePanel(null) }}
