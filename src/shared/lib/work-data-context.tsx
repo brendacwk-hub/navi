@@ -307,15 +307,21 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
   }, [cycleSetter]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const addCycleItem = useCallback((area: WorkArea, cycleId: string, label: string) => {
-    const newItem: ChecklistItem = { id: `item-${Date.now()}`, label, status: 'todo' }
+    const newSubItem: ChecklistItem = { id: `item-${Date.now()}`, label, status: 'todo' }
     cycleSetter(area)(prev => {
       const next = prev.map(c => {
         if (c.id !== cycleId) return c
         if (c.phases) {
           const target = c.phases.find(p => p.status === 'active' || p.status === 'upcoming') ?? c.phases[c.phases.length - 1]
-          return { ...c, phases: c.phases.map(p => p.id === target.id ? { ...p, items: [...p.items, newItem] } : p) }
+          return { ...c, phases: c.phases.map(p => p.id === target.id ? { ...p, items: [...p.items, newSubItem] } : p) }
         }
-        return { ...c, items: [...(c.items ?? []), newItem] }
+        // Task form: first item's label matches cycle title → add as subItem (indented)
+        const firstItem = c.items?.[0]
+        if (firstItem && firstItem.label === c.title) {
+          const updated = { ...firstItem, subItems: [...(firstItem.subItems ?? []), newSubItem] }
+          return { ...c, items: [updated, ...(c.items?.slice(1) ?? [])] }
+        }
+        return { ...c, items: [...(c.items ?? []), newSubItem] }
       })
       const changed = next.find(c => c.id === cycleId); if (changed) syncCycle(changed)
       return next

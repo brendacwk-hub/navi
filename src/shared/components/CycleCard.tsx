@@ -446,9 +446,12 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
               )}
             </div>
           )}
-          {/* Add step — only for non-phase cycles */}
-          {!cycle.phases && (
-            addingStep ? (
+          {/* Add sub-task / step — only for non-phase cycles */}
+          {!cycle.phases && (() => {
+            const isTaskForm = (cycle.items?.length ?? 0) > 0 && cycle.items![0].label === cycle.title
+            const label = isTaskForm ? 'Add sub-task' : 'Add step'
+            const ph    = isTaskForm ? 'Sub-task label…' : 'Step label…'
+            return addingStep ? (
               <input
                 ref={newStepRef}
                 value={newStep}
@@ -462,7 +465,7 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
                   if (e.key === 'Escape') { setNewStep(''); setAddingStep(false) }
                 }}
                 onBlur={() => { setNewStep(''); setAddingStep(false) }}
-                placeholder="Step label…"
+                placeholder={ph}
                 className="w-full text-xs bg-white/5 border border-navi-blue/30 rounded px-2 py-1 text-white/70 placeholder-white/25 focus:outline-none focus:border-navi-blue/60"
               />
             ) : (
@@ -470,10 +473,10 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
                 onClick={() => setAddingStep(true)}
                 className="mt-1 flex items-center gap-1.5 text-xs text-white/30 hover:text-white/55 transition-colors"
               >
-                <Plus className="w-3 h-3" /> Add step
+                <Plus className="w-3 h-3" /> {label}
               </button>
             )
-          )}
+          })()}
         </div>
       )}
     </div>
