@@ -176,8 +176,23 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
         }
 
         // Merge: DB rows (minus migrated) + fresh static inserts
+        // For static cycles, triggerLabel/effort/must always come from code —
+        // DB only owns item states, nextDueAt, lastCompletedAt, notes.
         const merged = [
-          ...rows.filter(r => !migrateIdSet.has(r.id)).map(fromRow),
+          ...rows.filter(r => !migrateIdSet.has(r.id)).map(r => {
+            const row = fromRow(r)
+            const s = staticById.get(row.id)
+            if (!s) return row
+            return {
+              ...row,
+              triggerLabel: s.triggerLabel,
+              effort:       s.effort,
+              must:         s.must,
+              title:        s.title,
+              subArea:      s.subArea,
+              area:         s.area,
+            }
+          }),
           ...toInsert,
         ]
         const allCycles = applyRecurrenceResets(merged, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
@@ -210,7 +225,15 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
     try {
       const rows = await dbRead('cycles') as ReturnType<typeof fromRow>[]
       if (rows.length > 0) {
-        const refreshed = applyRecurrenceResets(rows.map(fromRow), c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
+        const allStatic = [...initFinance, ...initHr]
+        const staticById = new Map(allStatic.map(c => [c.id, c]))
+        const hydrated = rows.map(r => {
+          const row = fromRow(r)
+          const s = staticById.get(row.id)
+          if (!s) return row
+          return { ...row, triggerLabel: s.triggerLabel, effort: s.effort, must: s.must, title: s.title, subArea: s.subArea, area: s.area }
+        })
+        const refreshed = applyRecurrenceResets(hydrated, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
         setFinanceCycles(refreshed.filter(c => c.area === 'finance'))
         setHrCycles(refreshed.filter(c => c.area === 'hr'))
         setOpsCycles(refreshed.filter(c => c.area === 'ops'))
