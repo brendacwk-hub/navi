@@ -7,7 +7,7 @@ import { useWorkData } from '@/shared/lib/work-data-context'
 import { useSearch } from '@/shared/lib/search-context'
 import { matchesCycle } from '@/shared/lib/search-utils'
 import { type CycleFilter, cycleHasMatchingItems, CADENCE_FILTERS } from '@/shared/lib/filter-utils'
-import { computeSortDate } from '@/shared/lib/sort-utils'
+import { computeSortDate, sortCycles } from '@/shared/lib/sort-utils'
 import type { Cycle } from '@/shared/types'
 import { TemplatesView } from '@/features/work/templates/TemplatesView'
 import { Settings } from 'lucide-react'
@@ -77,24 +77,17 @@ function OpsTabInner() {
     opsCycles.filter(c => c.status === 'complete').length,
   [opsCycles])
 
-  const sortedFiltered = useMemo(() => {
-    return opsCycles
-      .filter(cycle => {
-        if (!showCompleted && cycle.status === 'complete') return false
-        if (activeSub && cycle.subArea !== activeSub) return false
-        const chipMatch = (() => {
-          if (chipFilter === 'All') return true
-          return cycleHasMatchingItems(cycle, chipFilter)
-        })()
-        return chipMatch && matchesCycle(cycle, query)
-      })
-      .sort((a, b) => {
-        const aD = a.status === 'complete' ? 1 : 0
-        const bD = b.status === 'complete' ? 1 : 0
-        if (aD !== bD) return aD - bD
-        return computeSortDate(a.triggerLabel) - computeSortDate(b.triggerLabel)
-      })
-  }, [opsCycles, activeSub, chipFilter, query, showCompleted])
+  const sortedFiltered = useMemo(() => sortCycles(
+    opsCycles.filter(cycle => {
+      if (!showCompleted && cycle.status === 'complete') return false
+      if (activeSub && cycle.subArea !== activeSub) return false
+      const chipMatch = (() => {
+        if (chipFilter === 'All') return true
+        return cycleHasMatchingItems(cycle, chipFilter)
+      })()
+      return chipMatch && matchesCycle(cycle, query)
+    })
+  ), [opsCycles, activeSub, chipFilter, query, showCompleted])
 
   const groups = useMemo(() => groupBySubArea(sortedFiltered, sortedSubAreas), [sortedFiltered, sortedSubAreas])
   const showGroups = !activeSub && chipFilter === 'All' && !query

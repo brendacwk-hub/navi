@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Zap, ChevronDown, Clock, ChevronRight, FileText, Pencil, X, Minus, Star } from 'lucide-react'
+import { Zap, ChevronDown, Clock, ChevronRight, FileText, Pencil, X, Minus, Star, Plus } from 'lucide-react'
 import { useSearch } from '@/shared/lib/search-context'
 import { useWorkData } from '@/shared/lib/work-data-context'
 import { useInbox } from '@/shared/lib/inbox-context'
@@ -92,12 +92,15 @@ function TodayTaskCard({ task }: { task: TodayTaskData }) {
   const [expanded, setExpanded] = useState(true)
   const [editingTags, setEditingTags] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [addingStep, setAddingStep] = useState(false)
+  const [newStep, setNewStep] = useState('')
 
   const { showToast } = useToast()
 
   const {
     toggleTodayTask, deleteTodayTask, toggleTodaySubItem, deleteTodaySubItem,
     updateTodayTaskLabel, updateTodaySubItemLabel, setTodayTaskTags, toggleTodaySubItemUrgent,
+    addTodaySubItem,
   } = useWorkData()
 
   const subItems = task.subItems ?? []
@@ -194,46 +197,70 @@ function TodayTaskCard({ task }: { task: TodayTaskData }) {
               {task.notes}
             </p>
           )}
-          {subItems.length > 0 && (
-            <div className="space-y-[3.5px]">
-              {subItems.map(sub => (
-                <div key={sub.id} className="group/sub flex items-center gap-2 py-[3.6px] pl-1">
-                  <div
-                    className={`w-3.5 h-3.5 rounded border flex-shrink-0 cursor-pointer ${sub.done ? 'bg-white/40 border-white/40' : 'border-white/25'}`}
-                    onClick={() => toggleTodaySubItem(task.id, sub.id)}
-                  >
-                    {sub.done && (
-                      <svg viewBox="0 0 12 12" className="w-full h-full p-0.5 text-white" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M2 6l3 3 5-5" />
-                      </svg>
-                    )}
-                  </div>
-                  <div className={`flex-1 min-w-0 text-[11.6px] ${sub.done ? 'line-through text-white/25' : 'text-white/60'}`}>
-                    <EditableText value={sub.label} onSave={v => updateTodaySubItemLabel(task.id, sub.id, v)} />
-                  </div>
-                  {/* Urgent toggle */}
-                  <button
-                    onClick={() => toggleTodaySubItemUrgent(task.id, sub.id)}
-                    className={`text-[10px] px-1.5 py-0.5 rounded border transition-all flex-shrink-0 ${
-                      sub.urgent
-                        ? 'opacity-100 bg-orange-500/20 text-orange-400 border-orange-500/30'
-                        : 'opacity-0 group-hover/sub:opacity-60 hover:!opacity-100 border-white/15 text-white/35'
-                    }`}
-                    title={sub.urgent ? 'Remove urgent' : 'Mark urgent'}
-                  >
-                    ⚠
-                  </button>
-                  {/* Delete sub-item */}
-                  <button
-                    onClick={() => deleteTodaySubItem(task.id, sub.id)}
-                    className="opacity-0 group-hover/sub:opacity-40 hover:!opacity-100 p-0.5 rounded text-white/35 hover:text-red-400 transition-all flex-shrink-0"
-                    title="Delete step"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
+          <div className="space-y-[3.5px]">
+            {subItems.map(sub => (
+              <div key={sub.id} className="group/sub flex items-center gap-2 py-[3.6px] pl-1">
+                <div
+                  className={`w-3.5 h-3.5 rounded border flex-shrink-0 cursor-pointer ${sub.done ? 'bg-white/40 border-white/40' : 'border-white/25'}`}
+                  onClick={() => toggleTodaySubItem(task.id, sub.id)}
+                >
+                  {sub.done && (
+                    <svg viewBox="0 0 12 12" className="w-full h-full p-0.5 text-white" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M2 6l3 3 5-5" />
+                    </svg>
+                  )}
                 </div>
-              ))}
-            </div>
+                <div className={`flex-1 min-w-0 text-[11.6px] ${sub.done ? 'line-through text-white/25' : 'text-white/60'}`}>
+                  <EditableText value={sub.label} onSave={v => updateTodaySubItemLabel(task.id, sub.id, v)} />
+                </div>
+                {/* Urgent toggle */}
+                <button
+                  onClick={() => toggleTodaySubItemUrgent(task.id, sub.id)}
+                  className={`text-[10px] px-1.5 py-0.5 rounded border transition-all flex-shrink-0 ${
+                    sub.urgent
+                      ? 'opacity-100 bg-orange-500/20 text-orange-400 border-orange-500/30'
+                      : 'opacity-0 group-hover/sub:opacity-60 hover:!opacity-100 border-white/15 text-white/35'
+                  }`}
+                  title={sub.urgent ? 'Remove urgent' : 'Mark urgent'}
+                >
+                  ⚠
+                </button>
+                {/* Delete sub-item */}
+                <button
+                  onClick={() => deleteTodaySubItem(task.id, sub.id)}
+                  className="opacity-0 group-hover/sub:opacity-40 hover:!opacity-100 p-0.5 rounded text-white/35 hover:text-red-400 transition-all flex-shrink-0"
+                  title="Delete step"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+          {/* Add step */}
+          {addingStep ? (
+            <input
+              autoFocus
+              value={newStep}
+              onChange={e => setNewStep(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && newStep.trim()) {
+                  addTodaySubItem(task.id, newStep.trim())
+                  setNewStep('')
+                  setAddingStep(false)
+                }
+                if (e.key === 'Escape') { setNewStep(''); setAddingStep(false) }
+              }}
+              onBlur={() => { setNewStep(''); setAddingStep(false) }}
+              placeholder="Step label…"
+              className="w-full text-xs bg-white/5 border border-navi-blue/30 rounded px-2 py-1 text-white/70 placeholder-white/25 focus:outline-none focus:border-navi-blue/60"
+            />
+          ) : (
+            <button
+              onClick={() => setAddingStep(true)}
+              className="mt-1 flex items-center gap-1.5 text-xs text-white/30 hover:text-white/55 transition-colors"
+            >
+              <Plus className="w-3 h-3" /> Add step
+            </button>
           )}
         </div>
       )}
@@ -442,9 +469,12 @@ export function TodayView() {
         const aRec = isRecurring(a.triggerLabel) ? 1 : 0
         const bRec = isRecurring(b.triggerLabel) ? 1 : 0
         if (aRec !== bRec) return aRec - bRec
-        // Within same group: must first, then urgent
+        // Within same group: must+urgent priority, then effort (quick first)
         const score = (c: Cycle) => (c.must ? 2 : 0) + (c.urgent ? 1 : 0)
-        return score(b) - score(a)
+        const scoreDiff = score(b) - score(a)
+        if (scoreDiff !== 0) return scoreDiff
+        const EFFORT_ORDER: Record<string, number> = { quick: 0, medium: 1, heavy: 2 }
+        return (EFFORT_ORDER[a.effort] ?? 1) - (EFFORT_ORDER[b.effort] ?? 1)
       })
   }, [financeCycles, hrCycles, opsCycles, othersCycles, todayStr, query])
 

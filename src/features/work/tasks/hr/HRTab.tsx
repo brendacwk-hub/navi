@@ -7,7 +7,7 @@ import { CycleCard } from '@/shared/components/CycleCard'
 import { useSearch } from '@/shared/lib/search-context'
 import { matchesCycle } from '@/shared/lib/search-utils'
 import { type CycleFilter, cycleHasMatchingItems, CADENCE_FILTERS } from '@/shared/lib/filter-utils'
-import { computeSortDate, extractFlatItems, formatSortDate } from '@/shared/lib/sort-utils'
+import { computeSortDate, extractFlatItems, formatSortDate, sortCycles } from '@/shared/lib/sort-utils'
 import type { Cycle } from '@/shared/types'
 import { TemplatesView } from '@/features/work/templates/TemplatesView'
 
@@ -78,25 +78,18 @@ function HRTabInner() {
   [hrCycles])
 
   // Cycles filtered and sorted by deadline
-  const sortedFiltered = useMemo(() => {
-    return hrCycles
-      .filter(cycle => {
-        if (!showCompleted && cycle.status === 'complete') return false
-        if (activeSub && cycle.subArea !== activeSub) return false
-        if (chipFilter === 'Latest') return matchesCycle(cycle, query)
-        const chipMatch = (() => {
-          if (chipFilter === 'All') return true
-          return cycleHasMatchingItems(cycle, chipFilter)
-        })()
-        return chipMatch && matchesCycle(cycle, query)
-      })
-      .sort((a, b) => {
-        const aD = a.status === 'complete' ? 1 : 0
-        const bD = b.status === 'complete' ? 1 : 0
-        if (aD !== bD) return aD - bD
-        return computeSortDate(a.triggerLabel) - computeSortDate(b.triggerLabel)
-      })
-  }, [hrCycles, activeSub, chipFilter, query, showCompleted])
+  const sortedFiltered = useMemo(() => sortCycles(
+    hrCycles.filter(cycle => {
+      if (!showCompleted && cycle.status === 'complete') return false
+      if (activeSub && cycle.subArea !== activeSub) return false
+      if (chipFilter === 'Latest') return matchesCycle(cycle, query)
+      const chipMatch = (() => {
+        if (chipFilter === 'All') return true
+        return cycleHasMatchingItems(cycle, chipFilter)
+      })()
+      return chipMatch && matchesCycle(cycle, query)
+    })
+  ), [hrCycles, activeSub, chipFilter, query, showCompleted])
 
   // Flat items for Latest view
   const flatItems = useMemo(() => {

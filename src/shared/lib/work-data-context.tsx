@@ -117,6 +117,7 @@ interface WorkDataCtx {
   updateCycle: (area: WorkArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes'>>) => void
   deleteCycle: (area: WorkArea, id: string) => void
   deleteItem: (area: WorkArea, cycleId: string, itemId: string) => void
+  addCycleItem: (area: WorkArea, cycleId: string, label: string) => void
   toggleItem: (area: WorkArea, cycleId: string, itemId: string) => void
   setItemLabel: (area: WorkArea, cycleId: string, itemId: string, label: string) => void
   setItemNote: (area: WorkArea, cycleId: string, itemId: string, note: string) => void
@@ -125,6 +126,7 @@ interface WorkDataCtx {
   todayTasks: TodayTaskData[]
   todayLoaded: boolean
   addTodayTask: (task: Omit<TodayTaskData, 'id' | 'done'>) => void
+  addTodaySubItem: (taskId: string, label: string) => void
   toggleTodayTask: (taskId: string) => void
   deleteTodayTask: (taskId: string) => void
   toggleTodaySubItem: (taskId: string, subId: string) => void
@@ -302,6 +304,30 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
     })
   }, [cycleSetter]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const addCycleItem = useCallback((area: WorkArea, cycleId: string, label: string) => {
+    const newItem: ChecklistItem = { id: `item-${Date.now()}`, label, status: 'todo' }
+    cycleSetter(area)(prev => {
+      const next = prev.map(c => {
+        if (c.id !== cycleId) return c
+        if (c.phases) {
+          const target = c.phases.find(p => p.status === 'active' || p.status === 'upcoming') ?? c.phases[c.phases.length - 1]
+          return { ...c, phases: c.phases.map(p => p.id === target.id ? { ...p, items: [...p.items, newItem] } : p) }
+        }
+        return { ...c, items: [...(c.items ?? []), newItem] }
+      })
+      const changed = next.find(c => c.id === cycleId); if (changed) syncCycle(changed)
+      return next
+    })
+  }, [cycleSetter]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const addTodaySubItem = useCallback((taskId: string, label: string) => {
+    const newSub: TodaySubItem = { id: `sub-${Date.now()}`, label, done: false }
+    setTodayTasks(prev => {
+      const next = patchTodayTask(prev, taskId, t => ({ ...t, subItems: [...(t.subItems ?? []), newSub] }))
+      syncToday(next); return next
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const addTodayTask = useCallback((task: Omit<TodayTaskData, 'id' | 'done'>) => {
     const newTask: TodayTaskData = { ...task, id: `t-${Date.now()}`, done: false }
     setTodayTasks(prev => { const next = [newTask, ...prev]; syncToday(next); return next })
@@ -358,8 +384,8 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
   return (
     <WorkDataContext.Provider value={{
       financeCycles, hrCycles, opsCycles, othersCycles,
-      addCycle, updateCycle, deleteCycle, deleteItem, toggleItem, setItemLabel, setItemNote, setItemUrgent, setItemDue,
-      todayTasks, todayLoaded, addTodayTask, toggleTodayTask, deleteTodayTask,
+      addCycle, updateCycle, deleteCycle, deleteItem, addCycleItem, toggleItem, setItemLabel, setItemNote, setItemUrgent, setItemDue,
+      todayTasks, todayLoaded, addTodayTask, addTodaySubItem, toggleTodayTask, deleteTodayTask,
       toggleTodaySubItem, deleteTodaySubItem, updateTodayTaskLabel, updateTodaySubItemLabel,
       setTodayTaskTags, toggleTodaySubItemUrgent, refreshData,
     }}>

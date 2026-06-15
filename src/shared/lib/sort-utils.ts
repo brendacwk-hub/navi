@@ -124,6 +124,27 @@ export function extractFlatItems(cycles: Cycle[]): FlatItem[] {
   return result.sort((a, b) => a.sortDate - b.sortDate)
 }
 
+// ── Unified cycle sort (all area tabs) ───────────────────────────────────────
+// Order: complete/done last → due date → must/urgent priority → effort (quick first)
+const EFFORT_ORDER: Record<string, number> = { quick: 0, medium: 1, heavy: 2 }
+
+export function sortCycles(cycles: Cycle[]): Cycle[] {
+  return [...cycles].sort((a, b) => {
+    const aDone = (a.status === 'complete' || !!a.nextDueAt) ? 1 : 0
+    const bDone = (b.status === 'complete' || !!b.nextDueAt) ? 1 : 0
+    if (aDone !== bDone) return aDone - bDone
+
+    const dateDiff = computeSortDate(a.triggerLabel) - computeSortDate(b.triggerLabel)
+    if (dateDiff !== 0) return dateDiff
+
+    const aPri = (a.must ? 2 : 0) + (a.urgent ? 1 : 0)
+    const bPri = (b.must ? 2 : 0) + (b.urgent ? 1 : 0)
+    if (aPri !== bPri) return bPri - aPri
+
+    return (EFFORT_ORDER[a.effort] ?? 1) - (EFFORT_ORDER[b.effort] ?? 1)
+  })
+}
+
 // ── Recurrence helpers ────────────────────────────────────────────────────────
 
 export function isTriggerDueToday(triggerLabel: string | undefined, today: Date): boolean {

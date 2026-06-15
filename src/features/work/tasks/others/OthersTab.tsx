@@ -6,7 +6,7 @@ import { useWorkData } from '@/shared/lib/work-data-context'
 import { useSearch } from '@/shared/lib/search-context'
 import { matchesCycle } from '@/shared/lib/search-utils'
 import { type CycleFilter, cycleHasMatchingItems, CADENCE_FILTERS } from '@/shared/lib/filter-utils'
-import { computeSortDate } from '@/shared/lib/sort-utils'
+import { sortCycles } from '@/shared/lib/sort-utils'
 import { Package } from 'lucide-react'
 
 const filters: CycleFilter[] = ['All', '⚠️ Urgent', 'Light', 'Medium', 'Heavy']
@@ -21,24 +21,17 @@ export function OthersTab() {
     othersCycles.filter(c => c.status === 'complete').length,
   [othersCycles])
 
-  const filtered = useMemo(() =>
-    othersCycles
-      .filter(cycle => {
-        if (!showCompleted && cycle.status === 'complete') return false
-        const chipMatch = (() => {
-          if (active === 'All') return true
-          if (active === 'Weekly' || active === 'Monthly') return false
-          return cycleHasMatchingItems(cycle, active)
-        })()
-        return chipMatch && matchesCycle(cycle, query)
-      })
-      .sort((a, b) => {
-        const aD = a.status === 'complete' ? 1 : 0
-        const bD = b.status === 'complete' ? 1 : 0
-        if (aD !== bD) return aD - bD
-        return computeSortDate(a.triggerLabel) - computeSortDate(b.triggerLabel)
-      }),
-  [othersCycles, active, query, showCompleted])
+  const filtered = useMemo(() => sortCycles(
+    othersCycles.filter(cycle => {
+      if (!showCompleted && cycle.status === 'complete') return false
+      const chipMatch = (() => {
+        if (active === 'All') return true
+        if (active === 'Weekly' || active === 'Monthly') return false
+        return cycleHasMatchingItems(cycle, active)
+      })()
+      return chipMatch && matchesCycle(cycle, query)
+    })
+  ), [othersCycles, active, query, showCompleted])
 
   return (
     <div className="flex-1 overflow-y-auto">

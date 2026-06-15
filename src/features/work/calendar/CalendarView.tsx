@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { useWorkData } from '@/shared/lib/work-data-context'
+import { useHabits } from '@/shared/lib/habit-context'
 import { computeSortDate } from '@/shared/lib/sort-utils'
 import type { Cycle } from '@/shared/types'
 
@@ -195,10 +196,14 @@ function DayPopover({ date, dayData, onClose, onNavigate }: {
 
 // ── Month View ────────────────────────────────────────────────────────────────
 
-function MonthView({ date, today, dayMap, onDayClick }: {
+interface HabitDot { id: string; emoji: string }
+
+function MonthView({ date, today, dayMap, habits, weekLogs, onDayClick }: {
   date: Date
   today: Date
   dayMap: Map<string, DayData>
+  habits: HabitDot[]
+  weekLogs: Record<string, Record<string, number>>
   onDayClick: (d: Date, data: DayData) => void
 }) {
   const grid    = getMonthGrid(date)
@@ -217,15 +222,17 @@ function MonthView({ date, today, dayMap, onDayClick }: {
 
       {/* Grid */}
       <div className="flex-1 grid grid-cols-7 grid-rows-6 overflow-hidden">
-        {grid.map((d, i) => {
+        {grid.map((d) => {
           const key      = toKey(d)
           const data     = dayMap.get(key) ?? { key, events: [], tasks: [] }
           const isToday  = isSameDay(d, today)
           const inMonth  = d.getMonth() === thisMonth
           const total    = data.events.length + data.tasks.length
-          const MAX_SHOW = 3
+          const MAX_SHOW = 2
           const overflow = Math.max(0, total - MAX_SHOW)
           const shown    = [...data.events.slice(0, MAX_SHOW), ...data.tasks].slice(0, MAX_SHOW)
+          const dayLog   = weekLogs[key] ?? {}
+          const loggedHabits = habits.filter(h => (dayLog[h.id] ?? 0) > 0)
 
           return (
             <div
@@ -244,7 +251,7 @@ function MonthView({ date, today, dayMap, onDayClick }: {
 
               {/* Chips */}
               <div className="flex-1 overflow-hidden space-y-0.5">
-                {shown.map((item, idx) => {
+                {shown.map((item) => {
                   if ('calendarId' in item) {
                     return <EventChip key={item.id} event={item as GEvent} compact />
                   }
@@ -255,6 +262,15 @@ function MonthView({ date, today, dayMap, onDayClick }: {
                   <div className="text-[9px] text-white/35 pl-1">+{overflow} more</div>
                 )}
               </div>
+
+              {/* Habit emoji dots */}
+              {loggedHabits.length > 0 && (
+                <div className="flex gap-0.5 flex-wrap mt-0.5">
+                  {loggedHabits.map(h => (
+                    <span key={h.id} className="text-[9px] leading-none">{h.emoji}</span>
+                  ))}
+                </div>
+              )}
             </div>
           )
         })}
@@ -440,6 +456,7 @@ export function CalendarView() {
 
   // Get all cycles from WorkData
   const { financeCycles, hrCycles, opsCycles, othersCycles } = useWorkData()
+  const { habits, weekLogs } = useHabits()
 
   // Build cycle → day map
   const cycleMap = new Map<string, DayData>()
@@ -541,6 +558,8 @@ export function CalendarView() {
       {view === 'month' && (
         <MonthView
           date={current} today={today} dayMap={dayMap}
+          habits={habits.map(h => ({ id: h.id, emoji: h.emoji }))}
+          weekLogs={weekLogs}
           onDayClick={(d, data) => {
             const total = data.events.length + data.tasks.length
             if (total > 0) setPopover({ date: d, data })
