@@ -17,7 +17,7 @@ const cadenceMap: Record<string, 'weekly' | 'monthly'> = {
   'bank-statements-weekly': 'weekly',
   'bank-statements-monthly': 'monthly',
   'bank-statements-midmonth': 'monthly',
-  'budgets': 'monthly',
+  'budgets-monthly': 'monthly',
   'reap-credit-card': 'monthly',
 }
 

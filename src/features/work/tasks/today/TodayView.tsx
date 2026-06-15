@@ -424,7 +424,7 @@ export function TodayView() {
       .sort((a, b) => computeSortDate(a.triggerLabel) - computeSortDate(b.triggerLabel))
       .map(c => ({
         id: c.id,
-        label: c.title.split(/\s+/).slice(0, 2).join(' '),
+        label: c.title.includes(' — ') ? c.title.split(' — ').pop()! : c.title.split(/\s+/).slice(0, 2).join(' '),
         done: !!c.nextDueAt || c.status === 'complete' || allCycleDone(c),
         active: isTriggerDueToday(c.triggerLabel, today),
       }))

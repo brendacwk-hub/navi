@@ -139,7 +139,7 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
       must: editMust,
       urgent: editUrgent,
       effort: editEffort,
-      triggerLabel: resolveLabel(editDue || cycle.triggerLabel || ''),
+      triggerLabel: resolveLabel(editDue),
       subArea: editSubArea || undefined,
       notes: editNotes.trim() || undefined,
     })

@@ -79,7 +79,7 @@ export const hrCycles: Cycle[] = [
     effort: 'heavy',
     must: true,
     urgent: true,
-    triggerLabel: 'Last 5 days of month (after Payroll Phase 2)',
+    triggerLabel: 'Last 5 days of month',
     status: 'upcoming',
     items: [
       {
@@ -129,7 +129,7 @@ export const hrCycles: Cycle[] = [
     subArea: 'Records',
     effort: 'quick',
     must: true,
-    triggerLabel: 'Last 5 days of month (after MPF)',
+    triggerLabel: 'Last 5 days of month',
     status: 'upcoming',
     items: [
       { id: 'hroc1', label: 'Update internal Google Sheet', status: 'todo', effort: 'quick', url: 'internal-sheet' },
