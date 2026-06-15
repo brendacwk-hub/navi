@@ -9,7 +9,8 @@ export function PortraitLock() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(screen.orientation as any)?.lock?.('portrait').catch(() => {})
 
-    const mq = window.matchMedia('(orientation: landscape)')
+    // Only lock on touch devices (mobile) — desktop browsers can be any shape
+    const mq = window.matchMedia('(orientation: landscape) and (pointer: coarse) and (max-width: 1024px)')
     const handler = (e: MediaQueryListEvent | MediaQueryList) => setIsLandscape(e.matches)
     handler(mq)
     mq.addEventListener('change', handler as (e: MediaQueryListEvent) => void)
