@@ -107,6 +107,55 @@ export function extractFlatItems(cycles: Cycle[]): FlatItem[] {
 
 // ── Recurrence helpers ────────────────────────────────────────────────────────
 
+export function isTriggerDueToday(triggerLabel: string | undefined, today: Date): boolean {
+  if (!triggerLabel) return false
+  const label = triggerLabel.toLowerCase().trim()
+  if (!label) return false
+
+  if (label === 'today') return true
+
+  // ISO date: due today or overdue
+  if (/^\d{4}-\d{2}-\d{2}$/.test(triggerLabel)) {
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    return triggerLabel <= todayStr
+  }
+
+  const wd = today.getDay()   // 0=Sun, 1=Mon, ..., 6=Sat
+  const dom = today.getDate()
+  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+
+  // "Every Monday", "Every Tuesday", etc.
+  const weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+  for (let i = 0; i < weekdays.length; i++) {
+    if (label.includes(weekdays[i])) return wd === i
+  }
+
+  // "Last 5 days of month"
+  if (label.includes('last') && (label.includes('day') || label.includes('5'))) {
+    return dom >= lastDay - 4
+  }
+
+  // "1st work day of next month" — fires on first workday of each month
+  if ((label.includes('1st') || label.includes('first')) && (label.includes('next') || label.includes('work'))) {
+    const firstWorkday = new Date(today.getFullYear(), today.getMonth(), 1)
+    while (firstWorkday.getDay() === 0 || firstWorkday.getDay() === 6) firstWorkday.setDate(firstWorkday.getDate() + 1)
+    return dom === firstWorkday.getDate()
+  }
+
+  // "Phase 1: 20th · ..." — extract day number
+  const phaseMatch = label.match(/phase\s*1\D+?(\d{1,2})/)
+  if (phaseMatch) return dom === parseInt(phaseMatch[1])
+
+  // "Every 17th", "Starts 20th", "2nd of month" — ordinal suffix required
+  const ordinalMatch = triggerLabel.match(/\b(\d{1,2})(?:st|nd|rd|th)\b/)
+  if (ordinalMatch) {
+    const day = parseInt(ordinalMatch[1])
+    if (day >= 1 && day <= 31) return dom === day
+  }
+
+  return false
+}
+
 export function isRecurring(triggerLabel: string | undefined): boolean {
   if (!triggerLabel) return false
   const l = triggerLabel.toLowerCase()

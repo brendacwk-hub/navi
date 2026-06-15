@@ -12,7 +12,7 @@ type TaskType = 'task' | 'task+' | 'cycle'
 const SUB_AREAS: Partial<Record<WorkArea, string[]>> = {
   finance: ['Payments', 'Budgets', 'Administrative', 'Records', 'AI'],
   hr: ['Payroll & MPF', 'Insurance & VISA', 'Leave & Attendance', 'Onboarding & Offboarding', 'Tax', 'Records', 'AI'],
-  ops: ['Vendor & Contracts', 'Expenses', 'Arrangements'],
+  ops: ['Vendor & Contracts', 'Expenses', 'Arrangements', 'AI'],
 }
 
 const TYPE_CYCLE_ALL: TaskType[] = ['task', 'task+', 'cycle']

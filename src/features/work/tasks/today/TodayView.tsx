@@ -8,6 +8,7 @@ import { useInbox } from '@/shared/lib/inbox-context'
 import { useToast } from '@/shared/lib/toast-context'
 import { useHabits } from '@/shared/lib/habit-context'
 import { fuzzyMatch } from '@/shared/lib/search-utils'
+import { isTriggerDueToday, allCycleDone } from '@/shared/lib/sort-utils'
 import { CycleCard } from '@/shared/components/CycleCard'
 import type { Cycle } from '@/shared/types'
 import type { TodayTaskData } from './data'
@@ -390,16 +391,16 @@ export function TodayView() {
     return fuzzyMatch(t.label, query) || (t.subItems ?? []).some(s => fuzzyMatch(s.label, query))
   })
 
-  // Cycles from all areas that are due today or overdue
+  // Cycles from all areas that are due today (including recurring patterns)
   const cyclesToday = useMemo(() => {
+    const todayDate = new Date(todayStr + 'T00:00:00')
     const all = [...financeCycles, ...hrCycles, ...opsCycles, ...othersCycles]
     return all
       .filter(c => {
-        if (!c.triggerLabel) return false
-        const label = c.triggerLabel.toLowerCase().trim()
-        if (label === 'today') return true
-        if (/^\d{4}-\d{2}-\d{2}$/.test(c.triggerLabel)) return c.triggerLabel <= todayStr
-        return false
+        if (c.nextDueAt) return false          // recurring, completed for this period
+        if (c.status === 'complete') return false
+        if (allCycleDone(c)) return false
+        return isTriggerDueToday(c.triggerLabel, todayDate)
       })
       .filter(c => !query.trim() || fuzzyMatch(c.title, query))
       .sort((a, b) => {

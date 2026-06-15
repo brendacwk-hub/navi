@@ -112,7 +112,7 @@ function patchTodaySub(tasks: TodayTaskData[], taskId: string, subId: string, fn
 interface WorkDataCtx {
   financeCycles: Cycle[]; hrCycles: Cycle[]; opsCycles: Cycle[]; othersCycles: Cycle[]
   addCycle: (area: WorkArea, cycle: Cycle) => void
-  updateCycle: (area: WorkArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel'>>) => void
+  updateCycle: (area: WorkArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status'>>) => void
   deleteCycle: (area: WorkArea, id: string) => void
   deleteItem: (area: WorkArea, cycleId: string, itemId: string) => void
   toggleItem: (area: WorkArea, cycleId: string, itemId: string) => void
@@ -239,7 +239,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
     dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(cycle) })
   }, [cycleSetter])
 
-  const updateCycle = useCallback((area: WorkArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel'>>) => {
+  const updateCycle = useCallback((area: WorkArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status'>>) => {
     cycleSetter(area)(prev => {
       const next = prev.map(c => c.id === id ? { ...c, ...patch } : c)
       const changed = next.find(c => c.id === id); if (changed) syncCycle(changed)

@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, ChevronRight, Zap, Lock, Pencil, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Zap, Lock, Pencil, X, FileText, Check } from 'lucide-react'
 import type { Cycle, CyclePhase, Effort } from '@/shared/types'
 import { ChecklistItem } from './ChecklistItem'
 import { useWorkData } from '@/shared/lib/work-data-context'
 import { useToast } from '@/shared/lib/toast-context'
 import { type CycleFilter, filterToLeaves, CADENCE_FILTERS } from '@/shared/lib/filter-utils'
+import { allCycleDone, isRecurring } from '@/shared/lib/sort-utils'
 
 const effortColors: Record<Effort, { bg: string; text: string; border: string }> = {
   quick:  { bg: 'bg-green-500/15',  text: 'text-green-400',  border: 'border-green-500/30' },
@@ -14,6 +15,26 @@ const effortColors: Record<Effort, { bg: string; text: string; border: string }>
   heavy:  { bg: 'bg-orange-500/15', text: 'text-orange-400', border: 'border-orange-500/30' },
 }
 const effortLabels: Record<Effort, string> = { quick: 'Quick', medium: 'Medium', heavy: 'Heavy' }
+
+const SUB_AREAS_BY_AREA: Partial<Record<string, string[]>> = {
+  finance: ['Payments', 'Budgets', 'Administrative', 'Records', 'AI'],
+  hr: ['Payroll & MPF', 'Insurance & VISA', 'Leave & Attendance', 'Onboarding & Offboarding', 'Tax', 'Records', 'AI'],
+  ops: ['Vendor & Contracts', 'Expenses', 'Arrangements', 'AI'],
+}
+
+function fmtTrigger(label: string | undefined): { display: string; overdue: boolean } {
+  if (!label) return { display: '', overdue: false }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(label)) {
+    const d = new Date(label + 'T00:00:00')
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    if (d < today) {
+      const days = Math.round((today.getTime() - d.getTime()) / 86400000)
+      return { display: `Overdue · ${days}d`, overdue: true }
+    }
+    return { display: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), overdue: false }
+  }
+  return { display: label, overdue: false }
+}
 
 const phaseStatusColor: Record<string, string> = {
   locked: 'text-white/25', upcoming: 'text-white/50', active: 'text-navi-blue', complete: 'text-green-400',
@@ -95,6 +116,7 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
   const [editUrgent, setEditUrgent] = useState(cycle.urgent ?? false)
   const [editEffort, setEditEffort] = useState<Effort>(cycle.effort)
   const [editDue, setEditDue] = useState(cycle.triggerLabel ?? '')
+  const [editSubArea, setEditSubArea] = useState(cycle.subArea ?? '')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const titleInputRef = useRef<HTMLInputElement>(null)
 
@@ -113,6 +135,7 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
       urgent: editUrgent,
       effort: editEffort,
       triggerLabel: editDue || cycle.triggerLabel,
+      subArea: editSubArea || undefined,
     })
     if (!trimmed) setDraft(cycle.title)
     setEditingTitle(false)
@@ -124,6 +147,7 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
     setEditUrgent(cycle.urgent ?? false)
     setEditEffort(cycle.effort)
     setEditDue(cycle.triggerLabel ?? '')
+    setEditSubArea(cycle.subArea ?? '')
     setEditingTitle(true)
   }
 
@@ -135,6 +159,10 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
     others:  { border: 'border-others/25',  bg: 'bg-others/5',   progress: 'bg-others' },
   }
   const style = areaStyle[cycle.area] ?? areaStyle.finance
+
+  const { display: dueLabelDisplay, overdue: isOverdue } = fmtTrigger(cycle.triggerLabel)
+  const isDone = cycle.status === 'complete' || !!cycle.nextDueAt
+  const showMarkDone = !isDone && !isRecurring(cycle.triggerLabel) && allCycleDone(cycle)
 
   // Leaf-only filtered view for non-phased cycles
   const isFiltering = filter !== 'All' && !CADENCE_FILTERS.has(filter)
@@ -208,6 +236,23 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
                   className="text-[10px] px-2 py-0.5 rounded border border-white/15 bg-transparent text-white/55 focus:outline-none focus:border-navi-blue/50 [color-scheme:dark]"
                 />
               </div>
+              {/* Sub-area */}
+              {(SUB_AREAS_BY_AREA[cycle.area] ?? []).length > 0 && (
+                <div className="flex gap-1.5 flex-wrap">
+                  <button onMouseDown={e => e.preventDefault()} onClick={() => setEditSubArea('')}
+                    className={`text-[10px] px-2 py-0.5 rounded border transition-all ${!editSubArea ? 'bg-white/10 text-white/55 border-white/20' : 'border-white/15 text-white/30 hover:border-white/30 hover:text-white/55'}`}>
+                    No sub-area
+                  </button>
+                  {SUB_AREAS_BY_AREA[cycle.area]!.map(s => (
+                    <button key={s} onMouseDown={e => e.preventDefault()} onClick={() => setEditSubArea(s)}
+                      className={`text-[10px] px-2 py-0.5 rounded border transition-all ${
+                        editSubArea === s ? 'bg-navi-blue/20 text-navi-blue border-navi-blue/40' : 'border-white/15 text-white/30 hover:border-white/30 hover:text-white/55'
+                      }`}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
               {/* Must / Urgent / Save */}
               <div className="flex gap-2">
                 <button onMouseDown={e => e.preventDefault()} onClick={() => setEditMust(m => !m)}
@@ -241,6 +286,15 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
               <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${effortStyle.bg} ${effortStyle.text} ${effortStyle.border}`}>
                 {effortLabels[cycle.effort]}
               </span>
+              {showMarkDone && (
+                <button
+                  onClick={e => { e.stopPropagation(); updateCycle(area, cycle.id, { status: 'complete' }); showToast(`"${cycle.title}" marked done`) }}
+                  className="opacity-30 sm:opacity-0 sm:group-hover/card:opacity-100 p-0.5 rounded text-white/35 hover:text-green-400 transition-all"
+                  title="Mark done"
+                >
+                  <Check className="w-3 h-3" />
+                </button>
+              )}
               <button
                 onClick={e => { e.stopPropagation(); startEditing() }}
                 className="opacity-30 sm:opacity-0 sm:group-hover/card:opacity-100 p-0.5 rounded text-white/35 hover:text-white/70 transition-all"
@@ -257,7 +311,19 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
               </button>
             </div>
           )}
-          <div className="text-[11px] text-white/35 mt-0.5">{cycle.triggerLabel}</div>
+          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+            {dueLabelDisplay && (
+              isOverdue ? (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/20 font-medium">{dueLabelDisplay}</span>
+              ) : (
+                <span className="text-[11px] text-white/35">{dueLabelDisplay}</span>
+              )
+            )}
+            {cycle.subArea && (
+              <span className="text-[10px] text-white/25 px-1.5 py-0.5 rounded border border-white/10">{cycle.subArea}</span>
+            )}
+            {cycle.notes && <FileText className="w-3 h-3 text-white/25 flex-shrink-0" />}
+          </div>
           {cycle.nextDueAt && (
             <div className="text-[10px] mt-0.5 px-1.5 py-0.5 rounded bg-green-500/10 text-green-400/70 border border-green-500/15 w-fit">
               ✓ Resets {new Date(cycle.nextDueAt + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
@@ -266,8 +332,8 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          {cycle.nextDueAt ? (
-            <div className="text-[10px] text-green-400/60 font-medium">Done</div>
+          {isDone ? (
+            <div className="text-[10px] text-green-400/60 font-medium">Done ✓</div>
           ) : (
             <>
               <div className="text-[11px] text-white/40 tabular-nums">{totals.done}/{totals.total}</div>
@@ -311,6 +377,12 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
       {/* Body */}
       {expanded && (
         <div className="border-t border-white/8 px-4 py-3 space-y-2">
+          {cycle.notes && (
+            <p className="text-xs text-white/50 flex items-start gap-2 pb-1 border-b border-white/6">
+              <FileText className="w-3 h-3 mt-0.5 flex-shrink-0 text-white/35" />
+              {cycle.notes}
+            </p>
+          )}
           {cycle.phases ? (
             cycle.phases.map(phase => (
               <PhaseSection key={phase.id} phase={phase} cycle={cycle} filter={filter} />
