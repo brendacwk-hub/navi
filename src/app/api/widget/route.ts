@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { isTriggerDueToday } from '@/shared/lib/sort-utils'
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
   if (mode === 'work') {
     const [todayTasksRes, cyclesRes] = await Promise.all([
       admin.from('today_tasks').select('data').eq('id', 'singleton').single(),
-      admin.from('cycles').select('id,title,area,trigger_label,status,items,must,urgent,effort').eq('status', 'active'),
+      admin.from('cycles').select('id,title,area,trigger_label,status,next_due_at,items,must,urgent,effort').neq('status', 'complete'),
     ])
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -36,15 +37,17 @@ export async function GET(req: NextRequest) {
 
     const allCycles = (cyclesRes.data ?? []) as Array<{
       id: string; title: string; area: string; trigger_label: string | null;
-      status: string; items: Array<{ status: string }> | null;
+      status: string; next_due_at: string | null; items: Array<{ status: string }> | null;
       must: boolean; urgent: boolean; effort: string
     }>
 
-    // Cycles due today or this week
+    const todayDate = new Date(today + 'T00:00:00')
+
+    // Cycles due today — use same logic as TodayView
     const dueSoon = allCycles
       .filter(c => {
-        const label = (c.trigger_label ?? '').toLowerCase()
-        return label === 'today' || label === 'tomorrow' || label === 'this week'
+        if (c.next_due_at) return false  // recurring, completed for this period
+        return isTriggerDueToday(c.trigger_label ?? undefined, todayDate)
       })
       .map(c => {
         const items = c.items ?? []
@@ -63,15 +66,7 @@ export async function GET(req: NextRequest) {
           done,
         }
       })
-      .sort((a, b) => {
-        const rank = (due: string | null) => {
-          const l = (due ?? '').toLowerCase()
-          if (l === 'today') return 0
-          if (l === 'tomorrow') return 1
-          return 2
-        }
-        return rank(a.due) - rank(b.due)
-      })
+      .sort((a, b) => (b.must ? 1 : 0) - (a.must ? 1 : 0) || (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0))
 
     return NextResponse.json({
       mode: 'work',

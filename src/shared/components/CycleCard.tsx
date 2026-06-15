@@ -7,7 +7,7 @@ import { ChecklistItem } from './ChecklistItem'
 import { useWorkData } from '@/shared/lib/work-data-context'
 import { useToast } from '@/shared/lib/toast-context'
 import { type CycleFilter, filterToLeaves, CADENCE_FILTERS } from '@/shared/lib/filter-utils'
-import { allCycleDone, isRecurring } from '@/shared/lib/sort-utils'
+import { allCycleDone, isRecurring, resolveLabel } from '@/shared/lib/sort-utils'
 
 const effortColors: Record<Effort, { bg: string; text: string; border: string }> = {
   quick:  { bg: 'bg-green-500/15',  text: 'text-green-400',  border: 'border-green-500/30' },
@@ -117,6 +117,7 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
   const [editEffort, setEditEffort] = useState<Effort>(cycle.effort)
   const [editDue, setEditDue] = useState(cycle.triggerLabel ?? '')
   const [editSubArea, setEditSubArea] = useState(cycle.subArea ?? '')
+  const [editNotes, setEditNotes] = useState(cycle.notes ?? '')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const titleInputRef = useRef<HTMLInputElement>(null)
 
@@ -134,8 +135,9 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
       must: editMust,
       urgent: editUrgent,
       effort: editEffort,
-      triggerLabel: editDue || cycle.triggerLabel,
+      triggerLabel: resolveLabel(editDue || cycle.triggerLabel || ''),
       subArea: editSubArea || undefined,
+      notes: editNotes.trim() || undefined,
     })
     if (!trimmed) setDraft(cycle.title)
     setEditingTitle(false)
@@ -148,6 +150,7 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
     setEditEffort(cycle.effort)
     setEditDue(cycle.triggerLabel ?? '')
     setEditSubArea(cycle.subArea ?? '')
+    setEditNotes(cycle.notes ?? '')
     setEditingTitle(true)
   }
 
@@ -162,7 +165,8 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
 
   const { display: dueLabelDisplay, overdue: isOverdue } = fmtTrigger(cycle.triggerLabel)
   const isDone = cycle.status === 'complete' || !!cycle.nextDueAt
-  const showMarkDone = !isDone && !isRecurring(cycle.triggerLabel) && allCycleDone(cycle)
+  const hasNoItems = !cycle.phases && !(cycle.items?.length)
+  const showMarkDone = !isDone && !isRecurring(cycle.triggerLabel) && (allCycleDone(cycle) || hasNoItems)
 
   // Leaf-only filtered view for non-phased cycles
   const isFiltering = filter !== 'All' && !CADENCE_FILTERS.has(filter)
@@ -253,6 +257,15 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
                   ))}
                 </div>
               )}
+              {/* Notes */}
+              <textarea
+                value={editNotes}
+                onChange={e => setEditNotes(e.target.value)}
+                onMouseDown={e => e.stopPropagation()}
+                placeholder="Notes, context, amounts…"
+                rows={2}
+                className="w-full text-[11px] bg-white/5 border border-white/10 rounded px-2 py-1.5 text-white/60 placeholder-white/25 focus:outline-none focus:border-white/20 resize-none"
+              />
               {/* Must / Urgent / Save */}
               <div className="flex gap-2">
                 <button onMouseDown={e => e.preventDefault()} onClick={() => setEditMust(m => !m)}
@@ -286,6 +299,15 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
               <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${effortStyle.bg} ${effortStyle.text} ${effortStyle.border}`}>
                 {effortLabels[cycle.effort]}
               </span>
+              {cycle.status === 'complete' && (
+                <button
+                  onClick={e => { e.stopPropagation(); updateCycle(area, cycle.id, { status: 'active' }); showToast('Reopened') }}
+                  className="opacity-30 sm:opacity-0 sm:group-hover/card:opacity-100 px-1.5 py-0.5 rounded text-[10px] text-white/35 hover:text-navi-blue border border-transparent hover:border-navi-blue/30 transition-all"
+                  title="Reopen cycle"
+                >
+                  Reopen
+                </button>
+              )}
               {showMarkDone && (
                 <button
                   onClick={e => { e.stopPropagation(); updateCycle(area, cycle.id, { status: 'complete' }); showToast(`"${cycle.title}" marked done`) }}
@@ -314,7 +336,20 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             {dueLabelDisplay && (
               isOverdue ? (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/20 font-medium">{dueLabelDisplay}</span>
+                <>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/20 font-medium">{dueLabelDisplay}</span>
+                  <button
+                    onClick={e => {
+                      e.stopPropagation()
+                      const d = new Date(); d.setDate(d.getDate() + 1)
+                      updateCycle(area, cycle.id, { triggerLabel: d.toISOString().slice(0, 10) })
+                    }}
+                    className="text-[10px] text-white/30 hover:text-white/60 transition-colors"
+                    title="Push to tomorrow"
+                  >
+                    → Tomorrow
+                  </button>
+                </>
               ) : (
                 <span className="text-[11px] text-white/35">{dueLabelDisplay}</span>
               )

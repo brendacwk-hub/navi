@@ -69,6 +69,25 @@ export function computeSortDate(triggerLabel: string | undefined): number {
   return Infinity
 }
 
+// Convert relative QuickAdd presets to ISO dates so they age correctly
+export function resolveLabel(label: string): string {
+  if (label === 'Today' || !label) return label
+  const base = new Date(); base.setHours(0, 0, 0, 0)
+  const iso = (d: Date) => d.toISOString().slice(0, 10)
+  if (label === 'Tomorrow') {
+    const d = new Date(base); d.setDate(d.getDate() + 1); return iso(d)
+  }
+  if (label === 'This Week') {
+    const diff = (5 - base.getDay() + 7) % 7 || 5
+    const d = new Date(base); d.setDate(d.getDate() + diff); return iso(d)
+  }
+  if (label === 'Next Week') {
+    const diff = ((5 - base.getDay() + 7) % 7) + 7
+    const d = new Date(base); d.setDate(d.getDate() + diff); return iso(d)
+  }
+  return label
+}
+
 export function formatSortDate(ts: number): string {
   if (!isFinite(ts)) return ''
   return new Date(ts).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })

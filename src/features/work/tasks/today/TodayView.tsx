@@ -8,7 +8,7 @@ import { useInbox } from '@/shared/lib/inbox-context'
 import { useToast } from '@/shared/lib/toast-context'
 import { useHabits } from '@/shared/lib/habit-context'
 import { fuzzyMatch } from '@/shared/lib/search-utils'
-import { isTriggerDueToday, allCycleDone } from '@/shared/lib/sort-utils'
+import { isTriggerDueToday, allCycleDone, isRecurring, computeSortDate } from '@/shared/lib/sort-utils'
 import { CycleCard } from '@/shared/components/CycleCard'
 import type { Cycle } from '@/shared/types'
 import type { TodayTaskData } from './data'
@@ -318,15 +318,8 @@ function ComingUpSection({ cycles }: { cycles: Cycle[] }) {
 }
 
 // ── Monthly chain ─────────────────────────────────────────────────────────────
-const chainStatus = [
-  { label: 'Budgets',   done: false, active: true },
-  { label: 'Payroll',   done: false, active: false },
-  { label: 'MPF',       done: false, active: false },
-  { label: 'Bank Stmts',done: false, active: false },
-  { label: 'HR Cost',   done: false, active: false },
-  { label: 'China Bgt', done: false, active: false },
-  { label: 'Reap CC',   done: false, active: false },
-]
+// Computed dynamically from actual Finance + HR recurring cycles
+
 
 // ── Main view ─────────────────────────────────────────────────────────────────
 function HabitStrip() {
@@ -381,7 +374,26 @@ export function TodayView() {
 
   const today = new Date()
   const dayOfMonth = today.getDate()
-  const showChain = dayOfMonth >= 20 || dayOfMonth <= 5
+  const showChain = dayOfMonth >= 17 || dayOfMonth <= 5
+
+  // Dynamic monthly chain from actual Finance + HR recurring cycles
+  // Exclude pure weekday patterns (Every Monday etc.) — those are weekly, not monthly close
+  const chainItems = useMemo(() => {
+    const weekdayPattern = /^every (monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i
+    return [...financeCycles, ...hrCycles]
+      .filter(c => {
+        if (!isRecurring(c.triggerLabel)) return false
+        if (weekdayPattern.test((c.triggerLabel ?? '').trim())) return false
+        return true
+      })
+      .sort((a, b) => computeSortDate(a.triggerLabel) - computeSortDate(b.triggerLabel))
+      .map(c => ({
+        id: c.id,
+        label: c.title.split(/\s+/).slice(0, 2).join(' '),
+        done: !!c.nextDueAt || c.status === 'complete' || allCycleDone(c),
+        active: isTriggerDueToday(c.triggerLabel, today),
+      }))
+  }, [financeCycles, hrCycles]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // YYYY-MM-DD in local time for overdue comparison
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
@@ -442,15 +454,15 @@ export function TodayView() {
           <HabitStrip />
         </div>
 
-        {showChain && (
+        {showChain && chainItems.length > 0 && (
           <div className="rounded-xl border border-navi-blue/25 bg-navi-blue/8 p-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-navi-blue uppercase tracking-wider">Monthly Chain</span>
-              <span className="text-[11px] text-white/35">Starts 20th</span>
+              <span className="text-[11px] text-white/35">{chainItems.filter(s => s.done).length}/{chainItems.length} done</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
-              {chainStatus.map((step, i) => (
-                <div key={step.label} className="flex items-center gap-1.5">
+              {chainItems.map((step, i) => (
+                <div key={step.id} className="flex items-center gap-1.5">
                   <div className={`text-[11px] px-2 py-1 rounded-md font-medium ${
                     step.done ? 'bg-green-500/15 text-green-400 border border-green-500/20'
                     : step.active ? 'bg-navi-blue/20 text-navi-blue border border-navi-blue/30'
@@ -458,7 +470,7 @@ export function TodayView() {
                   }`}>
                     {step.done ? '✓ ' : step.active ? '● ' : '○ '}{step.label}
                   </div>
-                  {i < chainStatus.length - 1 && <ChevronRight className="w-3 h-3 text-white/15 flex-shrink-0" />}
+                  {i < chainItems.length - 1 && <ChevronRight className="w-3 h-3 text-white/15 flex-shrink-0" />}
                 </div>
               ))}
             </div>

@@ -47,6 +47,7 @@ function groupBySubArea(cycles: Cycle[], subAreaOrder: string[]): { subArea: str
 function FinanceTabInner() {
   const [chipFilter, setChipFilter] = useState<CycleFilter>('All')
   const [overflowOpen, setOverflowOpen] = useState(false)
+  const [showCompleted, setShowCompleted] = useState(false)
   const { financeCycles, toggleItem } = useWorkData()
   const { query } = useSearch()
   const searchParams = useSearchParams()
@@ -81,9 +82,14 @@ function FinanceTabInner() {
   }, {}), [financeCycles])
 
   // Cycles filtered and sorted by deadline
+  const completedCount = useMemo(() =>
+    financeCycles.filter(c => c.status === 'complete').length,
+  [financeCycles])
+
   const sortedFiltered = useMemo(() => {
     return financeCycles
       .filter(cycle => {
+        if (!showCompleted && cycle.status === 'complete') return false
         if (activeSub && cycle.subArea !== activeSub) return false
         if (chipFilter === 'Latest') return matchesCycle(cycle, query)
         const chipMatch = (() => {
@@ -94,8 +100,13 @@ function FinanceTabInner() {
         })()
         return chipMatch && matchesCycle(cycle, query)
       })
-      .sort((a, b) => computeSortDate(a.triggerLabel) - computeSortDate(b.triggerLabel))
-  }, [financeCycles, activeSub, chipFilter, query])
+      .sort((a, b) => {
+        const aD = a.status === 'complete' ? 1 : 0
+        const bD = b.status === 'complete' ? 1 : 0
+        if (aD !== bD) return aD - bD
+        return computeSortDate(a.triggerLabel) - computeSortDate(b.triggerLabel)
+      })
+  }, [financeCycles, activeSub, chipFilter, query, showCompleted])
 
   // Flat items for Latest view — all cycles regardless of sub-area, sorted by deadline
   const flatItems = useMemo(() => {
@@ -285,6 +296,16 @@ function FinanceTabInner() {
             {sortedFiltered.map(cycle => (
               <CycleCard key={cycle.id} cycle={cycle} filter={CADENCE_FILTERS.has(chipFilter) ? 'All' : chipFilter} />
             ))}
+          </div>
+        )}
+        {completedCount > 0 && chipFilter === 'All' && !activeSub && (
+          <div className="mt-4 pb-2 text-center">
+            <button
+              onClick={() => setShowCompleted(s => !s)}
+              className="text-[11px] text-white/25 hover:text-white/50 transition-colors py-1"
+            >
+              {showCompleted ? `↑ Hide ${completedCount} completed` : `↓ ${completedCount} completed — show`}
+            </button>
           </div>
         )}
       </div>

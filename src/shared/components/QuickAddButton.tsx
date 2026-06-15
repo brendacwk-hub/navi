@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { Plus, X, Zap, AlertTriangle, FileText, FolderOpen, Send, Calendar } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { useWorkData } from '@/shared/lib/work-data-context'
+import { resolveLabel } from '@/shared/lib/sort-utils'
 import { useInbox } from '@/shared/lib/inbox-context'
 import type { WorkArea, Effort } from '@/shared/types'
 
@@ -41,7 +42,7 @@ function pathnameArea(p: string): WorkArea {
 
 export function QuickAddButton() {
   const pathname = usePathname()
-  const { addCycle, addTodayTask, financeCycles, hrCycles, opsCycles, othersCycles } = useWorkData()
+  const { addCycle, financeCycles, hrCycles, opsCycles, othersCycles } = useWorkData()
   const { addItem: addInboxItem } = useInbox()
 
   const isToday  = pathname === '/work'
@@ -140,7 +141,7 @@ export function QuickAddButton() {
     const base = {
       id, area, title: title.trim(), effort, must, urgent,
       subArea: subArea || undefined,
-      triggerLabel: dueLabel,
+      triggerLabel: resolveLabel(dueLabel),
       status: 'active' as const,
       notes: notes.trim() || undefined,
     }

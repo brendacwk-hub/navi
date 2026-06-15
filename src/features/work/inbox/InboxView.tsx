@@ -310,7 +310,7 @@ function InboxCard({ item }: { item: InboxItem }) {
       id: `inbox-${item.id}-${Date.now()}`,
       title: item.title, area: item.area, effort: item.effort,
       must: item.must, urgent: item.urgent,
-      triggerLabel: item.dueText || 'From inbox',
+      triggerLabel: item.dueText || undefined,
       items, status: 'active',
     }
     setTimeout(() => { addCycle(item.area as WorkArea, newCycle); approveItem(item.id) }, 380)
@@ -544,7 +544,7 @@ export function InboxView() {
           id: `inbox-${item.id}-${Date.now() + idx}`,
           title: item.title, area: item.area, effort: item.effort,
           must: item.must, urgent: item.urgent,
-          triggerLabel: item.dueText || 'From inbox',
+          triggerLabel: item.dueText || undefined,
           items: [{ id: `task-${item.id}`, label: item.title, status: 'todo', effort: item.effort, urgent: item.urgent, must: item.must }],
           status: 'active',
         }
