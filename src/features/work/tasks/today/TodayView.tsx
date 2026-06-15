@@ -433,6 +433,11 @@ export function TodayView() {
       })
       .filter(c => !query.trim() || fuzzyMatch(c.title, query))
       .sort((a, b) => {
+        // Non-recurring ("Today", specific date) before recurring ("Every Monday" etc.)
+        const aRec = isRecurring(a.triggerLabel) ? 1 : 0
+        const bRec = isRecurring(b.triggerLabel) ? 1 : 0
+        if (aRec !== bRec) return aRec - bRec
+        // Within same group: must first, then urgent
         const score = (c: Cycle) => (c.must ? 2 : 0) + (c.urgent ? 1 : 0)
         return score(b) - score(a)
       })
