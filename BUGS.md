@@ -82,6 +82,33 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+## Habit Tracker Bugs
+
+### B-11 · Habit logs not visible in calendar
+**Symptom:** Completed habits (water, standing desk) on June 15 showed no dots or details in MonthView or DayPopover.  
+**Root cause (layout):** Habit dots row was at the bottom of each month cell with `flex-1` on the chip container, pushing dots below the cell boundary and clipping via `overflow-hidden`.  
+**Root cause (data):** `DayPopover` had no habits display section — it only showed events and tasks.  
+**Fix:** Moved habit dots to the top row (inline with the date number), removed `flex-1` from the chip container. Rewrote `DayPopover` to accept `habits` and `weekLogs` props and render a "Habits" section showing emoji, name, count/goal, ✓ for done. Also added habits display to `DayView`.  
+**Lesson:** When integrating a new data type into a shared view (calendar), wire it all the way through — chip, popover, and day detail. Don't leave any view showing only partial data.
+
+---
+
+### B-12 · `todayKey()` used UTC time instead of local time
+**Symptom:** For users in UTC+8 (HKT), between midnight and 08:00 local time, habit logs were keyed to yesterday's UTC date, causing a mismatch with calendar which used local time.  
+**Root cause:** `todayKey()` called `new Date().toISOString()` which returns the UTC date string.  
+**Fix:** Changed to use `getFullYear() / getMonth()+1 / getDate()` (local time methods).  
+**Lesson:** Never use `toISOString().slice(0,10)` for date keys that must match local calendar dates. Always use local-time getters.
+
+---
+
+### B-13 · Habits did not reset to 0 on new day while app was open
+**Symptom:** If the app was open across midnight, `todayLogs` still showed yesterday's habit counts on the new day.  
+**Root cause:** `todayLogs` was only initialized once at app load from the DB; no mechanism detected day change.  
+**Fix:** Added day-change detection: `setInterval(60s)` + `document.addEventListener('visibilitychange', check)` both call `check()` which compares current `todayKey()` to `lastKey`. On change, resets `todayLogs` to the new day's data (from `weekLogsRef` to avoid stale closures).  
+**Lesson:** Habit/task apps that display "today" data must handle midnight crossover. Always pair a daily-reset mechanism alongside initial load. Use `useRef` for values the interval closure needs to read.
+
+---
+
 ## Infrastructure
 
 ### B-10 · Vercel CDN caching stale API responses

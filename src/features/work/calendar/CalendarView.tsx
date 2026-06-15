@@ -145,13 +145,21 @@ function TaskChip({ cycle, area, compact = false }: { cycle: Cycle; area: string
 
 // ── Day Detail Popover ────────────────────────────────────────────────────────
 
-function DayPopover({ date, dayData, onClose, onNavigate }: {
+function DayPopover({ date, dayData, habits, weekLogs, onClose, onNavigate }: {
   date: Date
   dayData: DayData
+  habits: { id: string; name: string; emoji: string; goal: number }[]
+  weekLogs: Record<string, Record<string, number>>
   onClose: () => void
   onNavigate: (d: Date) => void
 }) {
-  const label = date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
+  const label    = date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
+  const key      = toKey(date)
+  const dayLog   = weekLogs[key] ?? {}
+  const doneHabits = habits.filter(h => (dayLog[h.id] ?? 0) >= h.goal)
+  const partialHabits = habits.filter(h => (dayLog[h.id] ?? 0) > 0 && (dayLog[h.id] ?? 0) < h.goal)
+  const hasHabits = doneHabits.length > 0 || partialHabits.length > 0
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
@@ -167,7 +175,7 @@ function DayPopover({ date, dayData, onClose, onNavigate }: {
           </div>
         </div>
         <div className="overflow-y-auto px-4 py-3 space-y-1.5">
-          {dayData.events.length === 0 && dayData.tasks.length === 0 && (
+          {dayData.events.length === 0 && dayData.tasks.length === 0 && !hasHabits && (
             <p className="text-xs text-white/30 py-4 text-center">Nothing scheduled</p>
           )}
           {dayData.events.map(e => (
@@ -188,6 +196,27 @@ function DayPopover({ date, dayData, onClose, onNavigate }: {
               </div>
             </div>
           ))}
+          {hasHabits && (
+            <div className="pt-1 mt-1 border-t border-white/8">
+              <div className="text-[10px] text-white/30 uppercase tracking-widest mb-2">Habits</div>
+              <div className="flex flex-col gap-1.5">
+                {habits.map(h => {
+                  const count = dayLog[h.id] ?? 0
+                  if (count === 0) return null
+                  const done = count >= h.goal
+                  return (
+                    <div key={h.id} className="flex items-center gap-2">
+                      <span className="text-base leading-none">{h.emoji}</span>
+                      <span className="text-xs text-white/70 flex-1">{h.name}</span>
+                      <span className={`text-[11px] font-semibold tabular-nums ${done ? 'text-green-400' : 'text-navi-blue'}`}>
+                        {count}/{h.goal} {done ? '✓' : ''}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -196,7 +225,7 @@ function DayPopover({ date, dayData, onClose, onNavigate }: {
 
 // ── Month View ────────────────────────────────────────────────────────────────
 
-interface HabitDot { id: string; emoji: string }
+interface HabitDot { id: string; emoji: string; goal: number }
 
 function MonthView({ date, today, dayMap, habits, weekLogs, onDayClick }: {
   date: Date
@@ -238,19 +267,30 @@ function MonthView({ date, today, dayMap, habits, weekLogs, onDayClick }: {
             <div
               key={key}
               onClick={() => onDayClick(d, data)}
-              className={`border-r border-b border-white/5 p-1 cursor-pointer hover:bg-white/3 transition-colors min-h-0 flex flex-col ${
+              className={`border-r border-b border-white/5 p-1 cursor-pointer hover:bg-white/3 transition-colors min-h-0 flex flex-col gap-0.5 ${
                 !inMonth ? 'opacity-30' : ''
               }`}
             >
-              {/* Date number */}
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold mb-1 self-start ${
-                isToday ? 'bg-navi-blue text-white' : 'text-white/55'
-              }`}>
-                {d.getDate()}
+              {/* Date number + habit dots row */}
+              <div className="flex items-center justify-between">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold flex-shrink-0 ${
+                  isToday ? 'bg-navi-blue text-white' : 'text-white/55'
+                }`}>
+                  {d.getDate()}
+                </div>
+                {loggedHabits.length > 0 && (
+                  <div className="flex gap-0.5">
+                    {loggedHabits.map(h => (
+                      <span key={h.id} className={`text-[10px] leading-none ${(dayLog[h.id] ?? 0) >= h.goal ? '' : 'opacity-50'}`}>
+                        {h.emoji}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Chips */}
-              <div className="flex-1 overflow-hidden space-y-0.5">
+              <div className="overflow-hidden space-y-0.5">
                 {shown.map((item) => {
                   if ('calendarId' in item) {
                     return <EventChip key={item.id} event={item as GEvent} compact />
@@ -262,15 +302,6 @@ function MonthView({ date, today, dayMap, habits, weekLogs, onDayClick }: {
                   <div className="text-[9px] text-white/35 pl-1">+{overflow} more</div>
                 )}
               </div>
-
-              {/* Habit emoji dots */}
-              {loggedHabits.length > 0 && (
-                <div className="flex gap-0.5 flex-wrap mt-0.5">
-                  {loggedHabits.map(h => (
-                    <span key={h.id} className="text-[9px] leading-none">{h.emoji}</span>
-                  ))}
-                </div>
-              )}
             </div>
           )
         })}
@@ -365,25 +396,52 @@ function WeekView({ date, today, dayMap, onDayClick }: {
 
 // ── Day View ──────────────────────────────────────────────────────────────────
 
-function DayView({ date, today, dayMap }: {
+function DayView({ date, today, dayMap, habits, weekLogs }: {
   date: Date
   today: Date
   dayMap: Map<string, DayData>
+  habits: { id: string; name: string; emoji: string; goal: number }[]
+  weekLogs: Record<string, Record<string, number>>
 }) {
-  const key    = toKey(date)
-  const data   = dayMap.get(key) ?? { key, events: [], tasks: [] }
-  const hours  = Array.from({ length: DAY_END_H - DAY_START_H }, (_, i) => DAY_START_H + i)
-  const allDay = data.events.filter(e => e.allDay)
-  const timed  = data.events.filter(e => !e.allDay)
+  const key      = toKey(date)
+  const data     = dayMap.get(key) ?? { key, events: [], tasks: [] }
+  const hours    = Array.from({ length: DAY_END_H - DAY_START_H }, (_, i) => DAY_START_H + i)
+  const allDay   = data.events.filter(e => e.allDay)
+  const timed    = data.events.filter(e => !e.allDay)
+  const dayLog   = weekLogs[key] ?? {}
+  const loggedHabits = habits.filter(h => (dayLog[h.id] ?? 0) > 0)
 
   return (
     <div className="flex-1 overflow-auto">
-      {/* All-day + tasks strip */}
-      {(allDay.length > 0 || data.tasks.length > 0) && (
+      {/* All-day + tasks + habits strip */}
+      {(allDay.length > 0 || data.tasks.length > 0 || loggedHabits.length > 0) && (
         <div className="border-b border-white/8 px-4 py-3 space-y-1">
-          <div className="text-[10px] text-white/30 uppercase tracking-widest mb-2">All day</div>
-          {allDay.map(e => <EventChip key={e.id} event={e} />)}
-          {data.tasks.map(({ cycle, area }) => <TaskChip key={cycle.id} cycle={cycle} area={area} />)}
+          {(allDay.length > 0 || data.tasks.length > 0) && (
+            <>
+              <div className="text-[10px] text-white/30 uppercase tracking-widest mb-2">All day</div>
+              {allDay.map(e => <EventChip key={e.id} event={e} />)}
+              {data.tasks.map(({ cycle, area }) => <TaskChip key={cycle.id} cycle={cycle} area={area} />)}
+            </>
+          )}
+          {loggedHabits.length > 0 && (
+            <div className={allDay.length > 0 || data.tasks.length > 0 ? 'pt-2 border-t border-white/6' : ''}>
+              <div className="text-[10px] text-white/30 uppercase tracking-widest mb-2">Habits</div>
+              <div className="flex flex-wrap gap-3">
+                {loggedHabits.map(h => {
+                  const count = dayLog[h.id] ?? 0
+                  const done  = count >= h.goal
+                  return (
+                    <div key={h.id} className="flex items-center gap-1.5">
+                      <span className="text-base">{h.emoji}</span>
+                      <span className={`text-xs font-semibold tabular-nums ${done ? 'text-green-400' : 'text-navi-blue'}`}>
+                        {count}/{h.goal}{done ? ' ✓' : ''}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -558,11 +616,14 @@ export function CalendarView() {
       {view === 'month' && (
         <MonthView
           date={current} today={today} dayMap={dayMap}
-          habits={habits.map(h => ({ id: h.id, emoji: h.emoji }))}
+          habits={habits.map(h => ({ id: h.id, emoji: h.emoji, goal: h.goal }))}
           weekLogs={weekLogs}
           onDayClick={(d, data) => {
-            const total = data.events.length + data.tasks.length
-            if (total > 0) setPopover({ date: d, data })
+            const key        = toKey(d)
+            const dayLog     = weekLogs[key] ?? {}
+            const hasHabits  = habits.some(h => (dayLog[h.id] ?? 0) > 0)
+            const total      = data.events.length + data.tasks.length
+            if (total > 0 || hasHabits) setPopover({ date: d, data })
             else { setCurrent(d); setView('day') }
           }}
         />
@@ -574,13 +635,15 @@ export function CalendarView() {
         />
       )}
       {view === 'day' && (
-        <DayView date={current} today={today} dayMap={dayMap} />
+        <DayView date={current} today={today} dayMap={dayMap} habits={habits} weekLogs={weekLogs} />
       )}
 
       {/* Popover */}
       {popover && (
         <DayPopover
           date={popover.date} dayData={popover.data}
+          habits={habits}
+          weekLogs={weekLogs}
           onClose={() => setPopover(null)}
           onNavigate={d => { setCurrent(d); setView('day') }}
         />

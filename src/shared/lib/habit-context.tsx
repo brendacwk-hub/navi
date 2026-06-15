@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
 
 export type HabitFrequency =
   | { type: 'daily' }
@@ -49,7 +49,8 @@ const DEFAULT_HABITS: WorkHabit[] = [
 ]
 
 function todayKey(): string {
-  return new Date().toISOString().slice(0, 10)
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function isWeekday(): boolean {
@@ -76,6 +77,29 @@ export function HabitProvider({ children }: { children: React.ReactNode }) {
   const [todayLogs, setTodayLogs] = useState<HabitLog>({})
   const [weekLogs, setWeekLogs]   = useState<Record<string, HabitLog>>({})
   const isWorkday = isWeekday()
+
+  // Keep a ref to weekLogs so the day-reset effect can read the latest value
+  // without re-registering its listeners on every update.
+  const weekLogsRef = useRef<Record<string, HabitLog>>({})
+  useEffect(() => { weekLogsRef.current = weekLogs }, [weekLogs])
+
+  // Reset todayLogs when the calendar date changes (midnight crossover while app is open).
+  useEffect(() => {
+    let lastKey = todayKey()
+    function check() {
+      const key = todayKey()
+      if (key !== lastKey) {
+        lastKey = key
+        setTodayLogs(weekLogsRef.current[key] ?? {})
+      }
+    }
+    document.addEventListener('visibilitychange', check)
+    const t = setInterval(check, 60_000)
+    return () => {
+      document.removeEventListener('visibilitychange', check)
+      clearInterval(t)
+    }
+  }, []) // runs once — reads weekLogs via ref
 
   useEffect(() => {
     async function init() {
