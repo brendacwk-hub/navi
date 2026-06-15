@@ -41,6 +41,7 @@ function fromRow(r: any): Cycle {
     subArea: r.sub_area ?? undefined,
     triggerLabel: r.trigger_label, status: r.status,
     items: r.items ?? undefined, phases: r.phases ?? undefined,
+    notes: r.notes ?? undefined,
     lastCompletedAt: r.last_completed_at ?? undefined,
     nextDueAt: r.next_due_at ?? undefined,
   }
@@ -53,6 +54,7 @@ function toRow(c: Cycle) {
     sub_area: c.subArea ?? null,
     trigger_label: c.triggerLabel, status: c.status,
     items: c.items ?? null, phases: c.phases ?? null,
+    notes: c.notes ?? null,
     last_completed_at: c.lastCompletedAt ?? null,
     next_due_at: c.nextDueAt ?? null,
   }

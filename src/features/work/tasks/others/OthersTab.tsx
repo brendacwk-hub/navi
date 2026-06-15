@@ -1,28 +1,44 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { CycleCard } from '@/shared/components/CycleCard'
 import { useWorkData } from '@/shared/lib/work-data-context'
 import { useSearch } from '@/shared/lib/search-context'
 import { matchesCycle } from '@/shared/lib/search-utils'
 import { type CycleFilter, cycleHasMatchingItems, CADENCE_FILTERS } from '@/shared/lib/filter-utils'
+import { computeSortDate } from '@/shared/lib/sort-utils'
 import { Package } from 'lucide-react'
 
 const filters: CycleFilter[] = ['All', '⚠️ Urgent', 'Light', 'Medium', 'Heavy']
 
 export function OthersTab() {
   const [active, setActive] = useState<CycleFilter>('All')
+  const [showCompleted, setShowCompleted] = useState(false)
   const { othersCycles } = useWorkData()
   const { query } = useSearch()
 
-  const filtered = othersCycles.filter(cycle => {
-    const chipMatch = (() => {
-      if (active === 'All') return true
-      if (active === 'Weekly' || active === 'Monthly') return false
-      return cycleHasMatchingItems(cycle, active)
-    })()
-    return chipMatch && matchesCycle(cycle, query)
-  })
+  const completedCount = useMemo(() =>
+    othersCycles.filter(c => c.status === 'complete').length,
+  [othersCycles])
+
+  const filtered = useMemo(() =>
+    othersCycles
+      .filter(cycle => {
+        if (!showCompleted && cycle.status === 'complete') return false
+        const chipMatch = (() => {
+          if (active === 'All') return true
+          if (active === 'Weekly' || active === 'Monthly') return false
+          return cycleHasMatchingItems(cycle, active)
+        })()
+        return chipMatch && matchesCycle(cycle, query)
+      })
+      .sort((a, b) => {
+        const aD = a.status === 'complete' ? 1 : 0
+        const bD = b.status === 'complete' ? 1 : 0
+        if (aD !== bD) return aD - bD
+        return computeSortDate(a.triggerLabel) - computeSortDate(b.triggerLabel)
+      }),
+  [othersCycles, active, query, showCompleted])
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -79,6 +95,16 @@ export function OthersTab() {
               filter={CADENCE_FILTERS.has(active) ? 'All' : active}
             />
           ))
+        )}
+        {completedCount > 0 && active === 'All' && (
+          <div className="mt-4 pb-2 text-center">
+            <button
+              onClick={() => setShowCompleted(s => !s)}
+              className="text-[11px] text-white/25 hover:text-white/50 transition-colors py-1"
+            >
+              {showCompleted ? `↑ Hide ${completedCount} completed` : `↓ ${completedCount} completed — show`}
+            </button>
+          </div>
         )}
       </div>
     </div>
