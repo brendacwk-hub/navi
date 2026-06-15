@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { Zap, ChevronDown, Clock, ChevronRight, FileText, Pencil, X, Minus, Star, Plus } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { useSearch } from '@/shared/lib/search-context'
 import { useWorkData } from '@/shared/lib/work-data-context'
 import { useInbox } from '@/shared/lib/inbox-context'
@@ -300,6 +301,7 @@ function TodayTaskCard({ task }: { task: TodayTaskData }) {
 
 // ── "Coming up" — first cycle with todo items, when today list is empty ───────
 function ComingUpSection({ cycles }: { cycles: Cycle[] }) {
+  const router = useRouter()
   const upcoming = cycles
     .filter(c => c.status === 'active')
     .map(c => {
@@ -323,7 +325,10 @@ function ComingUpSection({ cycles }: { cycles: Cycle[] }) {
   return (
     <div>
       <h3 className="text-[11px] font-semibold text-white/45 uppercase tracking-widest mb-3">Coming Up</h3>
-      <div className={`rounded-xl border border-l-4 overflow-hidden ${areaColor[cycle.area as keyof typeof areaColor] ?? 'border-l-white/20 bg-white/3 border-white/10'}`}>
+      <button
+        onClick={() => router.push(`/work/${cycle.area}`)}
+        className={`w-full rounded-xl border border-l-4 overflow-hidden text-left hover:opacity-80 transition-opacity active:scale-[0.99] ${areaColor[cycle.area as keyof typeof areaColor] ?? 'border-l-white/20 bg-white/3 border-white/10'}`}
+      >
         <div className="px-4 py-3">
           <div className="flex items-center gap-2 mb-2">
             {cycle.must && <Zap className={`w-3 h-3 flex-shrink-0 ${areaAccent[cycle.area] ?? 'text-white/40'}`} />}
@@ -344,7 +349,7 @@ function ComingUpSection({ cycles }: { cycles: Cycle[] }) {
             )}
           </div>
         </div>
-      </div>
+      </button>
     </div>
   )
 }
@@ -408,8 +413,6 @@ export function TodayView() {
   const [showReview, setShowReview] = useState(false)
 
   const today = new Date()
-  const dayOfMonth = today.getDate()
-  const showChain = dayOfMonth >= 17 || dayOfMonth <= 5
 
   // Dynamic monthly chain from actual Finance + HR recurring cycles
   // Exclude pure weekday patterns (Every Monday etc.) — those are weekly, not monthly close

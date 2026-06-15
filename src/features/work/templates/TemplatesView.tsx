@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Play, X, Plus, Pencil } from 'lucide-react'
 import { useWorkData } from '@/shared/lib/work-data-context'
+import { resolveLabel } from '@/shared/lib/sort-utils'
 import type { WorkArea, Effort } from '@/shared/types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -36,7 +37,7 @@ const SUB_AREAS: Record<WorkArea, string[]> = {
 const AREA_ACCENT: Record<WorkArea, { badge: string; btn: string }> = {
   finance: { badge: 'bg-finance/10 text-finance/70 border-finance/20', btn: 'bg-finance/15 border-finance/30 text-finance hover:bg-finance/25' },
   hr:      { badge: 'bg-hr/10 text-hr/70 border-hr/20',               btn: 'bg-hr/15 border-hr/30 text-hr hover:bg-hr/25' },
-  ops:     { badge: 'bg-hr/10 text-hr/70 border-hr/20',               btn: 'bg-hr/15 border-hr/30 text-hr hover:bg-hr/25' },
+  ops:     { badge: 'bg-ops/10 text-ops/70 border-ops/20',             btn: 'bg-ops/15 border-ops/30 text-ops hover:bg-ops/25' },
   others:  { badge: 'bg-others/10 text-others/70 border-others/20',    btn: 'bg-others/15 border-others/30 text-others hover:bg-others/25' },
 }
 
@@ -248,7 +249,7 @@ function RunModal({ template, area, onClose }: { template: WorkTemplate; area: W
     const ts = Date.now()
     addCycle(area, {
       id: `cycle-${ts}`, area, title: name.trim(), effort: template.effort,
-      must: template.must, urgent, subArea: template.subArea, triggerLabel: due, status: 'active',
+      must: template.must, urgent, subArea: template.subArea, triggerLabel: resolveLabel(due), status: 'active',
       notes: notes.trim() || undefined,
       items: template.items.map((item, i) => ({ id: `${ts}-i${i}`, label: item.label, status: 'todo' as const, effort: template.effort, must: false, optional: item.optional })),
     })

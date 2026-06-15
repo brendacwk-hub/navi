@@ -18,7 +18,7 @@ function getMondayStr(): string {
   const day = d.getDay()
   const diff = day === 0 ? -6 : 1 - day
   d.setDate(d.getDate() + diff)
-  return d.toISOString().slice(0, 10)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function getTodayStr(): string {
@@ -109,8 +109,9 @@ export function useWeeklyReview() {
   }, [])
 
   const today = new Date()
-  const isMonday = today.getDay() === 1
-  const isReviewDue = isMonday && !reviewDismissed && loaded
+  const dayOfWeek = today.getDay()
+  const isReviewWeek = dayOfWeek >= 1 && dayOfWeek <= 3 // Mon–Wed window
+  const isReviewDue = isReviewWeek && !reviewDismissed && loaded
 
   return { thisWeekFocus, thisWeekReview, isReviewDue, loaded, saveReview, dismissReview }
 }

@@ -617,8 +617,8 @@ export function InboxView() {
             </div>
           )}
 
-          {/* Summary bar */}
-          {unreadCount > 0 && <SummaryBar items={items} />}
+          {/* Summary bar — scoped to visible (search-filtered) items */}
+          {unreadCount > 0 && <SummaryBar items={filteredItems} />}
 
           {/* Swipe hint — shown once when items exist */}
           {unreadCount > 0 && (

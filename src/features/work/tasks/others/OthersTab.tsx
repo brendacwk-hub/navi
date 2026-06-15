@@ -9,7 +9,7 @@ import { type CycleFilter, cycleHasMatchingItems, CADENCE_FILTERS } from '@/shar
 import { sortCycles } from '@/shared/lib/sort-utils'
 import { Package } from 'lucide-react'
 
-const filters: CycleFilter[] = ['All', '⚠️ Urgent', 'Light', 'Medium', 'Heavy']
+const filters: CycleFilter[] = ['All', 'Must', '⚠️ Urgent', 'Light', 'Medium', 'Heavy']
 
 export function OthersTab() {
   const [active, setActive] = useState<CycleFilter>('All')
