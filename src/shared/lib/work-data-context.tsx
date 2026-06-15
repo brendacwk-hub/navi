@@ -48,16 +48,18 @@ function fromRow(r: any): Cycle {
 }
 
 function toRow(c: Cycle) {
-  return {
+  const row: Record<string, unknown> = {
     id: c.id, area: c.area, title: c.title, effort: c.effort,
     must: c.must, urgent: c.urgent ?? false,
     sub_area: c.subArea ?? null,
     trigger_label: c.triggerLabel, status: c.status,
     items: c.items ?? null, phases: c.phases ?? null,
-    notes: c.notes ?? null,
     last_completed_at: c.lastCompletedAt ?? null,
     next_due_at: c.nextDueAt ?? null,
   }
+  // notes column is added via migration — only include when present to avoid PGRST204
+  if (c.notes !== undefined) row.notes = c.notes
+  return row
 }
 
 // Check and reset any cycles whose nextDueAt has passed
