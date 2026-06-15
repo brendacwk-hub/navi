@@ -39,7 +39,7 @@ export interface Cycle {
   effort: Effort
   must: boolean
   urgent?: boolean
-  triggerLabel: string
+  triggerLabel?: string
   phases?: CyclePhase[]
   items?: ChecklistItem[]
   status: 'upcoming' | 'active' | 'in-progress' | 'complete'
