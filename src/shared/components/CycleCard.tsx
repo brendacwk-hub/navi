@@ -446,31 +446,33 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
               )}
             </div>
           )}
-          {/* Add step */}
-          {addingStep ? (
-            <input
-              ref={newStepRef}
-              value={newStep}
-              onChange={e => setNewStep(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && newStep.trim()) {
-                  addCycleItem(area, cycle.id, newStep.trim())
-                  setNewStep('')
-                  setAddingStep(false)
-                }
-                if (e.key === 'Escape') { setNewStep(''); setAddingStep(false) }
-              }}
-              onBlur={() => { setNewStep(''); setAddingStep(false) }}
-              placeholder="Step label…"
-              className="w-full text-xs bg-white/5 border border-navi-blue/30 rounded px-2 py-1 text-white/70 placeholder-white/25 focus:outline-none focus:border-navi-blue/60"
-            />
-          ) : (
-            <button
-              onClick={() => setAddingStep(true)}
-              className="mt-1 flex items-center gap-1.5 text-xs text-white/30 hover:text-white/55 transition-colors"
-            >
-              <Plus className="w-3 h-3" /> Add step
-            </button>
+          {/* Add step — only for non-phase cycles */}
+          {!cycle.phases && (
+            addingStep ? (
+              <input
+                ref={newStepRef}
+                value={newStep}
+                onChange={e => setNewStep(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && newStep.trim()) {
+                    addCycleItem(area, cycle.id, newStep.trim())
+                    setNewStep('')
+                    setAddingStep(false)
+                  }
+                  if (e.key === 'Escape') { setNewStep(''); setAddingStep(false) }
+                }}
+                onBlur={() => { setNewStep(''); setAddingStep(false) }}
+                placeholder="Step label…"
+                className="w-full text-xs bg-white/5 border border-navi-blue/30 rounded px-2 py-1 text-white/70 placeholder-white/25 focus:outline-none focus:border-navi-blue/60"
+              />
+            ) : (
+              <button
+                onClick={() => setAddingStep(true)}
+                className="mt-1 flex items-center gap-1.5 text-xs text-white/30 hover:text-white/55 transition-colors"
+              >
+                <Plus className="w-3 h-3" /> Add step
+              </button>
+            )
           )}
         </div>
       )}

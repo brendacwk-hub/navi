@@ -478,14 +478,17 @@ export function TodayView() {
       })
   }, [financeCycles, hrCycles, opsCycles, othersCycles, todayStr, query])
 
-  const allCycles = [...financeCycles, ...hrCycles, ...opsCycles, ...othersCycles]
+  const allCycles = useMemo(
+    () => [...financeCycles, ...hrCycles, ...opsCycles, ...othersCycles],
+    [financeCycles, hrCycles, opsCycles, othersCycles]
+  )
   const totalDueToday = visibleTasks.length + cyclesToday.length
 
   const focusCycles = useMemo(() =>
     thisWeekFocus
       .map(id => allCycles.find(c => c.id === id))
       .filter((c): c is Cycle => c !== undefined),
-    [thisWeekFocus, allCycles] // eslint-disable-line react-hooks/exhaustive-deps
+    [thisWeekFocus, allCycles]
   )
 
   if (!todayLoaded) {

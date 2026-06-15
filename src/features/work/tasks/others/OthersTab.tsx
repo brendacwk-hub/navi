@@ -26,7 +26,6 @@ export function OthersTab() {
       if (!showCompleted && cycle.status === 'complete') return false
       const chipMatch = (() => {
         if (active === 'All') return true
-        if (active === 'Weekly' || active === 'Monthly') return false
         return cycleHasMatchingItems(cycle, active)
       })()
       return chipMatch && matchesCycle(cycle, query)
