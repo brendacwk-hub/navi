@@ -197,6 +197,43 @@ export function isTriggerDueToday(triggerLabel: string | undefined, today: Date)
   return false
 }
 
+// Returns the next YYYY-MM-DD date AFTER today for a recurring trigger.
+// Used by "Skip this occurrence" — sets nextDueAt so the cycle resurfaces next time.
+export function computeSkipDate(triggerLabel: string | undefined): string | null {
+  if (!isRecurring(triggerLabel)) return null
+  const label = (triggerLabel ?? '').toLowerCase().trim()
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+
+  // Weekday patterns → skip 1 week
+  const weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+  for (let i = 0; i < weekdays.length; i++) {
+    if (label.includes(weekdays[i])) {
+      const d = new Date(today); d.setDate(d.getDate() + 7)
+      return d.toISOString().slice(0, 10)
+    }
+  }
+
+  // Monthly patterns (ordinal day, phase, last-5, 1st-workday) → skip to next month
+  const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, today.getDate())
+  // Re-run computeSortDate from next-month perspective by shifting today
+  const ts = computeSortDate(triggerLabel)
+  if (isFinite(ts)) {
+    const next = new Date(ts)
+    // If next occurrence is today or past, add 28+ days to get next month's
+    if (next <= today) {
+      const nm = new Date(today.getFullYear(), today.getMonth() + 1, 1)
+      return nm.toISOString().slice(0, 10)
+    }
+    // next is already in the future — add one month to be safe
+    nextMonth.setDate(next.getDate())
+    return `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`
+  }
+
+  // Fallback: 30 days
+  const d = new Date(today); d.setDate(d.getDate() + 30)
+  return d.toISOString().slice(0, 10)
+}
+
 export function isRecurring(triggerLabel: string | undefined): boolean {
   if (!triggerLabel) return false
   const l = triggerLabel.toLowerCase()

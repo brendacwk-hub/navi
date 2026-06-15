@@ -7,7 +7,7 @@ import { ChecklistItem } from './ChecklistItem'
 import { useWorkData } from '@/shared/lib/work-data-context'
 import { useToast } from '@/shared/lib/toast-context'
 import { type CycleFilter, filterToLeaves, CADENCE_FILTERS } from '@/shared/lib/filter-utils'
-import { allCycleDone, isRecurring, resolveLabel } from '@/shared/lib/sort-utils'
+import { allCycleDone, isRecurring, resolveLabel, computeSkipDate } from '@/shared/lib/sort-utils'
 
 const effortColors: Record<Effort, { bg: string; text: string; border: string }> = {
   quick:  { bg: 'bg-green-500/15',  text: 'text-green-400',  border: 'border-green-500/30' },
@@ -387,6 +387,20 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
             )}
             {cycle.notes && <FileText className="w-3 h-3 text-white/25 flex-shrink-0" />}
           </div>
+          {/* Skip button — recurring cycles only, when not already done */}
+          {!isDone && isRecurring(cycle.triggerLabel) && (
+            <button
+              onClick={e => {
+                e.stopPropagation()
+                const skip = computeSkipDate(cycle.triggerLabel)
+                if (skip) updateCycle(area, cycle.id, { nextDueAt: skip })
+              }}
+              className="text-[10px] text-white/25 hover:text-white/55 transition-colors mt-0.5 flex items-center gap-1"
+              title="Skip this occurrence — resurfaces next cycle"
+            >
+              ↩ Skip
+            </button>
+          )}
           {cycle.nextDueAt && (
             <div className="text-[10px] mt-0.5 px-1.5 py-0.5 rounded bg-green-500/10 text-green-400/70 border border-green-500/15 w-fit">
               ✓ Resets {new Date(cycle.nextDueAt + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}

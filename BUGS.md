@@ -145,6 +145,14 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-20 · Global search missed Ops and Others cycles
+**Symptom:** Searching "vendor", "expenses", or any Ops/Others cycle in the header search returned zero results even when cycles existed.  
+**Root cause:** `GlobalSearchResults.tsx` only called `extractCycleResults` for `financeCycles` and `hrCycles`. `opsCycles` and `othersCycles` were not passed to the component.  
+**Fix:** Added `opsCycles` and `othersCycles` from `useWorkData()` and included them in the results array. Added Ops and Others to `groupChip` colour map.  
+**Lesson:** Any feature using a subset of work areas must be audited when new areas are added. Search components should import ALL areas from `useWorkData`.
+
+---
+
 ### B-17 · ExternalLink button on checklist items did nothing
 **Symptom:** Clicking the link icon on a checklist item with a URL had no effect.  
 **Root cause:** Button had no `onClick`, no `href` — it was just a decorative icon.  

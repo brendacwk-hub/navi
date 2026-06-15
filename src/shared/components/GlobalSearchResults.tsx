@@ -22,6 +22,8 @@ const areaDot: Record<string, string> = {
 const groupChip: Record<string, string> = {
   Finance: 'text-finance border-finance/40',
   HR: 'text-hr border-hr/40',
+  Ops: 'text-ops border-ops/40',
+  Others: 'text-others border-others/40',
   Today: 'text-navi-blue border-navi-blue/40',
 }
 
@@ -108,11 +110,13 @@ interface Props {
 
 export function GlobalSearchResults({ query, onSelect }: Props) {
   const router = useRouter()
-  const { financeCycles, hrCycles } = useWorkData()
+  const { financeCycles, hrCycles, opsCycles, othersCycles } = useWorkData()
 
   const results: ResultItem[] = [
     ...extractCycleResults(financeCycles, query, 'Finance', '/work/finance'),
     ...extractCycleResults(hrCycles, query, 'HR', '/work/hr'),
+    ...extractCycleResults(opsCycles, query, 'Ops', '/work/ops'),
+    ...extractCycleResults(othersCycles, query, 'Others', '/work/others'),
     ...todayTaskData.flatMap(t => {
       const rows: ResultItem[] = []
       if (fuzzyMatch(t.label, query)) {

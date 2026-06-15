@@ -244,6 +244,23 @@ function HabitModal({ initial, onSave, onDelete, onClose }: HabitModalProps) {
   )
 }
 
+// ── Streak calculator ─────────────────────────────────────────────────────────
+
+function computeStreak(habit: WorkHabit, weekLogs: Record<string, Record<string, number>>): number {
+  let streak = 0
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  for (let i = 0; i < 90; i++) {
+    const d = new Date(today); d.setDate(d.getDate() - i)
+    const dow = d.getDay()
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    if (!isDayScheduled(habit, dow)) continue // skip unscheduled days
+    const count = weekLogs[key]?.[habit.id] ?? 0
+    if (count >= habit.goal) streak++
+    else break
+  }
+  return streak
+}
+
 // ── Horizontal 7-day week strip ───────────────────────────────────────────────
 
 function WeekStrip({ habits, weekLogs, onLog, onUnlog }: {
@@ -252,75 +269,99 @@ function WeekStrip({ habits, weekLogs, onLog, onUnlog }: {
   onLog: (id: string, date: string) => void
   onUnlog: (id: string, date: string) => void
 }) {
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date()
-    d.setDate(d.getDate() - (6 - i))
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    return {
-      label: d.toLocaleDateString('en-GB', { weekday: 'short' }).slice(0, 2),
-      key,
-      dow: d.getDay(),
-      isToday: i === 6,
-    }
-  })
+  const [range, setRange] = useState<7 | 28>(7)
+
+  function makeDays(n: number) {
+    return Array.from({ length: n }, (_, i) => {
+      const d = new Date(); d.setDate(d.getDate() - (n - 1 - i)); d.setHours(0, 0, 0, 0)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      return { label: d.toLocaleDateString('en-GB', { weekday: 'short' }).slice(0, 2), key, dow: d.getDay(), isToday: i === n - 1 }
+    })
+  }
+
+  const days = makeDays(range)
+
+  // For 28-day view, split into 4 rows of 7
+  const rows = range === 28
+    ? [days.slice(0, 7), days.slice(7, 14), days.slice(14, 21), days.slice(21, 28)]
+    : [days]
+
+  const DayCell = ({ label, key: dayKey, dow, isToday }: { label: string; key: string; dow: number; isToday: boolean }) => {
+    const logs = weekLogs[dayKey] ?? {}
+    return (
+      <div className={`flex flex-col items-center gap-1 ${range === 7 ? 'py-2' : 'py-1'} px-0.5 rounded-xl transition-all ${
+        isToday ? 'bg-navi-blue/12 border border-navi-blue/20' : ''
+      }`}>
+        {range === 7 && (
+          <span className={`text-[10px] font-bold ${isToday ? 'text-navi-blue' : 'text-white/35'}`}>{label}</span>
+        )}
+        {range === 28 && (
+          <span className={`text-[9px] ${isToday ? 'text-navi-blue' : 'text-white/20'}`}>{label.slice(0,1)}</span>
+        )}
+        {habits.map(h => {
+          const scheduled = isDayScheduled(h, dow)
+          const count     = logs[h.id] ?? 0
+          const met       = count >= h.goal
+          const size      = range === 7 ? 'w-5 h-5 text-[9px]' : 'w-3.5 h-3.5 text-[8px]'
+          return (
+            <button
+              key={h.id}
+              onClick={() => scheduled && onLog(h.id, dayKey)}
+              onContextMenu={e => { e.preventDefault(); if (scheduled && count > 0) onUnlog(h.id, dayKey) }}
+              title={scheduled ? `${h.name}: ${count}/${h.goal}` : `${h.name}: not scheduled`}
+              className={`${size} rounded-full flex items-center justify-center font-bold transition-all ${
+                !scheduled
+                  ? 'bg-white/4 opacity-20 cursor-default'
+                  : met
+                    ? 'bg-green-500/30 text-green-400 active:scale-90'
+                    : count > 0
+                      ? 'bg-navi-blue/20 text-navi-blue/70 active:scale-90'
+                      : 'bg-white/8 hover:bg-white/14 active:scale-90'
+              }`}
+            >
+              {scheduled && range === 7 && (met ? '✓' : count > 0 ? count : '')}
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
 
   return (
     <div className="border border-white/8 rounded-2xl p-3 bg-white/2">
       <div className="flex items-center justify-between mb-2 px-1">
-        <span className="text-[10px] text-white/30 uppercase tracking-widest">Last 7 days</span>
-        <span className="text-[9px] text-white/20">Tap past dots to backfill</span>
+        <span className="text-[10px] text-white/30 uppercase tracking-widest">
+          {range === 7 ? 'Last 7 days' : 'Last 28 days'}
+        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[9px] text-white/20">Tap to backfill · right-click to undo</span>
+          <div className="flex gap-0.5 bg-white/6 rounded-lg p-0.5">
+            {([7, 28] as const).map(r => (
+              <button key={r} onClick={() => setRange(r)}
+                className={`text-[9px] px-1.5 py-0.5 rounded font-semibold transition-all ${
+                  range === r ? 'bg-white/15 text-white' : 'text-white/25 hover:text-white/50'
+                }`}>
+                {r}d
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
-      <div className="grid grid-cols-7 gap-1">
-        {days.map(({ label, key, dow, isToday }) => {
-          const logs = weekLogs[key] ?? {}
-          return (
-            <div
-              key={key}
-              className={`flex flex-col items-center gap-1.5 py-2 px-1 rounded-xl transition-all ${
-                isToday ? 'bg-navi-blue/12 border border-navi-blue/20' : ''
-              }`}
-            >
-              <span className={`text-[10px] font-bold ${isToday ? 'text-navi-blue' : 'text-white/35'}`}>
-                {label}
-              </span>
-              {habits.map(h => {
-                const scheduled = isDayScheduled(h, dow)
-                const count     = logs[h.id] ?? 0
-                const met       = count >= h.goal
-                return (
-                  <div key={h.id} className="flex flex-col items-center gap-0.5">
-                    <button
-                      onClick={() => scheduled && onLog(h.id, key)}
-                      onContextMenu={e => { e.preventDefault(); if (scheduled && count > 0) onUnlog(h.id, key) }}
-                      title={scheduled ? `${h.name}: ${count}/${h.goal} — tap to add, hold to remove` : `${h.name}: not scheduled`}
-                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold transition-all ${
-                        !scheduled
-                          ? 'bg-white/4 opacity-25 cursor-default'
-                          : met
-                            ? 'bg-green-500/25 text-green-400 active:scale-90'
-                            : count > 0
-                              ? 'bg-navi-blue/20 text-navi-blue/70 active:scale-90'
-                              : 'bg-white/8 hover:bg-white/14 active:scale-90'
-                      }`}
-                    >
-                      {scheduled && (met ? '✓' : count > 0 ? count : '')}
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          )
-        })}
-      </div>
+      {rows.map((row, ri) => (
+        <div key={ri} className={`grid grid-cols-7 ${range === 7 ? 'gap-1' : 'gap-0.5 mb-1'}`}>
+          {row.map(day => <DayCell key={day.key} {...day} />)}
+        </div>
+      ))}
     </div>
   )
 }
 
 // ── Habit card ────────────────────────────────────────────────────────────────
 
-function HabitCard({ habit, count, onLog, onUnlog, onEdit }: {
+function HabitCard({ habit, count, streak, onLog, onUnlog, onEdit }: {
   habit: WorkHabit
   count: number
+  streak: number
   onLog: () => void
   onUnlog: () => void
   onEdit: () => void
@@ -347,6 +388,9 @@ function HabitCard({ habit, count, onLog, onUnlog, onEdit }: {
           {habit.name}
         </span>
         <span className="text-[10px] text-white/25">{freqLabel(habit.frequency)}</span>
+        {streak > 1 && (
+          <span className="text-[10px] font-semibold text-orange-400/80">🔥 {streak} days</span>
+        )}
       </div>
 
       {/* Progress dots */}
@@ -434,6 +478,7 @@ export function HabitsTab() {
                 key={habit.id}
                 habit={habit}
                 count={todayLogs[habit.id] ?? 0}
+                streak={computeStreak(habit, weekLogs)}
                 onLog={() => logHabit(habit.id)}
                 onUnlog={() => unlogHabit(habit.id)}
                 onEdit={() => setEditingId(habit.id)}

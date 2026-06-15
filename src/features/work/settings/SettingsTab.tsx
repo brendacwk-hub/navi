@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CheckCircle2, Circle, ExternalLink, Loader2, LogOut, RefreshCw } from 'lucide-react'
+import { CheckCircle2, Circle, ExternalLink, Loader2, LogOut, RefreshCw, Bell, BellOff } from 'lucide-react'
+import { usePushNotifications } from '@/shared/lib/use-push-notifications'
 
 interface CalendarItem {
   id: string
@@ -32,6 +33,7 @@ const COLOR_PALETTE = [
 ]
 
 export function SettingsTab() {
+  const { status: pushStatus, subscribe, unsubscribe } = usePushNotifications()
   const [conn, setConn]           = useState<ConnectionState | null>(null)
   const [calendars, setCalendars] = useState<CalendarItem[]>([])
   const [saving, setSaving]       = useState(false)
@@ -221,6 +223,60 @@ export function SettingsTab() {
 
           {statusMsg && (
             <p className="mt-3 text-xs text-navi-blue">{statusMsg}</p>
+          )}
+        </div>
+      </section>
+
+      {/* Notifications */}
+      <section className="rounded-2xl border border-white/8 bg-white/2 overflow-hidden">
+        <div className="px-5 py-4">
+          <h3 className="text-sm font-semibold text-white mb-1">Notifications</h3>
+          <p className="text-xs text-white/40 mb-4 leading-relaxed">
+            Receive habit reminders and daily summaries on this device. Must be installed as a PWA (Add to Home Screen) on iPhone.
+          </p>
+
+          {pushStatus === 'unsupported' && (
+            <p className="text-xs text-white/30 italic">Push notifications are not supported on this browser/device.</p>
+          )}
+
+          {pushStatus === 'denied' && (
+            <p className="text-xs text-red-400/70">Notifications blocked. Go to Settings → Safari → Notifications to allow.</p>
+          )}
+
+          {pushStatus === 'loading' && (
+            <div className="flex items-center gap-2 text-xs text-white/30">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking...
+            </div>
+          )}
+
+          {(pushStatus === 'subscribed' || pushStatus === 'unsubscribed') && (
+            <div className="flex items-center gap-3">
+              <div className={`w-2 h-2 rounded-full ${pushStatus === 'subscribed' ? 'bg-green-400' : 'bg-white/20'}`} />
+              <span className="text-sm text-white/70 flex-1">
+                {pushStatus === 'subscribed' ? 'Notifications enabled on this device' : 'Notifications off'}
+              </span>
+              {pushStatus === 'subscribed' ? (
+                <button
+                  onClick={unsubscribe}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-white/10 text-white/40 hover:text-white/70 hover:border-white/20 transition-all"
+                >
+                  <BellOff className="w-3.5 h-3.5" /> Turn off
+                </button>
+              ) : (
+                <button
+                  onClick={subscribe}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-navi-blue/30 bg-navi-blue/10 text-navi-blue hover:bg-navi-blue/20 transition-all font-semibold"
+                >
+                  <Bell className="w-3.5 h-3.5" /> Enable
+                </button>
+              )}
+            </div>
+          )}
+
+          {pushStatus === 'subscribed' && (
+            <p className="mt-3 text-[11px] text-white/25 leading-relaxed">
+              You&apos;ll receive habit reminders at times set in the Habits tab, plus a morning summary at 9am.
+            </p>
           )}
         </div>
       </section>

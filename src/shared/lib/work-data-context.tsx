@@ -116,7 +116,7 @@ function patchTodaySub(tasks: TodayTaskData[], taskId: string, subId: string, fn
 interface WorkDataCtx {
   financeCycles: Cycle[]; hrCycles: Cycle[]; opsCycles: Cycle[]; othersCycles: Cycle[]
   addCycle: (area: WorkArea, cycle: Cycle) => void
-  updateCycle: (area: WorkArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes'>>) => void
+  updateCycle: (area: WorkArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes' | 'nextDueAt'>>) => void
   deleteCycle: (area: WorkArea, id: string) => void
   deleteItem: (area: WorkArea, cycleId: string, itemId: string) => void
   addCycleItem: (area: WorkArea, cycleId: string, label: string) => void
