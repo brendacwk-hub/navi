@@ -54,7 +54,7 @@ export const financeCycles: Cycle[] = [
     subArea: 'Budgets',
     effort: 'heavy',
     must: true,
-    triggerLabel: '',
+    triggerLabel: 'Starts 20th of month',
     status: 'active',
     items: [
       {
