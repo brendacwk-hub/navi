@@ -1,15 +1,18 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Zap, ChevronDown, Clock, ChevronRight, FileText, Pencil, X, Minus } from 'lucide-react'
+import { Zap, ChevronDown, Clock, ChevronRight, FileText, Pencil, X, Minus, Star } from 'lucide-react'
 import { useSearch } from '@/shared/lib/search-context'
 import { useWorkData } from '@/shared/lib/work-data-context'
 import { useInbox } from '@/shared/lib/inbox-context'
 import { useToast } from '@/shared/lib/toast-context'
 import { useHabits } from '@/shared/lib/habit-context'
+import { useWeeklyReview } from '@/shared/lib/use-weekly-review'
 import { fuzzyMatch } from '@/shared/lib/search-utils'
 import { isTriggerDueToday, allCycleDone, isRecurring, computeSortDate } from '@/shared/lib/sort-utils'
 import { CycleCard } from '@/shared/components/CycleCard'
+import { WeeklyReview } from '@/shared/components/WeeklyReview'
+import { WeeklyFocusStrip } from '@/shared/components/WeeklyFocusStrip'
 import type { Cycle } from '@/shared/types'
 import type { TodayTaskData } from './data'
 
@@ -372,6 +375,8 @@ export function TodayView() {
   const { query } = useSearch()
   const { todayTasks, todayLoaded, financeCycles, hrCycles, opsCycles, othersCycles } = useWorkData()
   const { items: inboxItems } = useInbox()
+  const { thisWeekFocus, isReviewDue, saveReview, dismissReview } = useWeeklyReview()
+  const [showReview, setShowReview] = useState(false)
 
   const today = new Date()
   const dayOfMonth = today.getDate()
@@ -446,6 +451,13 @@ export function TodayView() {
   const allCycles = [...financeCycles, ...hrCycles, ...opsCycles, ...othersCycles]
   const totalDueToday = visibleTasks.length + cyclesToday.length
 
+  const focusCycles = useMemo(() =>
+    thisWeekFocus
+      .map(id => allCycles.find(c => c.id === id))
+      .filter((c): c is Cycle => c !== undefined),
+    [thisWeekFocus, allCycles] // eslint-disable-line react-hooks/exhaustive-deps
+  )
+
   if (!todayLoaded) {
     return (
       <div className="flex-1 overflow-y-auto">
@@ -463,6 +475,7 @@ export function TodayView() {
   }
 
   return (
+    <>
     <div className="flex-1 overflow-y-auto">
       <div className="px-6 pt-5 pb-8 space-y-6">
 
@@ -475,6 +488,26 @@ export function TodayView() {
           </div>
           <HabitStrip />
         </div>
+
+        {/* Monday review banner */}
+        {isReviewDue && !showReview && (
+          <button
+            onClick={() => setShowReview(true)}
+            className="flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-navi-blue/10 border border-navi-blue/25 text-left hover:bg-navi-blue/15 transition-all"
+          >
+            <span className="w-7 h-7 rounded-full bg-navi-blue/20 border border-navi-blue/30 flex items-center justify-center flex-shrink-0">
+              <Star className="w-3.5 h-3.5 text-navi-blue" />
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-navi-blue">Monday check-in</p>
+              <p className="text-[11px] text-white/45">2 min — set your focus for the week</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-navi-blue/50 flex-shrink-0" />
+          </button>
+        )}
+
+        {/* Weekly focus strip (shown all week once review is done) */}
+        {focusCycles.length > 0 && <WeeklyFocusStrip focusCycles={focusCycles} />}
 
         {showChain && chainItems.length > 0 && (
           <div className="rounded-xl border border-navi-blue/25 bg-navi-blue/8 p-4">
@@ -535,5 +568,15 @@ export function TodayView() {
 
       </div>
     </div>
+
+    {showReview && (
+      <WeeklyReview
+        allCycles={allCycles}
+        onSave={async (data) => { await saveReview(data); setShowReview(false) }}
+        onDismiss={() => { dismissReview(); setShowReview(false) }}
+        todayStr={todayStr}
+      />
+    )}
+    </>
   )
 }

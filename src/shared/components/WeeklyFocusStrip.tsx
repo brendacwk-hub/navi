@@ -1,0 +1,32 @@
+'use client'
+
+import { Star } from 'lucide-react'
+import type { Cycle } from '@/shared/types'
+
+const AREA_DOT: Record<string, string> = {
+  finance: 'bg-finance', hr: 'bg-hr', ops: 'bg-ops', others: 'bg-others',
+}
+
+interface WeeklyFocusStripProps {
+  focusCycles: Cycle[]
+}
+
+export function WeeklyFocusStrip({ focusCycles }: WeeklyFocusStripProps) {
+  if (focusCycles.length === 0) return null
+  return (
+    <div className="rounded-xl border border-navi-blue/20 bg-navi-blue/5 p-3.5">
+      <div className="flex items-center gap-1.5 mb-2.5">
+        <Star className="w-3 h-3 text-navi-blue/60" />
+        <span className="text-[10px] font-semibold text-navi-blue/70 uppercase tracking-wider">This Week's Focus</span>
+      </div>
+      <div className="flex gap-2 flex-wrap">
+        {focusCycles.map(c => (
+          <div key={c.id} className="flex items-center gap-1.5 bg-white/5 border border-white/8 rounded-lg px-2.5 py-1.5">
+            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${AREA_DOT[c.area] ?? 'bg-white/25'}`} />
+            <span className="text-[11.5px] text-white/65 font-medium">{c.title}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
