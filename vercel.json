@@ -1,3 +1,9 @@
 {
-  "alias": ["navi-ruby.vercel.app"]
+  "alias": ["navi-ruby.vercel.app"],
+  "crons": [
+    {
+      "path": "/api/push/daily?apiKey=d8ec68eb126880ad1cc2c3765dd0586c59b6bffb",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }
