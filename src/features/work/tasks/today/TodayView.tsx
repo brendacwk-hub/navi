@@ -332,7 +332,8 @@ function HabitStrip() {
         const done = count >= habit.goal
         return (
           <div key={habit.id}
-            className={`flex items-center gap-1.5 pl-2.5 pr-1 py-1.5 rounded-xl border transition-all ${
+            onClick={() => logHabit(habit.id)}
+            className={`flex items-center gap-1.5 pl-2.5 pr-1 py-1.5 rounded-xl border transition-all cursor-pointer active:scale-95 ${
               done
                 ? 'border-green-500/30 bg-green-500/8'
                 : 'border-white/10 bg-white/4'
@@ -343,7 +344,7 @@ function HabitStrip() {
               {count}/{habit.goal}
             </span>
             <button
-              onClick={() => logHabit(habit.id)}
+              onClick={e => { e.stopPropagation(); logHabit(habit.id) }}
               className={`text-[10px] px-1.5 py-0.5 rounded-lg font-semibold transition-all ${
                 done
                   ? 'text-green-400/60 hover:bg-green-500/15'
@@ -354,7 +355,7 @@ function HabitStrip() {
             </button>
             {count > 0 && (
               <button
-                onClick={() => unlogHabit(habit.id)}
+                onClick={e => { e.stopPropagation(); unlogHabit(habit.id) }}
                 className="text-white/20 hover:text-white/45 transition-colors pr-0.5"
               >
                 <Minus className="w-2.5 h-2.5" />
@@ -398,10 +399,17 @@ export function TodayView() {
   // YYYY-MM-DD in local time for overdue comparison
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
-  const visibleTasks = todayTasks.filter(t => {
-    if (!query.trim()) return true
-    return fuzzyMatch(t.label, query) || (t.subItems ?? []).some(s => fuzzyMatch(s.label, query))
-  })
+  const visibleTasks = todayTasks
+    .filter(t => {
+      if (!query.trim()) return true
+      return fuzzyMatch(t.label, query) || (t.subItems ?? []).some(s => fuzzyMatch(s.label, query))
+    })
+    .sort((a, b) => {
+      // plain tasks first, then tasks with sub-items
+      const aHas = (a.subItems?.length ?? 0) > 0 ? 1 : 0
+      const bHas = (b.subItems?.length ?? 0) > 0 ? 1 : 0
+      return aHas - bHas
+    })
 
   // Cycles from all areas that are due today (including recurring patterns)
   const cyclesToday = useMemo(() => {
@@ -409,7 +417,16 @@ export function TodayView() {
     const all = [...financeCycles, ...hrCycles, ...opsCycles, ...othersCycles]
     return all
       .filter(c => {
-        if (c.nextDueAt) return false          // recurring, completed for this period
+        if (c.nextDueAt) {
+          if (isRecurring(c.triggerLabel)) {
+            // Recurring: hide until nextDueAt arrives, then resurface on matching trigger day
+            const nextDue = new Date(c.nextDueAt + 'T00:00:00')
+            if (nextDue > todayDate) return false
+            // nextDueAt has passed — fall through to isTriggerDueToday below
+          } else {
+            return false  // one-off: permanently hidden once nextDueAt set
+          }
+        }
         if (c.status === 'complete') return false
         if (allCycleDone(c)) return false
         return isTriggerDueToday(c.triggerLabel, todayDate)
