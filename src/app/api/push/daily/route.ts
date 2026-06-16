@@ -9,11 +9,13 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-webPush.setVapidDetails(
-  process.env.VAPID_EMAIL!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!,
-)
+function initWebPush() {
+  webPush.setVapidDetails(
+    process.env.VAPID_EMAIL!,
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+    process.env.VAPID_PRIVATE_KEY!,
+  )
+}
 
 async function sendToAll(title: string, body: string, url: string, tag: string) {
   const { data: subs } = await supabase.from('push_subscriptions').select('subscription')
@@ -24,6 +26,7 @@ async function sendToAll(title: string, body: string, url: string, tag: string) 
 }
 
 export async function GET(req: NextRequest) {
+  initWebPush()
   const apiKey = req.headers.get('x-api-key') ?? req.nextUrl.searchParams.get('apiKey')
   if (apiKey !== process.env.NAVI_API_KEY) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

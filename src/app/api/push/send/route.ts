@@ -9,13 +9,12 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-webPush.setVapidDetails(
-  process.env.VAPID_EMAIL!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!,
-)
-
 export async function POST(req: NextRequest) {
+  webPush.setVapidDetails(
+    process.env.VAPID_EMAIL!,
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+    process.env.VAPID_PRIVATE_KEY!,
+  )
   const apiKey = req.headers.get('x-api-key')
   if (apiKey !== process.env.NAVI_API_KEY) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
