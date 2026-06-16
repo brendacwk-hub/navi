@@ -111,6 +111,15 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ## Infrastructure
 
+### B-21 · webPush.setVapidDetails() at module level crashed Vercel build
+**Symptom:** Every deployment after adding push notifications failed with a 53s build error. No new deployments appeared for 4 commits. Local builds passed every time.  
+**Root cause:** `webPush.setVapidDetails(process.env.VAPID_EMAIL!, ...)` was called at module top level in `/api/push/daily` and `/api/push/send`. At Vercel build time, `VAPID_EMAIL`, `VAPID_PRIVATE_KEY`, and `NEXT_PUBLIC_VAPID_PUBLIC_KEY` don't exist (they're only in local `.env.local`). `web-push` validates its inputs immediately and throws, crashing module initialization before any handler runs.  
+**Why it took 3 attempts:** The build passes locally because `.env.local` has the keys. Without direct access to Vercel's build log, two red herrings were investigated first: the `crons` field blocking webhooks (real but separate), and TypeScript errors (also real but separate). The module-level init was only identified by code inspection after both other theories were ruled out.  
+**Fix:** Moved `webPush.setVapidDetails()` inside each request handler. It now only runs when a real request arrives, where env vars are guaranteed present.  
+**Lesson:** Module-level code in API routes runs at build time where secrets don't exist. Any SDK init that validates env vars (throws on undefined) must live inside the handler, not at the top of the file. As a parallel safeguard: always add secrets to Vercel Environment Variables at the same time you add them to `.env.local`.
+
+---
+
 ### B-10 · Vercel CDN caching stale API responses
 **Symptom:** Code fixes were deployed but the app still served old cycle data because `/api/db` responses were cached.  
 **Root cause:** Next.js server route was missing `export const dynamic = 'force-dynamic'` and the response lacked `Cache-Control: no-store`.  
