@@ -11,8 +11,6 @@ import { useHabits } from '@/shared/lib/habit-context'
 import { useWeeklyReview } from '@/shared/lib/use-weekly-review'
 import { fuzzyMatch } from '@/shared/lib/search-utils'
 import { isTriggerDueToday, allCycleDone, isRecurring, computeSortDate } from '@/shared/lib/sort-utils'
-import { financeCycles as staticFinance } from '@/features/work/tasks/finance/data'
-import { hrCycles as staticHr } from '@/features/work/tasks/hr/data'
 import { CycleCard } from '@/shared/components/CycleCard'
 import { WeeklyReview } from '@/shared/components/WeeklyReview'
 import { WeeklyFocusStrip } from '@/shared/components/WeeklyFocusStrip'
@@ -451,12 +449,10 @@ export function TodayView() {
   // Cycles from all areas that are due today (including recurring patterns)
   const cyclesToday = useMemo(() => {
     const todayDate = new Date(todayStr + 'T00:00:00')
-    // Static cycles always use their code-defined triggerLabel — immune to stale DB/cache values
-    const staticTrigger = new Map([...staticFinance, ...staticHr].map(c => [c.id, c.triggerLabel ?? '']))
     const all = [...financeCycles, ...hrCycles, ...opsCycles, ...othersCycles]
     return all
       .filter(c => {
-        const trigger = staticTrigger.has(c.id) ? (staticTrigger.get(c.id) ?? '') : (c.triggerLabel ?? '')
+        const trigger = c.triggerLabel ?? ''
         if (c.nextDueAt) {
           if (isRecurring(trigger)) {
             // Recurring: hide until nextDueAt arrives, then resurface on matching trigger day
@@ -474,8 +470,8 @@ export function TodayView() {
       .filter(c => !query.trim() || fuzzyMatch(c.title, query))
       .sort((a, b) => {
         // Non-recurring ("Today", specific date) before recurring ("Every Monday" etc.)
-        const aRec = isRecurring(staticTrigger.get(a.id) ?? a.triggerLabel) ? 1 : 0
-        const bRec = isRecurring(staticTrigger.get(b.id) ?? b.triggerLabel) ? 1 : 0
+        const aRec = isRecurring(a.triggerLabel) ? 1 : 0
+        const bRec = isRecurring(b.triggerLabel) ? 1 : 0
         if (aRec !== bRec) return aRec - bRec
         // Within same group: must+urgent priority, then effort (quick first)
         const score = (c: Cycle) => (c.must ? 2 : 0) + (c.urgent ? 1 : 0)

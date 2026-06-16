@@ -210,7 +210,6 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
                   if (e.key === 'Enter') saveTitle()
                   if (e.key === 'Escape') { setDraft(cycle.title); setEditingTitle(false) }
                 }}
-                onBlur={saveTitle}
                 className="w-full text-sm font-bold bg-white/8 border border-navi-blue/50 rounded px-2 py-0.5 text-white focus:outline-none"
               />
               {/* Effort */}
