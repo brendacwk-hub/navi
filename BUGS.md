@@ -186,6 +186,14 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-22 · Progress counter included parent "header" item in task+ cycles
+**Symptom:** A task+ cycle with 4 completed sub-tasks showed "4/5" instead of "4/4" — the parent item (whose label = cycle title) was counted alongside its own sub-tasks.  
+**Root cause:** `countItems()` in `CycleCard.tsx` incremented `total` for every item regardless of whether it had sub-items. A parent with 4 sub-items counted as 5 (1 parent + 4 children).  
+**Fix:** If an item has `subItems.length > 0`, skip counting the parent and count only its sub-items. Items with no sub-items count normally as a leaf.  
+**Lesson:** Progress should count leaf tasks only. A parent item with sub-tasks is a grouping header, not a trackable unit — its completion is implicit when all its children are done.
+
+---
+
 ## How to use this doc
 
 - After every fix session, add a new entry here.

@@ -43,9 +43,12 @@ const phaseStatusColor: Record<string, string> = {
 function countItems(items: { status: string; subItems?: { status: string }[] }[]): { done: number; total: number } {
   let done = 0, total = 0
   for (const item of items) {
-    total++
-    if (item.status === 'done') done++
-    if (item.subItems) for (const sub of item.subItems) { total++; if (sub.status === 'done') done++ }
+    if (item.subItems && item.subItems.length > 0) {
+      for (const sub of item.subItems) { total++; if (sub.status === 'done') done++ }
+    } else {
+      total++
+      if (item.status === 'done') done++
+    }
   }
   return { done, total }
 }
