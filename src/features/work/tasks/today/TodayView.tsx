@@ -465,7 +465,12 @@ export function TodayView() {
         }
         if (c.status === 'complete') return false
         if (allCycleDone(c)) return false
-        return isTriggerDueToday(trigger, todayDate)
+        if (isTriggerDueToday(trigger, todayDate)) return true
+        // Also surface cycles where any individual item or sub-item is due today
+        return (c.items ?? []).some(item => {
+          if (item.due && isTriggerDueToday(item.due, todayDate)) return true
+          return (item.subItems ?? []).some(sub => sub.due && isTriggerDueToday(sub.due, todayDate))
+        })
       })
       .filter(c => !query.trim() || fuzzyMatch(c.title, query))
       .sort((a, b) => {

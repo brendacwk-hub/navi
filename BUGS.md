@@ -194,6 +194,14 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-23 · Cycle with a due sub-task did not appear in Today tab
+**Symptom:** Setting a due date on an individual checklist item (or sub-task) inside a cycle had no effect on Today tab visibility — the cycle only appeared if the cycle-level `triggerLabel` was due today.  
+**Root cause:** `cyclesToday` in `TodayView.tsx` filtered exclusively on `isTriggerDueToday(c.triggerLabel)`. Per-item `due` fields on `ChecklistItem` were never evaluated.  
+**Fix:** After the trigger check, also scan `c.items` and their `subItems` — if any has a `due` matching today, include the cycle.  
+**Lesson:** "Due today" logic must operate at the item level, not just the cycle level. ChecklistItem already has a `due` field; any Today-tab filter must check it.
+
+---
+
 ## How to use this doc
 
 - After every fix session, add a new entry here.
