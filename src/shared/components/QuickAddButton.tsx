@@ -118,7 +118,6 @@ export function QuickAddButton() {
   const handleSubChange = (idx: number, val: string) => {
     const next = [...subs]
     next[idx] = val
-    if (idx === next.length - 1 && val.trim() !== '') next.push('')
     setSubs(next)
   }
 
@@ -287,7 +286,11 @@ export function QuickAddButton() {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               if (val.trim() === '') { handleSave(); return }
-                              subRefs.current[idx + 1]?.focus()
+                              if (idx === subs.length - 1) {
+                                setSubs(prev => [...prev, ''])
+                              } else {
+                                subRefs.current[idx + 1]?.focus()
+                              }
                             }
                           }}
                           placeholder={`${SUB_HINT[type]} ${idx + 1}`}

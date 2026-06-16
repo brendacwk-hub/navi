@@ -202,6 +202,14 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-24 · Task+ sub-task input: each typed character appeared on its own row
+**Symptom:** Typing "send" in a sub-task input produced four separate rows — "s", "e", "n", "d" — each on its own line.  
+**Root cause:** `handleSubChange` appended a new empty row whenever the user typed in the last input (`val.trim() !== ''`). A `useEffect` watching `subs.length` auto-focused the new empty row immediately after. So every keystroke: character lands → new empty row added → focus jumps to new row → next character lands there.  
+**Fix:** Removed the auto-append from `handleSubChange`. New rows are now only added when the user presses **Enter** on the last input. The useEffect auto-focus on length change is now correct (only fires on Enter, not on every keystroke).  
+**Lesson:** Never auto-append list rows on `onChange`. Row creation is an explicit user action (Enter / Add button). Combining auto-append with a focus-on-length-change effect creates a per-character row explosion.
+
+---
+
 ## How to use this doc
 
 - After every fix session, add a new entry here.
