@@ -9,7 +9,6 @@ import { matchesCycle } from '@/shared/lib/search-utils'
 import { type CycleFilter, cycleHasMatchingItems, CADENCE_FILTERS } from '@/shared/lib/filter-utils'
 import { computeSortDate, extractFlatItems, formatSortDate, sortCycles } from '@/shared/lib/sort-utils'
 import type { Cycle } from '@/shared/types'
-import { TemplatesView } from '@/features/work/templates/TemplatesView'
 
 const CHIP_FILTERS: CycleFilter[] = ['All', 'Latest', '⚠️ Urgent', 'Light', 'Medium', 'Heavy', 'Weekly', 'Monthly']
 
@@ -149,14 +148,6 @@ function FinanceTabInner() {
               </span>
             </button>
           ))}
-          <button
-            onClick={() => setSubArea('Templates')}
-            className={`flex-shrink-0 px-4 py-2.5 text-[13px] font-medium border-b-2 -mb-px whitespace-nowrap transition-all ${
-              activeSub === 'Templates' ? 'border-navi-blue text-navi-blue' : 'border-transparent text-white/30 hover:text-white/55'
-            }`}
-          >
-            Templates
-          </button>
         </div>
 
         <div className="hidden sm:flex absolute right-0 top-0 bottom-0 items-stretch pointer-events-none">
@@ -192,9 +183,6 @@ function FinanceTabInner() {
         )}
       </div>
 
-      {activeSub === 'Templates' ? (
-        <TemplatesView area="finance" />
-      ) : (
       <>
       {/* Chip filter row */}
       <div className="relative pl-6 pt-4 pb-3">
@@ -303,7 +291,6 @@ function FinanceTabInner() {
         )}
       </div>
       </>
-      )}
     </div>
   )
 }

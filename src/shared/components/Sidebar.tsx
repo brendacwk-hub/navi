@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Wallet, Users, Settings, Package,
   MoreHorizontal, Inbox, Lightbulb, CalendarDays, Activity, BarChart3,
-  ChevronDown, SlidersHorizontal,
+  ChevronDown, SlidersHorizontal, FileText,
 } from 'lucide-react'
 import { useInbox } from '@/shared/lib/inbox-context'
 
@@ -134,6 +134,20 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             </div>
           )
         })}
+
+        {/* Templates */}
+        {(() => {
+          const active = pathname === '/work/templates'
+          return (
+            <Link href="/work/templates" onClick={onNavigate} title="Templates"
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                active ? 'bg-navi-blue/15 text-white' : 'text-white/50 hover:text-white/80 hover:bg-white/5'
+              }`}>
+              <FileText className={`w-4 h-4 flex-shrink-0 ${active ? 'text-navi-blue' : 'text-white/30'}`} />
+              Templates
+            </Link>
+          )
+        })()}
 
         {/* Other links */}
         <div className="pt-4" />

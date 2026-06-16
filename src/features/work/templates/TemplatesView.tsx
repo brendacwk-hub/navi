@@ -22,6 +22,7 @@ export interface WorkTemplate {
   subArea?: string
   effort: Effort
   must: boolean
+  triggerLabel?: string
   items: TemplateStep[]
 }
 
@@ -47,7 +48,7 @@ const DUE_PRESETS = ['Today', 'Tomorrow', 'This Week', 'Next Week'] as const
 
 // ── DB helpers ────────────────────────────────────────────────────────────────
 
-async function loadTemplates(area: WorkArea): Promise<WorkTemplate[]> {
+export async function loadTemplates(area: WorkArea): Promise<WorkTemplate[]> {
   try {
     const res = await fetch(`/api/db?table=template_collections&eqCol=id&eqVal=${area}`)
     const json = await res.json()
@@ -56,7 +57,7 @@ async function loadTemplates(area: WorkArea): Promise<WorkTemplate[]> {
   } catch { return [] }
 }
 
-function saveTemplates(area: WorkArea, templates: WorkTemplate[]) {
+export function saveTemplates(area: WorkArea, templates: WorkTemplate[]) {
   fetch('/api/db', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -64,15 +65,16 @@ function saveTemplates(area: WorkArea, templates: WorkTemplate[]) {
   }).catch(() => {})
 }
 
-function newTemplate(area: WorkArea): WorkTemplate {
+export function newTemplate(area: WorkArea): WorkTemplate {
   return { id: `tmpl-${Date.now()}`, title: '', description: '', area, effort: 'medium', must: false, items: [{ id: `s-${Date.now()}`, label: '' }] }
 }
 
 // ── Template Form Modal ───────────────────────────────────────────────────────
 
-function TemplateFormModal({ initial, area, onSave, onDelete, onClose }: {
+export function TemplateFormModal({ initial, area: _area, allowAreaChange, onSave, onDelete, onClose }: {
   initial: WorkTemplate
   area: WorkArea
+  allowAreaChange?: boolean
   onSave: (t: WorkTemplate) => void
   onDelete?: () => void
   onClose: () => void
@@ -130,6 +132,34 @@ function TemplateFormModal({ initial, area, onSave, onDelete, onClose }: {
             />
           </div>
 
+          {/* Area (only when allowAreaChange) */}
+          {allowAreaChange && (
+            <div>
+              <label className="block text-[11px] text-white/35 uppercase tracking-widest mb-1.5">Area</label>
+              <div className="flex gap-1">
+                {(['finance', 'hr', 'ops', 'others'] as WorkArea[]).map(a => (
+                  <button key={a} onClick={() => setTmpl(prev => ({ ...prev, area: a, subArea: undefined }))}
+                    className={`flex-1 py-1.5 rounded-lg border text-[11px] font-medium capitalize transition-all ${
+                      tmpl.area === a ? 'border-white/30 bg-white/10 text-white' : 'border-white/8 text-white/35 hover:border-white/20'
+                    }`}>
+                    {a === 'hr' ? 'HR' : a.charAt(0).toUpperCase() + a.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Schedule */}
+          <div>
+            <label className="block text-[11px] text-white/35 uppercase tracking-widest mb-1.5">Schedule</label>
+            <input
+              value={tmpl.triggerLabel ?? ''}
+              onChange={e => setField('triggerLabel', e.target.value || undefined)}
+              placeholder="e.g. Every Monday, 1st of month…"
+              className="w-full bg-white/6 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors"
+            />
+          </div>
+
           {/* Sub-area + Effort */}
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -140,7 +170,7 @@ function TemplateFormModal({ initial, area, onSave, onDelete, onClose }: {
                 className="w-full bg-white/6 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/25 transition-colors"
               >
                 <option value="">None</option>
-                {SUB_AREAS[area].map(s => <option key={s} value={s}>{s}</option>)}
+                {SUB_AREAS[tmpl.area].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div>
@@ -235,7 +265,7 @@ function TemplateFormModal({ initial, area, onSave, onDelete, onClose }: {
 
 // ── Run Modal ─────────────────────────────────────────────────────────────────
 
-function RunModal({ template, area, onClose }: { template: WorkTemplate; area: WorkArea; onClose: () => void }) {
+export function RunModal({ template, area, onClose }: { template: WorkTemplate; area: WorkArea; onClose: () => void }) {
   const { addCycle } = useWorkData()
   const [name, setName] = useState(template.title)
   const [due, setDue] = useState('')
@@ -331,7 +361,7 @@ function RunModal({ template, area, onClose }: { template: WorkTemplate; area: W
 
 // ── Template Card ─────────────────────────────────────────────────────────────
 
-function TemplateCard({ template, area, onRun, onEdit }: {
+export function TemplateCard({ template, area, onRun, onEdit }: {
   template: WorkTemplate; area: WorkArea; onRun: () => void; onEdit: () => void
 }) {
   const accent = AREA_ACCENT[area]
