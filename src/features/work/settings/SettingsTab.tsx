@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle2, Circle, ExternalLink, Loader2, LogOut, RefreshCw, Bell, BellOff } from 'lucide-react'
 import { usePushNotifications } from '@/shared/lib/use-push-notifications'
+import { usePreferences, type FontScale } from '@/shared/lib/preferences-context'
 
 interface CalendarItem {
   id: string
@@ -32,8 +33,15 @@ const COLOR_PALETTE = [
   { name: 'White',     hex: '#e5e7eb' },
 ]
 
+const FONT_LABELS: { value: FontScale; label: string; desc: string }[] = [
+  { value: 'small',  label: 'Small',  desc: 'Default' },
+  { value: 'medium', label: 'Medium', desc: '+5%' },
+  { value: 'large',  label: 'Large',  desc: '+10%' },
+]
+
 export function SettingsTab() {
   const { status: pushStatus, subscribe, unsubscribe } = usePushNotifications()
+  const { fontScale, setFontScale } = usePreferences()
   const [conn, setConn]           = useState<ConnectionState | null>(null)
   const [calendars, setCalendars] = useState<CalendarItem[]>([])
   const [saving, setSaving]       = useState(false)
@@ -224,6 +232,32 @@ export function SettingsTab() {
           {statusMsg && (
             <p className="mt-3 text-xs text-navi-blue">{statusMsg}</p>
           )}
+        </div>
+      </section>
+
+      {/* ── Display ──────────────────────────────────────── */}
+      <section className="rounded-2xl border border-white/8 bg-white/2 overflow-hidden">
+        <div className="px-5 py-4">
+          <h3 className="text-sm font-semibold text-white mb-1">Text Size</h3>
+          <p className="text-xs text-white/40 mb-4 leading-relaxed">
+            Scales all text across Navi. Saves automatically.
+          </p>
+          <div className="flex gap-2">
+            {FONT_LABELS.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setFontScale(opt.value)}
+                className={`flex-1 py-2.5 rounded-xl border text-sm font-semibold transition-all flex flex-col items-center gap-0.5 ${
+                  fontScale === opt.value
+                    ? 'border-navi-blue bg-navi-blue/15 text-navi-blue'
+                    : 'border-white/10 text-white/45 hover:border-white/20 hover:text-white/70'
+                }`}
+              >
+                {opt.label}
+                <span className="text-[10px] font-normal opacity-60">{opt.desc}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 
