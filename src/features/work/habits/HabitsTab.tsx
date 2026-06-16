@@ -275,7 +275,7 @@ function WeekStrip({ habits, weekLogs, onLog, onUnlog }: {
     return Array.from({ length: n }, (_, i) => {
       const d = new Date(); d.setDate(d.getDate() - (n - 1 - i)); d.setHours(0, 0, 0, 0)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-      return { label: d.toLocaleDateString('en-GB', { weekday: 'short' }).slice(0, 2), key, dow: d.getDay(), isToday: i === n - 1 }
+      return { label: d.toLocaleDateString('en-GB', { weekday: 'short' }).slice(0, 2), dateKey: key, dow: d.getDay(), isToday: i === n - 1 }
     })
   }
 
@@ -286,8 +286,8 @@ function WeekStrip({ habits, weekLogs, onLog, onUnlog }: {
     ? [days.slice(0, 7), days.slice(7, 14), days.slice(14, 21), days.slice(21, 28)]
     : [days]
 
-  const DayCell = ({ label, key: dayKey, dow, isToday }: { label: string; key: string; dow: number; isToday: boolean }) => {
-    const logs = weekLogs[dayKey] ?? {}
+  const DayCell = ({ label, dateKey, dow, isToday }: { label: string; dateKey: string; dow: number; isToday: boolean }) => {
+    const logs = weekLogs[dateKey] ?? {}
     return (
       <div className={`flex flex-col items-center gap-1 ${range === 7 ? 'py-2' : 'py-1'} px-0.5 rounded-xl transition-all ${
         isToday ? 'bg-navi-blue/12 border border-navi-blue/20' : ''
@@ -306,8 +306,8 @@ function WeekStrip({ habits, weekLogs, onLog, onUnlog }: {
           return (
             <button
               key={h.id}
-              onClick={() => scheduled && onLog(h.id, dayKey)}
-              onContextMenu={e => { e.preventDefault(); if (scheduled && count > 0) onUnlog(h.id, dayKey) }}
+              onClick={() => scheduled && onLog(h.id, dateKey)}
+              onContextMenu={e => { e.preventDefault(); if (scheduled && count > 0) onUnlog(h.id, dateKey) }}
               title={scheduled ? `${h.name}: ${count}/${h.goal}` : `${h.name}: not scheduled`}
               className={`${size} rounded-full flex items-center justify-center font-bold transition-all ${
                 !scheduled
@@ -349,7 +349,7 @@ function WeekStrip({ habits, weekLogs, onLog, onUnlog }: {
       </div>
       {rows.map((row, ri) => (
         <div key={ri} className={`grid grid-cols-7 ${range === 7 ? 'gap-1' : 'gap-0.5 mb-1'}`}>
-          {row.map(day => <DayCell key={day.key} {...day} />)}
+          {row.map(day => <DayCell key={day.dateKey} {...day} />)}
         </div>
       ))}
     </div>
