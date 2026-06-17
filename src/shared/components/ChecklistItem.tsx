@@ -18,7 +18,7 @@ const effortLabel: Record<Effort, string> = {
   heavy: 'Heavy',
 }
 
-const DUE_PRESETS = ['Today', 'Tomorrow', 'This Week', 'Next Week']
+const DUE_PRESETS = ['Today', 'Tomorrow', 'In 2 Days', 'Next Week']
 
 interface Props {
   item: ChecklistItemType

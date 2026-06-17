@@ -67,9 +67,8 @@ export function computeSortDate(triggerLabel: string | undefined): number {
   // QuickAdd presets
   if (label === 'today') return today.getTime()
   if (label === 'tomorrow') return addDays(today, 1).getTime()
-  if (label === 'this week') {
-    const d = today.getDay()
-    return addDays(today, (5 - d + 7) % 7).getTime()
+  if (label === 'in 2 days') {
+    return addWeekdays(today, 2).getTime()
   }
   if (label === 'next week') {
     const d = today.getDay()
@@ -120,9 +119,8 @@ export function resolveLabel(label: string): string {
   if (label === 'Tomorrow') {
     const d = new Date(base); d.setDate(d.getDate() + 1); return iso(d)
   }
-  if (label === 'This Week') {
-    const diff = (5 - base.getDay() + 7) % 7
-    const d = new Date(base); d.setDate(d.getDate() + diff); return iso(d)
+  if (label === 'In 2 Days') {
+    return iso(addWeekdays(base, 2))
   }
   if (label === 'Next Week') {
     const diff = ((5 - base.getDay() + 7) % 7) + 7
@@ -393,6 +391,17 @@ export function resetCycle(cycle: Cycle): Cycle {
 
 function addDays(d: Date, n: number): Date {
   const r = new Date(d); r.setDate(r.getDate() + n); return r
+}
+
+function addWeekdays(base: Date, n: number): Date {
+  const d = new Date(base)
+  let added = 0
+  while (added < n) {
+    d.setDate(d.getDate() + 1)
+    const wd = d.getDay()
+    if (wd !== 0 && wd !== 6) added++
+  }
+  return d
 }
 
 function nextWeekday(from: Date, wd: number): number {
