@@ -87,7 +87,7 @@ export function TemplatesHubView() {
       if (areaFilter && t.area !== areaFilter) return false
       const q = query.trim().toLowerCase()
       if (q) {
-        const inTitle = t.title.toLowerCase().includes(q)
+        const inTitle = (t.title ?? '').toLowerCase().includes(q)
         const inDesc  = (t.description ?? '').toLowerCase().includes(q)
         const inSteps = Array.isArray(t.items) && t.items.some(s => (s.label ?? '').toLowerCase().includes(q))
         if (!inTitle && !inDesc && !inSteps) return false

@@ -8,10 +8,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 **Every place where users set a due date or schedule must have identical options:**
 
-1. **One-time** — presets (Today, Tomorrow, This Week, Next Week) + `<input type="date">` for custom dates.
+1. **One-time** — presets (Today, Tomorrow, In 2 Days) + `<input type="date">` for custom dates. TemplatesView additionally has: Next Mon, End of Month, Next Month.
 2. **Recurring** — `<RecurrencePicker>` from `@/shared/components/RecurrencePicker.tsx`.  
-   Format stored in `triggerLabel`/`due`: `every [N] unit from YYYY-MM-DD`  
-   Examples: `every day from 2026-06-17` · `every 3 weeks from 2026-06-01` · `every month from 2026-06-17`
+   Format stored in `triggerLabel`/`due`: `every [N] unit [on spec] from YYYY-MM-DD`  
+   Examples: `every day from 2026-06-17` · `every 3 weeks from 2026-06-01` · `every week on mon,thu from 2026-06-17` · `every month on 15 from 2026-06-17`
 3. **Mutual exclusivity** — picking a one-time date clears the recurrence string; picking a recurring option clears the one-time date.
 
 **All five touchpoints must stay in sync:**

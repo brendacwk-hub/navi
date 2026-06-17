@@ -18,7 +18,7 @@ type AreaKey = keyof typeof areaActive
 const SUB_AREAS: Partial<Record<AreaKey, string[]>> = {
   finance: ['Payments', 'Budgets', 'Administrative', 'Records', 'AI'],
   hr: ['Payroll & MPF', 'Insurance & VISA', 'Leave & Attendance', 'Onboarding & Offboarding', 'Tax', 'Records', 'AI'],
-  ops: ['Vendor & Contracts', 'Expenses', 'Arrangements'],
+  ops: ['Vendor & Contracts', 'Expenses', 'Arrangements', 'AI'],
 }
 
 const taskLinks = [

@@ -137,6 +137,14 @@ function HRTabInner() {
         <div className="hidden sm:flex absolute right-0 top-0 bottom-0 items-stretch pointer-events-none">
           <div className="w-8 bg-gradient-to-l from-[rgba(12,12,12,1)] to-transparent" />
         </div>
+        <div className="hidden sm:flex absolute right-0 top-0 bottom-0 items-center">
+          <button
+            onClick={() => setOverflowOpen(o => !o)}
+            className="h-full px-3 text-white/40 hover:text-white/70 text-sm font-bold transition-colors bg-[rgba(12,12,12,0.95)] border-b-2 border-transparent -mb-px"
+          >
+            ···
+          </button>
+        </div>
 
         {overflowOpen && (
           <>

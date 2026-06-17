@@ -263,7 +263,7 @@ export function ChecklistItem({ item, depth = 0, onToggle, onNoteChange, onLabel
           {/* Recurring */}
           <RecurrencePicker
             value={isRecurrString(item.due) ? (item.due ?? '') : ''}
-            onChange={val => { onDueChange(item.id, val); if (val) setDueOpen(false) }}
+            onChange={val => { onDueChange(item.id, val) }}
             small
           />
         </div>

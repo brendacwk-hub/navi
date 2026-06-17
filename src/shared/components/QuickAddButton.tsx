@@ -47,7 +47,7 @@ export function QuickAddButton() {
   const { addItem: addInboxItem } = useInbox()
 
   const isToday  = pathname === '/work'
-  const typeCycle = TYPE_CYCLE_ALL
+  const typeCycle = isToday ? TYPE_CYCLE_TODAY : TYPE_CYCLE_ALL
 
   const [open, setOpen]               = useState(false)
   const [type, setType]               = useState<TaskType>('task')

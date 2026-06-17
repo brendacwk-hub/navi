@@ -242,6 +242,53 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-29 · "This Week" preset on Friday computed +5 days instead of 0
+**Symptom:** Setting due date to "This Week" on a Friday produced a date 5 days ahead (the following Wednesday) instead of staying on that same Friday.
+**Root cause:** `resolveLabel('This Week')` used `((5 - base.getDay() + 7) % 7) || 5`. When today is already Friday (day 5), the expression evaluates to 0; `0 || 5` falls back to 5, adding 5 days instead of 0.
+**Fix:** Removed the `|| 5` fallback. The expression now correctly returns 0 when today is already the target day. "This Week" was subsequently removed entirely from all preset arrays.
+**Lesson:** Never use `expr || fallback` to handle a zero result when zero is a valid and expected value. Use an explicit check (`=== 0 ? 0 : expr`) instead.
+
+---
+
+### B-30 · Unchecking an item on a recurring done cycle did not clear nextDueAt
+**Symptom:** After a recurring cycle reached all-items-done (nextDueAt was set), unchecking any one item visually un-completed it but the cycle remained locked in the "done" state. The UI still showed it as complete.
+**Root cause:** `toggleItem` only handled the "just became fully done" path. There was no "un-done" branch to detect when a cycle with `nextDueAt` set had an item unchecked, making it no longer fully complete.
+**Fix:** Added un-done branch in `work-data-context.tsx`: when `isRecurring && changed.nextDueAt && !allCycleDone(changed)` → clear `nextDueAt` from both state and DB.
+**Lesson:** Whenever you add a "completion" state flag (`nextDueAt` acting as a done marker), you must also handle the reverse path when the user un-does an action that set the flag.
+
+---
+
+### B-31 · Weekday-specific recurrence had no UI (e.g. "Every Mon & Thu")
+**Symptom:** RecurrencePicker offered no way to select specific weekdays for weekly recurrence — only "every N weeks" was supported.
+**Root cause:** The UI had no weekday toggle row. The stored format had no `on` clause.
+**Fix:** Added a Row 2 weekday toggle (Sun–Sat) visible when unit=week. At least one day must remain selected. Extended RECURR_RE with optional `(?:\s+on\s+([a-z0-9,]+))?` group. New stored format: `every week on mon,thu from DATE`. Added `nextWeekdayOnOrAfter` and `nextWeekdayStrictlyAfter` helpers with N-week alignment via `getMondayOf`. Updated `isTriggerDueToday`, `computeSortDate`, and `computeSkipDate` for weekday on-spec.
+**Lesson:** N-week alignment must use `getMondayOf(start)` as the anchor and advance by N×7 days per iteration — not just count any matching weekday.
+
+---
+
+### B-32 · Month-day recurrence had no UI (e.g. "Every month on the 15th")
+**Symptom:** Monthly recurrence fired on the same calendar day as the start date with no way to pin it to a specific day or "last day of month."
+**Root cause:** RecurrencePicker had no month-day selector. The stored format had no `on` clause for months.
+**Fix:** Added "on the [dropdown: 1st–31st + last day]" row visible when unit=month. Extended RECURR_RE and parsers. New stored format: `every month on 15 from DATE` or `every month on last from DATE`. Added `nextMonthDayOnOrAfter` and `nextMonthDayStrictlyAfter` with N-month alignment. Updated `isTriggerDueToday`, `computeSortDate`, and `computeSkipDate`.
+**Lesson:** "Last day of month" requires a special string sentinel ("last") since the integer varies per month. Always clamp the target day to `maxDay` for months shorter than 31 days.
+
+---
+
+### B-33 · RECURR_RE group index shift broke date parsing after adding on-spec group
+**Symptom:** After adding the optional `(?:\s+on\s+([a-z0-9,]+))?` capture group to RECURR_RE, code that read `m[3]` for the date was now reading the on-spec string (e.g., "mon") as a date, producing Invalid Date for any weekday recurrence.
+**Root cause:** Adding a new capture group shifted the date group from m[3] to m[4]. Both `sort-utils.ts` and `RecurrencePicker.tsx` had hardcoded group indices that were not updated.
+**Fix:** Updated all references: m[1]=N (optional), m[2]=unit, m[3]=on-spec (optional), m[4]=date. Both files verified to use m[4] for the date.
+**Lesson:** When inserting a new capture group into a regex, immediately audit every use of m[1]..m[N] in both the same file and all files that import the regex. Optional groups shift all subsequent group indices.
+
+---
+
+### B-34 · "In 2 Days" replaced ambiguous "This Week" preset
+**Symptom:** "This Week" was unclear — especially for end of week vs. beginning of next week context, and especially problematic on Fridays/weekends.
+**Fix:** Replaced "This Week" with "In 2 Days" across all four due-date touchpoints (QuickAddButton, CycleCard, ChecklistItem, TemplatesView). "In 2 Days" uses `addWeekdays(today, 2)` which skips Saturday and Sunday. "Next Week" also removed from task touchpoints (kept only in TemplatesView for longer-horizon planning presets).
+**Lesson:** Date presets should be unambiguous. Business-day–aware helpers (`addWeekdays`) prevent surprises around weekends.
+
+---
+
 ## How to use this doc
 
 - After every fix session, add a new entry here.

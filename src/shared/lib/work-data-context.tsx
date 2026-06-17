@@ -289,7 +289,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
     dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(cycle) })
   }, [cycleSetter])
 
-  const updateCycle = useCallback((area: WorkArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes'>>) => {
+  const updateCycle = useCallback((area: WorkArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes' | 'nextDueAt'>>) => {
     cycleSetter(area)(prev => {
       const target = prev.find(c => c.id === id)
       // Archive non-recurring cycles when explicitly marked complete

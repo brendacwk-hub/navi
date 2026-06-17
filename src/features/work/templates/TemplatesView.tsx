@@ -93,7 +93,7 @@ export function TemplateFormModal({ initial, area: _area, allowAreaChange, onSav
   const removeStep = (idx: number) =>
     setTmpl(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }))
 
-  const canSave = tmpl.title.trim() && tmpl.items.some(s => s.label.trim())
+  const canSave = tmpl.title.trim() && Array.isArray(tmpl.items) && tmpl.items.some(s => s.label.trim())
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 pb-6 sm:pb-4">
