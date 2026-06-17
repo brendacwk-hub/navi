@@ -69,7 +69,7 @@ export function computeSortDate(triggerLabel: string | undefined): number {
   if (label === 'tomorrow') return addDays(today, 1).getTime()
   if (label === 'this week') {
     const d = today.getDay()
-    return addDays(today, (5 - d + 7) % 7 || 5).getTime()
+    return addDays(today, (5 - d + 7) % 7).getTime()
   }
   if (label === 'next week') {
     const d = today.getDay()
@@ -121,7 +121,7 @@ export function resolveLabel(label: string): string {
     const d = new Date(base); d.setDate(d.getDate() + 1); return iso(d)
   }
   if (label === 'This Week') {
-    const diff = (5 - base.getDay() + 7) % 7 || 5
+    const diff = (5 - base.getDay() + 7) % 7
     const d = new Date(base); d.setDate(d.getDate() + diff); return iso(d)
   }
   if (label === 'Next Week') {

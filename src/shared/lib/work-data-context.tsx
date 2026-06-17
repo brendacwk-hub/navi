@@ -316,6 +316,12 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
         : c)
       const changed = toggled.find(c => c.id === cycleId)
       if (!changed) return toggled
+      // If recurring and was marked done but items are now incomplete → un-done it
+      if (isRecurring(changed.triggerLabel) && changed.nextDueAt && !allCycleDone(changed)) {
+        const withCleared = { ...changed, nextDueAt: undefined }
+        syncCycle(withCleared)
+        return toggled.map(c => c.id === cycleId ? withCleared : c)
+      }
       // If recurring and now fully done → record completion + next due date
       if (isRecurring(changed.triggerLabel) && allCycleDone(changed)) {
         const nextDue = computeNextDue(changed.triggerLabel)
