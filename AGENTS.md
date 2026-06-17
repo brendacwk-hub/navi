@@ -22,3 +22,53 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Any future date/schedule input
 
 Never use a plain text `<input>` for scheduling. Never add a new date UI without adding `RecurrencePicker` alongside it.
+
+# Personal Mode — architecture reference
+
+## Areas
+| Area | Key | Sub-areas |
+|------|-----|-----------|
+| Housework | `housework` | none |
+| Finance (personal) | `personal-finance` | none |
+| Sidoi | `sidoi` | Orders, Marketing, Planning |
+| To Buy | `tobuy` | none |
+
+`PersonalArea = 'housework' | 'personal-finance' | 'sidoi' | 'tobuy'`
+
+## Mode switching
+- Header badge tap: switches URL between `/work/*` and `/personal/*`
+- Instant, no animation
+- Header + sidebar background: `#0c0c0c` (work) → `#0e1628` navy (personal)
+- Badge turns pink in personal mode
+- Sidebar content swaps completely; Calendar + Analytics appear in both sidebars (after thin divider)
+
+## Personal sidebar order
+Today → Housework → Finance → Sidoi → To Buy → [divider] → Diary → Calendar (shared) → Analytics (shared)
+
+## Visual theme (Personal)
+- Background: `#0e1628` (dark navy, from Stash app)
+- Primary accent: `#f0a8c8` (soft pink)
+- Borders/muted: `rgba(180,140,220,...)`
+- Area accent colors: Housework `#6ee7b7` · Finance `#c4b5fd` · Sidoi `#f9a8d4` · To Buy `#fcd34d`
+
+## Data layer
+- All personal cycles stored in the same `cycles` table with `mode = 'personal'`
+- `template_collections` — personal areas use distinct keys (`housework`, `sidoi`, `tobuy`, `personal-finance`)
+- `diary_entries` table: `id` (YYYY-MM-DD PK), `mood` text, `prompts` jsonb, `body` text, `created_at` timestamptz
+- DB migration: `ALTER TABLE cycles ADD COLUMN IF NOT EXISTS mode text NOT NULL DEFAULT 'work';`
+
+## Shared vs isolated
+- **Shared:** Calendar tab, Analytics tab (both appear in work + personal sidebars)
+- **Work-only:** Inbox, Habits (habit dots appear on shared Calendar)
+- **Personal-only:** Diary tab
+- **Isolated:** QuickAdd is context-aware (personal mode shows only personal areas)
+
+## Diary tab
+- One entry per day; emoji mood picker (😄 🙂 😐 😔 😢)
+- Smart prompts from day 1: based on Google Calendar events, completed tasks, busy work day detection, personality notes
+- 50% basic rotating questions (no daily repeats) + 50% context-specific
+- Free write section below prompts
+- Personality notes file: `navi/personal/personality.md` (traits + values + goals + routines — user fills in)
+
+## Components reused from Work mode (no changes needed)
+CycleCard, ChecklistItem, RecurrencePicker, sort-utils, filter-utils, search-utils, QuickAddButton (area selector extended)
