@@ -45,7 +45,7 @@ const AREA_ACCENT: Record<WorkArea, { badge: string; btn: string }> = {
 
 const EFFORT_OPTIONS: Effort[] = ['quick', 'medium', 'heavy']
 const effortDot: Record<Effort, string> = { quick: 'bg-green-500', medium: 'bg-yellow-500', heavy: 'bg-orange-500' }
-const DUE_PRESETS = ['Today', 'Tomorrow', 'In 2 Days', 'Next Mon', 'Next Week', 'End of Month', 'Next Month'] as const
+const DUE_PRESETS = ['Today', 'Tomorrow', 'In 2 Days', 'Next Mon', 'End of Month', 'Next Month'] as const
 
 // ── DB helpers ────────────────────────────────────────────────────────────────
 

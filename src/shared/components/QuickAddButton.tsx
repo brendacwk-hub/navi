@@ -347,7 +347,7 @@ export function QuickAddButton() {
                     <div className="pt-3 space-y-3">
                       {/* One-time */}
                       <div className="flex flex-wrap gap-2 items-center">
-                        {(['Today', 'Tomorrow', 'In 2 Days', 'Next Week'] as const).map(d => (
+                        {(['Today', 'Tomorrow', 'In 2 Days'] as const).map(d => (
                           <button key={d}
                             onClick={() => { setDueLabel(prev => prev === d ? '' : d); setRecurrLabel(''); setActivePanel(null) }}
                             className={`text-xs px-3 py-1.5 rounded-lg border transition-all ${

@@ -14,16 +14,19 @@ export interface FlatItem {
   sortDate: number
 }
 
-// ── New recurrence pattern: "every [N] unit from YYYY-MM-DD" ─────────────────
-const RECURR_RE = /^every (?:(\d+) )?(days?|weeks?|months?|years?) from (\d{4}-\d{2}-\d{2})$/i
+// ── New recurrence pattern: "every [N] unit [on spec] from YYYY-MM-DD" ───────
+// spec: weekdays "mon,thu" | month day "15" | "last"
+const RECURR_RE = /^every (?:(\d+) )?(days?|weeks?|months?|years?)(?:\s+on\s+([a-z0-9,]+))?\s+from (\d{4}-\d{2}-\d{2})$/i
+const DAY_ABBR  = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
 
-function parseRecurrFields(triggerLabel: string): { n: number; unit: string; start: Date } | null {
+function parseRecurrFields(triggerLabel: string): { n: number; unit: string; on: string | null; start: Date } | null {
   const m = triggerLabel.match(RECURR_RE)
   if (!m) return null
   return {
     n:     m[1] ? parseInt(m[1]) : 1,
-    unit:  m[2].toLowerCase().replace(/s$/, ''),  // singular: day, week, month, year
-    start: new Date(m[3] + 'T00:00:00'),
+    unit:  m[2].toLowerCase().replace(/s$/, ''),
+    on:    m[3] ? m[3].toLowerCase() : null,
+    start: new Date(m[4] + 'T00:00:00'),
   }
 }
 
@@ -38,8 +41,17 @@ export function computeSortDate(triggerLabel: string | undefined): number {
   // New recurrence pattern — return next occurrence >= today
   const rp = parseRecurrFields(triggerLabel)
   if (rp) {
-    const { n, unit, start } = rp
+    const { n, unit, on, start } = rp
     if (start >= today) return start.getTime()
+
+    if (unit === 'week' && on) {
+      const wds = on.split(',').map(d => DAY_ABBR.indexOf(d)).filter(d => d !== -1)
+      if (wds.length > 0) return nextWeekdayOnOrAfter(today, n, start, wds).getTime()
+    }
+    if (unit === 'month' && on) {
+      return nextMonthDayOnOrAfter(today, n, start, on).getTime()
+    }
+
     if (unit === 'day') {
       const daysDiff = Math.round((today.getTime() - start.getTime()) / 86400000)
       const rem = daysDiff % n
@@ -206,8 +218,28 @@ export function isTriggerDueToday(triggerLabel: string | undefined, today: Date)
   // New recurrence pattern
   const rp = parseRecurrFields(triggerLabel)
   if (rp) {
-    const { n, unit, start } = rp
+    const { n, unit, on, start } = rp
     if (today.getTime() < start.getTime()) return false
+
+    if (unit === 'week' && on) {
+      const wds = on.split(',').map(d => DAY_ABBR.indexOf(d)).filter(d => d !== -1)
+      if (!wds.includes(today.getDay())) return false
+      if (n === 1) return true
+      const startMon = getMondayOf(start)
+      const todayMon = getMondayOf(today)
+      const weeksDiff = Math.round((todayMon.getTime() - startMon.getTime()) / (7 * 86400000))
+      return weeksDiff % n === 0
+    }
+    if (unit === 'month' && on) {
+      const monthsFromStart = (today.getFullYear() - start.getFullYear()) * 12 + (today.getMonth() - start.getMonth())
+      if (monthsFromStart < 0 || monthsFromStart % n !== 0) return false
+      if (on === 'last') {
+        return today.getDate() === new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+      }
+      const maxDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+      return today.getDate() === Math.min(parseInt(on), maxDay)
+    }
+
     const daysDiff = Math.round((today.getTime() - start.getTime()) / 86400000)
     if (unit === 'day') return daysDiff % n === 0
     if (unit === 'week') return daysDiff % (n * 7) === 0
@@ -277,7 +309,16 @@ export function computeSkipDate(triggerLabel: string | undefined): string | null
   // New recurrence pattern — next occurrence strictly AFTER today
   const rp = parseRecurrFields(triggerLabel ?? '')
   if (rp) {
-    const { n, unit, start } = rp
+    const { n, unit, on, start } = rp
+
+    if (unit === 'week' && on) {
+      const wds = on.split(',').map(d => DAY_ABBR.indexOf(d)).filter(d => d !== -1)
+      if (wds.length > 0) return nextWeekdayStrictlyAfter(today, n, start, wds).toISOString().slice(0, 10)
+    }
+    if (unit === 'month' && on) {
+      return nextMonthDayStrictlyAfter(today, n, start, on).toISOString().slice(0, 10)
+    }
+
     if (unit === 'day') {
       const daysDiff = Math.round((today.getTime() - start.getTime()) / 86400000)
       const rem = daysDiff % n
@@ -402,6 +443,66 @@ function addWeekdays(base: Date, n: number): Date {
     if (wd !== 0 && wd !== 6) added++
   }
   return d
+}
+
+function getMondayOf(d: Date): Date {
+  const r = new Date(d)
+  r.setDate(r.getDate() - ((r.getDay() + 6) % 7))
+  r.setHours(0, 0, 0, 0)
+  return r
+}
+
+// Next occurrence of any targetWds weekday on or after `after`, respecting N-week alignment to start
+function nextWeekdayOnOrAfter(after: Date, n: number, start: Date, targetWds: number[]): Date {
+  if (n === 1) {
+    const d = new Date(after)
+    for (let i = 0; i < 14; i++) {
+      if (targetWds.includes(d.getDay())) return d
+      d.setDate(d.getDate() + 1)
+    }
+    return d
+  }
+  let weekMon = getMondayOf(start)
+  const limit = addDays(after, 400)
+  while (weekMon < limit) {
+    for (const wd of [...targetWds].sort((a, b) => a - b)) {
+      const offset = (wd + 6) % 7  // Mon=0…Sun=6
+      const occ = addDays(weekMon, offset)
+      occ.setHours(0, 0, 0, 0)
+      if (occ >= after) return occ
+    }
+    weekMon = addDays(weekMon, n * 7)
+  }
+  return addDays(after, n * 7)
+}
+
+function nextWeekdayStrictlyAfter(after: Date, n: number, start: Date, targetWds: number[]): Date {
+  return nextWeekdayOnOrAfter(addDays(after, 1), n, start, targetWds)
+}
+
+// Next occurrence of a specific month day on or after `after`, respecting N-month alignment to start
+function nextMonthDayOnOrAfter(after: Date, n: number, start: Date, daySpec: string): Date {
+  const isLast = daySpec === 'last'
+  const targetDay = isLast ? -1 : parseInt(daySpec)
+  let year = after.getFullYear()
+  let month = after.getMonth()
+  for (let i = 0; i < 48; i++) {
+    const monthsFromStart = (year - start.getFullYear()) * 12 + (month - start.getMonth())
+    if (monthsFromStart >= 0 && monthsFromStart % n === 0) {
+      const occ = isLast
+        ? new Date(year, month + 1, 0)
+        : new Date(year, month, Math.min(targetDay, new Date(year, month + 1, 0).getDate()))
+      occ.setHours(0, 0, 0, 0)
+      if (occ >= after) return occ
+    }
+    month++
+    if (month > 11) { month = 0; year++ }
+  }
+  return addDays(after, 30)
+}
+
+function nextMonthDayStrictlyAfter(after: Date, n: number, start: Date, daySpec: string): Date {
+  return nextMonthDayOnOrAfter(addDays(after, 1), n, start, daySpec)
 }
 
 function nextWeekday(from: Date, wd: number): number {
