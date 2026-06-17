@@ -115,6 +115,7 @@ function patchTodaySub(tasks: TodayTaskData[], taskId: string, subId: string, fn
 // ── Context shape ─────────────────────────────────────────────────────────────
 interface WorkDataCtx {
   financeCycles: Cycle[]; hrCycles: Cycle[]; opsCycles: Cycle[]; othersCycles: Cycle[]
+  completedTitles: string[]
   addCycle: (area: WorkArea, cycle: Cycle) => void
   updateCycle: (area: WorkArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes' | 'nextDueAt'>>) => void
   deleteCycle: (area: WorkArea, id: string) => void
@@ -143,12 +144,13 @@ interface WorkDataCtx {
 const WorkDataContext = createContext<WorkDataCtx | null>(null)
 
 export function WorkDataProvider({ children }: { children: React.ReactNode }) {
-  const [financeCycles, setFinanceCycles] = useState<Cycle[]>(initFinance)
-  const [hrCycles,      setHrCycles]      = useState<Cycle[]>(initHr)
-  const [opsCycles,     setOpsCycles]     = useState<Cycle[]>([])
-  const [othersCycles,  setOthersCycles]  = useState<Cycle[]>([])
-  const [todayTasks,    setTodayTasks]    = useState<TodayTaskData[]>(initToday)
-  const [todayLoaded,   setTodayLoaded]   = useState(false)
+  const [financeCycles,   setFinanceCycles]   = useState<Cycle[]>(initFinance)
+  const [hrCycles,        setHrCycles]        = useState<Cycle[]>(initHr)
+  const [opsCycles,       setOpsCycles]       = useState<Cycle[]>([])
+  const [othersCycles,    setOthersCycles]    = useState<Cycle[]>([])
+  const [todayTasks,      setTodayTasks]      = useState<TodayTaskData[]>(initToday)
+  const [todayLoaded,     setTodayLoaded]     = useState(false)
+  const [completedTitles, setCompletedTitles] = useState<string[]>([])
   const sbReady = useRef(false)
 
   // ── Load from DB on mount ─────────────────────────────────────────────────
@@ -196,14 +198,33 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
           ...toInsert,
         ]
         const allCycles = applyRecurrenceResets(merged, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
-        setFinanceCycles(allCycles.filter(c => c.area === 'finance'))
-        setHrCycles(allCycles.filter(c => c.area === 'hr'))
-        setOpsCycles(allCycles.filter(c => c.area === 'ops'))
-        setOthersCycles(allCycles.filter(c => c.area === 'others'))
+
+        // Migrate existing completed non-recurring cycles → completed_tasks table
+        const toArchive = allCycles.filter(c => c.status === 'complete' && !isRecurring(c.triggerLabel))
+        if (toArchive.length > 0) {
+          const now = new Date().toISOString()
+          dbWrite({ table: 'completed_tasks', operation: 'upsert', data: toArchive.map(c => ({
+            id: c.id, title: c.title, area: c.area, effort: c.effort,
+            sub_area: c.subArea ?? null, items: c.items ?? null,
+            completed_at: c.lastCompletedAt ?? now, notes: c.notes ?? null,
+          }))})
+          toArchive.forEach(c => dbWrite({ table: 'cycles', operation: 'delete', matchId: c.id }))
+        }
+        const activeCycles = allCycles.filter(c => !(c.status === 'complete' && !isRecurring(c.triggerLabel)))
+        setFinanceCycles(activeCycles.filter(c => c.area === 'finance'))
+        setHrCycles(activeCycles.filter(c => c.area === 'hr'))
+        setOpsCycles(activeCycles.filter(c => c.area === 'ops'))
+        setOthersCycles(activeCycles.filter(c => c.area === 'others'))
       } else {
         // First ever load — seed the DB with initial data
         dbWrite({ table: 'cycles', operation: 'upsert', data: [...initFinance, ...initHr].map(toRow) })
       }
+
+      // Load completed task titles for QuickAdd suggestions
+      try {
+        const completedRows = await dbRead('completed_tasks') as { title: string }[]
+        setCompletedTitles(completedRows.map(r => r.title).filter(Boolean))
+      } catch { /* table may not exist yet */ }
 
       const todayRows = await dbRead('today_tasks', { col: 'id', val: 'singleton' })
       if (todayRows.length > 0) {
@@ -270,6 +291,18 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
 
   const updateCycle = useCallback((area: WorkArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes'>>) => {
     cycleSetter(area)(prev => {
+      const target = prev.find(c => c.id === id)
+      // Archive non-recurring cycles when explicitly marked complete
+      if (patch.status === 'complete' && target && !isRecurring(target.triggerLabel)) {
+        dbWrite({ table: 'completed_tasks', operation: 'upsert', data: {
+          id: target.id, title: target.title, area: target.area, effort: target.effort,
+          sub_area: target.subArea ?? null, items: target.items ?? null,
+          completed_at: new Date().toISOString(), notes: target.notes ?? null,
+        }})
+        dbWrite({ table: 'cycles', operation: 'delete', matchId: id })
+        setCompletedTitles(ct => [...new Set([...ct, target.title])])
+        return prev.filter(c => c.id !== id)
+      }
       const next = prev.map(c => c.id === id ? { ...c, ...patch } : c)
       const changed = next.find(c => c.id === id); if (changed) syncCycle(changed)
       return next
@@ -414,7 +447,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <WorkDataContext.Provider value={{
-      financeCycles, hrCycles, opsCycles, othersCycles,
+      financeCycles, hrCycles, opsCycles, othersCycles, completedTitles,
       addCycle, updateCycle, deleteCycle, deleteItem, addCycleItem, toggleItem, setItemLabel, setItemNote, setItemUrgent, setItemDue,
       todayTasks, todayLoaded, addTodayTask, addTodaySubItem, toggleTodayTask, deleteTodayTask,
       toggleTodaySubItem, deleteTodaySubItem, updateTodayTaskLabel, updateTodaySubItemLabel,

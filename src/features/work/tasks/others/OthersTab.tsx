@@ -13,24 +13,18 @@ const filters: CycleFilter[] = ['All', 'Must', '⚠️ Urgent', 'Light', 'Medium
 
 export function OthersTab() {
   const [active, setActive] = useState<CycleFilter>('All')
-  const [showCompleted, setShowCompleted] = useState(false)
   const { othersCycles } = useWorkData()
   const { query } = useSearch()
 
-  const completedCount = useMemo(() =>
-    othersCycles.filter(c => c.status === 'complete').length,
-  [othersCycles])
-
   const filtered = useMemo(() => sortCycles(
     othersCycles.filter(cycle => {
-      if (!showCompleted && cycle.status === 'complete') return false
       const chipMatch = (() => {
         if (active === 'All') return true
         return cycleHasMatchingItems(cycle, active)
       })()
       return chipMatch && matchesCycle(cycle, query)
     })
-  ), [othersCycles, active, query, showCompleted])
+  ), [othersCycles, active, query])
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -87,16 +81,6 @@ export function OthersTab() {
               filter={CADENCE_FILTERS.has(active) ? 'All' : active}
             />
           ))
-        )}
-        {completedCount > 0 && active === 'All' && (
-          <div className="mt-4 pb-2 text-center">
-            <button
-              onClick={() => setShowCompleted(s => !s)}
-              className="text-[11px] text-white/25 hover:text-white/50 transition-colors py-1"
-            >
-              {showCompleted ? `↑ Hide ${completedCount} completed` : `↓ ${completedCount} completed — show`}
-            </button>
-          </div>
         )}
       </div>
     </div>

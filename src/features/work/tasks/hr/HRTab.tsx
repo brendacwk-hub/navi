@@ -38,7 +38,6 @@ function groupBySubArea(cycles: Cycle[], subAreaOrder: string[]): { subArea: str
 function HRTabInner() {
   const [chipFilter, setChipFilter] = useState<CycleFilter>('All')
   const [overflowOpen, setOverflowOpen] = useState(false)
-  const [showCompleted, setShowCompleted] = useState(false)
   const { hrCycles, toggleItem } = useWorkData()
   const { query } = useSearch()
   const searchParams = useSearchParams()
@@ -72,14 +71,9 @@ function HRTabInner() {
     return acc
   }, {}), [hrCycles])
 
-  const completedCount = useMemo(() =>
-    hrCycles.filter(c => c.status === 'complete').length,
-  [hrCycles])
-
   // Cycles filtered and sorted by deadline
   const sortedFiltered = useMemo(() => sortCycles(
     hrCycles.filter(cycle => {
-      if (!showCompleted && cycle.status === 'complete') return false
       if (activeSub && cycle.subArea !== activeSub) return false
       if (chipFilter === 'Latest') return matchesCycle(cycle, query)
       const chipMatch = (() => {
@@ -88,7 +82,7 @@ function HRTabInner() {
       })()
       return chipMatch && matchesCycle(cycle, query)
     })
-  ), [hrCycles, activeSub, chipFilter, query, showCompleted])
+  ), [hrCycles, activeSub, chipFilter, query])
 
   // Flat items for Latest view
   const flatItems = useMemo(() => {
@@ -267,16 +261,6 @@ function HRTabInner() {
             {sortedFiltered.map(cycle => (
               <CycleCard key={cycle.id} cycle={cycle} filter={CADENCE_FILTERS.has(chipFilter) ? 'All' : chipFilter} />
             ))}
-          </div>
-        )}
-        {completedCount > 0 && chipFilter === 'All' && !activeSub && (
-          <div className="mt-4 pb-2 text-center">
-            <button
-              onClick={() => setShowCompleted(s => !s)}
-              className="text-[11px] text-white/25 hover:text-white/50 transition-colors py-1"
-            >
-              {showCompleted ? `↑ Hide ${completedCount} completed` : `↓ ${completedCount} completed — show`}
-            </button>
           </div>
         )}
       </div>

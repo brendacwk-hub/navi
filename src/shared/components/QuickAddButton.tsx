@@ -42,7 +42,7 @@ function pathnameArea(p: string): WorkArea {
 
 export function QuickAddButton() {
   const pathname = usePathname()
-  const { addCycle, financeCycles, hrCycles, opsCycles, othersCycles } = useWorkData()
+  const { addCycle, financeCycles, hrCycles, opsCycles, othersCycles, completedTitles } = useWorkData()
   const { addItem: addInboxItem } = useInbox()
 
   const isToday  = pathname === '/work'
@@ -67,7 +67,7 @@ export function QuickAddButton() {
   const titleRef = useRef<HTMLInputElement>(null)
   const subRefs  = useRef<(HTMLInputElement | null)[]>([])
 
-  // Build suggestion corpus from all cycle titles and checklist item labels
+  // Build suggestion corpus from active cycles + past completed task titles
   const corpus = useMemo(() => {
     const all = [...financeCycles, ...hrCycles, ...opsCycles, ...othersCycles]
     const seen = new Set<string>()
@@ -84,8 +84,11 @@ export function QuickAddButton() {
         }
       }
     }
+    for (const t of completedTitles) {
+      if (!seen.has(t)) { seen.add(t); result.push({ label: t, area: 'finance' }) }
+    }
     return result
-  }, [financeCycles, hrCycles, opsCycles, othersCycles])
+  }, [financeCycles, hrCycles, opsCycles, othersCycles, completedTitles])
 
   const suggestions = useMemo(() => {
     if (!open || title.length < 2) return []

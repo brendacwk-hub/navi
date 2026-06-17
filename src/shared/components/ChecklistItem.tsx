@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { ExternalLink, MessageSquare, Clock, ChevronRight, Pencil, X, Calendar } from 'lucide-react'
 import type { ChecklistItem as ChecklistItemType, Effort } from '@/shared/types'
+import { resolveLabel } from '@/shared/lib/sort-utils'
 
 const effortDot: Record<Effort, string> = {
   quick: 'bg-green-500',
@@ -16,7 +17,7 @@ const effortLabel: Record<Effort, string> = {
   heavy: 'Heavy',
 }
 
-const DUE_PRESETS = ['Today', 'Tomorrow', 'This week', 'Next week']
+const DUE_PRESETS = ['Today', 'Tomorrow', 'This Week', 'Next Week']
 
 interface Props {
   item: ChecklistItemType
@@ -225,12 +226,12 @@ export function ChecklistItem({ item, depth = 0, onToggle, onNoteChange, onLabel
 
       {/* Due date picker */}
       {dueOpen && onDueChange && (
-        <div style={{ paddingLeft: `${28 + indent}px` }} className="pb-2 pr-2 flex flex-wrap gap-1.5">
+        <div style={{ paddingLeft: `${28 + indent}px` }} className="pb-2 pr-2 flex flex-wrap gap-1.5 items-center">
           {DUE_PRESETS.map(preset => (
             <button key={preset}
-              onClick={() => { onDueChange(item.id, preset); setDueOpen(false) }}
+              onClick={() => { onDueChange(item.id, resolveLabel(preset)); setDueOpen(false) }}
               className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all ${
-                item.due === preset
+                item.due === resolveLabel(preset)
                   ? 'bg-navi-blue/20 border-navi-blue/40 text-navi-blue font-semibold'
                   : 'border-white/10 text-white/50 hover:border-white/25 hover:text-white/75'
               }`}
@@ -238,6 +239,12 @@ export function ChecklistItem({ item, depth = 0, onToggle, onNoteChange, onLabel
               {preset}
             </button>
           ))}
+          <input
+            type="date"
+            value={/^\d{4}-\d{2}-\d{2}$/.test(item.due ?? '') ? (item.due ?? '') : ''}
+            onChange={e => { if (e.target.value) { onDueChange(item.id, e.target.value); setDueOpen(false) } }}
+            className="text-[11px] px-2 py-0.5 rounded-lg border border-white/10 bg-transparent text-white/55 focus:outline-none focus:border-navi-blue/50 [color-scheme:dark]"
+          />
           {item.due && (
             <button onClick={() => { onDueChange(item.id, ''); setDueOpen(false) }}
               className="text-[11px] px-2.5 py-1 rounded-lg border border-white/10 text-white/30 hover:text-white/55">

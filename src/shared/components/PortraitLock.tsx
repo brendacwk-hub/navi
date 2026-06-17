@@ -6,6 +6,21 @@ export function PortraitLock() {
   const [isLandscape, setIsLandscape] = useState(false)
 
   useEffect(() => {
+    // Prevent pinch-to-zoom on touch devices
+    const preventTouchZoom = (e: TouchEvent) => {
+      if (e.touches.length > 1) e.preventDefault()
+    }
+    // Prevent gesture-based zoom in Safari
+    const preventGesture = (e: Event) => { e.preventDefault() }
+    // Prevent Ctrl+scroll zoom on desktop
+    const preventWheelZoom = (e: WheelEvent) => {
+      if (e.ctrlKey) e.preventDefault()
+    }
+    document.addEventListener('touchmove', preventTouchZoom, { passive: false })
+    document.addEventListener('gesturestart', preventGesture, { passive: false })
+    document.addEventListener('gesturechange', preventGesture, { passive: false })
+    document.addEventListener('wheel', preventWheelZoom, { passive: false })
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(screen.orientation as any)?.lock?.('portrait').catch(() => {})
 
@@ -14,7 +29,13 @@ export function PortraitLock() {
     const handler = (e: MediaQueryListEvent | MediaQueryList) => setIsLandscape(e.matches)
     handler(mq)
     mq.addEventListener('change', handler as (e: MediaQueryListEvent) => void)
-    return () => mq.removeEventListener('change', handler as (e: MediaQueryListEvent) => void)
+    return () => {
+      mq.removeEventListener('change', handler as (e: MediaQueryListEvent) => void)
+      document.removeEventListener('touchmove', preventTouchZoom)
+      document.removeEventListener('gesturestart', preventGesture)
+      document.removeEventListener('gesturechange', preventGesture)
+      document.removeEventListener('wheel', preventWheelZoom)
+    }
   }, [])
 
   if (!isLandscape) return null

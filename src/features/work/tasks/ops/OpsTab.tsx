@@ -39,7 +39,6 @@ function groupBySubArea(cycles: Cycle[], subAreaOrder: string[]): { subArea: str
 function OpsTabInner() {
   const [chipFilter, setChipFilter] = useState<CycleFilter>('All')
   const [overflowOpen, setOverflowOpen] = useState(false)
-  const [showCompleted, setShowCompleted] = useState(false)
   const { opsCycles } = useWorkData()
   const { query } = useSearch()
   const searchParams = useSearchParams()
@@ -72,13 +71,8 @@ function OpsTabInner() {
     return acc
   }, {}), [opsCycles])
 
-  const completedCount = useMemo(() =>
-    opsCycles.filter(c => c.status === 'complete').length,
-  [opsCycles])
-
   const sortedFiltered = useMemo(() => sortCycles(
     opsCycles.filter(cycle => {
-      if (!showCompleted && cycle.status === 'complete') return false
       if (activeSub && cycle.subArea !== activeSub) return false
       const chipMatch = (() => {
         if (chipFilter === 'All') return true
@@ -86,7 +80,7 @@ function OpsTabInner() {
       })()
       return chipMatch && matchesCycle(cycle, query)
     })
-  ), [opsCycles, activeSub, chipFilter, query, showCompleted])
+  ), [opsCycles, activeSub, chipFilter, query])
 
   const groups = useMemo(() => groupBySubArea(sortedFiltered, sortedSubAreas), [sortedFiltered, sortedSubAreas])
   const showGroups = !activeSub && chipFilter === 'All' && !query
@@ -229,16 +223,6 @@ function OpsTabInner() {
             {sortedFiltered.map(cycle => (
               <CycleCard key={cycle.id} cycle={cycle} filter={CADENCE_FILTERS.has(chipFilter) ? 'All' : chipFilter} />
             ))}
-          </div>
-        )}
-        {completedCount > 0 && chipFilter === 'All' && !activeSub && (
-          <div className="mt-4 pb-2 text-center">
-            <button
-              onClick={() => setShowCompleted(s => !s)}
-              className="text-[11px] text-white/25 hover:text-white/50 transition-colors py-1"
-            >
-              {showCompleted ? `↑ Hide ${completedCount} completed` : `↓ ${completedCount} completed — show`}
-            </button>
           </div>
         )}
       </div>

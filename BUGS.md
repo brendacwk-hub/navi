@@ -210,6 +210,38 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-25 · Template search: step-label search silently failed
+**Symptom:** Typing a keyword that appeared only in a template's step labels returned no results.
+**Root cause:** `t.items.some(s => s.label.toLowerCase().includes(q))` threw a `TypeError` for any template where `items` was `undefined` (e.g., manually seeded rows). The uncaught error inside `useMemo` killed the filter silently, making all keyword-only searches return nothing.
+**Fix:** Guard with `Array.isArray(t.items) && t.items.some(s => (s.label ?? '').toLowerCase().includes(q))`.
+**Lesson:** Never call `.some()` on a JSON field from Supabase without an `Array.isArray` guard — legacy rows may lack the field entirely.
+
+---
+
+### B-26 · Pinch-to-zoom not fully prevented on iOS Safari
+**Symptom:** App could still be pinch-zoomed despite `maximum-scale=1, user-scalable=no` in the viewport meta and `touch-action: manipulation` in CSS.
+**Root cause:** iOS 10+ ignores `user-scalable=no`. CSS `touch-action: manipulation` prevents double-tap zoom but not multi-touch pinch zoom. No JS handler intercepted the `touchmove` event.
+**Fix:** Added JS event listeners in `PortraitLock.tsx` (the always-mounted root client component): `touchmove` with `e.touches.length > 1 → preventDefault()`, `gesturestart`/`gesturechange` (Safari-specific), and `wheel` with `e.ctrlKey` (desktop Ctrl+scroll zoom). All applied globally without device detection.
+**Lesson:** Viewport meta alone cannot prevent pinch zoom on modern iOS. Must combine with JS event listeners on `document`. Apply the same fix for both mobile and desktop — no device-specific code paths.
+
+---
+
+### B-27 · Sub-task due date picker missing custom date input + stores unresolved strings
+**Symptom:** Sub-task (ChecklistItem) due date picker only showed 4 preset chips with no way to pick a custom date. The cycle header edit form had a full date picker. Presets stored raw strings ('Today') while the cycle header resolved them to ISO dates.
+**Root cause:** `ChecklistItem.tsx` lacked an `<input type="date">` and called `onDueChange(item.id, preset)` with raw strings instead of running through `resolveLabel`.
+**Fix:** Added `<input type="date">` to the due-date picker section. Preset clicks now call `resolveLabel(preset)` before saving, matching the cycle header behavior.
+**Lesson:** Any UI that lets users set dates must include both presets and a custom date picker. Stored date strings must always be ISO format (resolved via `resolveLabel`) for consistent Today-tab filtering.
+
+---
+
+### B-28 · Completed cycles stayed visible with a "show completed" toggle
+**Symptom:** After marking a cycle complete, it remained in the list (hidden behind a "N completed — show" button), never archived.
+**Root cause:** `updateCycle` with `status: 'complete'` only updated the in-memory state and synced to the `cycles` table. No archival or removal logic existed.
+**Fix:** `updateCycle` now detects `status: 'complete'` on a non-recurring cycle → writes to `completed_tasks` table → deletes from `cycles` → removes from in-memory list. On first load, any pre-existing completed non-recurring cycles in `cycles` are migrated to `completed_tasks`. Completed titles are loaded into context and fed into the QuickAdd suggestion corpus.
+**Lesson:** "Archive on complete" must be implemented at the data layer, not the view layer. The "show completed" toggle pattern is a code smell — completed tasks should be moved, not just filtered.
+
+---
+
 ## How to use this doc
 
 - After every fix session, add a new entry here.
