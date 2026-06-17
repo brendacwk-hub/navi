@@ -465,12 +465,20 @@ export function TodayView() {
         }
         if (c.status === 'complete') return false
         if (allCycleDone(c)) return false
-        if (isTriggerDueToday(trigger, todayDate)) return true
-        // Also surface cycles where any individual item or sub-item is due today
-        return (c.items ?? []).some(item => {
-          if (item.due && isTriggerDueToday(item.due, todayDate)) return true
-          return (item.subItems ?? []).some(sub => sub.due && isTriggerDueToday(sub.due, todayDate))
-        })
+        // Collect all incomplete leaf items that have an explicit due date
+        const allItems = c.items
+          ? c.items.flatMap(i => [i, ...(i.subItems ?? [])])
+          : (c.phases ?? []).flatMap(p => p.items.flatMap(i => [i, ...(i.subItems ?? [])]))
+        const incompleteWithDue = allItems.filter(i => i.status !== 'done' && !!i.due)
+
+        if (incompleteWithDue.length > 0) {
+          // Effective due date = earliest incomplete item due; show only if today or overdue
+          const earliest = incompleteWithDue.map(i => i.due!).sort()[0]
+          return earliest <= todayStr
+        }
+
+        // No item-level due dates — fall back to cycle-level trigger
+        return isTriggerDueToday(trigger, todayDate)
       })
       .filter(c => !query.trim() || fuzzyMatch(c.title, query))
       .sort((a, b) => {

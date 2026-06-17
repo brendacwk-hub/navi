@@ -331,6 +331,17 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
           return toggled.map(c => c.id === cycleId ? withDue : c)
         }
       }
+      // If non-recurring and now fully done → auto-archive
+      if (!isRecurring(changed.triggerLabel) && allCycleDone(changed)) {
+        dbWrite({ table: 'completed_tasks', operation: 'upsert', data: {
+          id: changed.id, title: changed.title, area: changed.area, effort: changed.effort,
+          sub_area: changed.subArea ?? null, items: changed.items ?? null,
+          completed_at: new Date().toISOString(), notes: changed.notes ?? null,
+        }})
+        dbWrite({ table: 'cycles', operation: 'delete', matchId: cycleId })
+        setCompletedTitles(ct => [...new Set([...ct, changed.title])])
+        return toggled.filter(c => c.id !== cycleId)
+      }
       syncCycle(changed)
       return toggled
     })
