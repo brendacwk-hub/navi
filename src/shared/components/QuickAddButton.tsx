@@ -5,6 +5,7 @@ import { Plus, X, Zap, AlertTriangle, FileText, FolderOpen, Send, Calendar } fro
 import { usePathname } from 'next/navigation'
 import { useWorkData } from '@/shared/lib/work-data-context'
 import { resolveLabel } from '@/shared/lib/sort-utils'
+import { RecurrencePicker, fmtRecurrDisplay } from './RecurrencePicker'
 import { useInbox } from '@/shared/lib/inbox-context'
 import type { WorkArea, Effort } from '@/shared/types'
 
@@ -59,7 +60,8 @@ export function QuickAddButton() {
   const [notes, setNotes]             = useState('')
   const [notesOpen, setNotesOpen]     = useState(false)
   const [subs, setSubs]               = useState<string[]>([''])
-  const [dueLabel, setDueLabel]       = useState<string>(isToday ? 'Today' : '')
+  const [dueLabel,   setDueLabel]   = useState<string>(isToday ? 'Today' : '')
+  const [recurrLabel, setRecurrLabel] = useState('')
   const [saved, setSaved]             = useState(false)
   const [inboxSent, setInboxSent]     = useState(false)
   const [activePanel, setActivePanel] = useState<'subarea' | 'due' | null>(null)
@@ -130,6 +132,7 @@ export function QuickAddButton() {
     setArea(pathnameArea(pathname)); setSubArea('')
     setNotes(''); setNotesOpen(false)
     setDueLabel(isToday ? 'Today' : '')
+    setRecurrLabel('')
     setActivePanel(null)
   }
 
@@ -143,7 +146,7 @@ export function QuickAddButton() {
     const base = {
       id, area, title: title.trim(), effort, must, urgent,
       subArea: subArea || undefined,
-      triggerLabel: resolveLabel(dueLabel),
+      triggerLabel: recurrLabel || resolveLabel(dueLabel),
       status: 'active' as const,
       notes: notes.trim() || undefined,
     }
@@ -316,10 +319,10 @@ export function QuickAddButton() {
                     </button>
 
                     <button onClick={() => togglePanel('due')}
-                      className={toolbarBtn(!!dueLabel, 'bg-navi-blue/20 border-navi-blue/40 text-navi-blue')}
+                      className={toolbarBtn(!!(dueLabel || recurrLabel), 'bg-navi-blue/20 border-navi-blue/40 text-navi-blue')}
                     >
                       <Calendar className="w-3.5 h-3.5" />
-                      {dueLabel || 'Date'}
+                      {recurrLabel ? fmtRecurrDisplay(recurrLabel) : dueLabel || 'Date'}
                     </button>
 
                     {(SUB_AREAS[area]?.length ?? 0) > 0 && (
@@ -341,33 +344,41 @@ export function QuickAddButton() {
 
                   {/* Due date inline panel */}
                   {activePanel === 'due' && (
-                    <div className="pt-3 flex flex-wrap gap-2 items-center">
-                      {(['Today', 'Tomorrow', 'This Week', 'Next Week'] as const).map(d => (
-                        <button key={d}
-                          onClick={() => { setDueLabel(prev => prev === d ? '' : d); setActivePanel(null) }}
-                          className={`text-xs px-3 py-1.5 rounded-lg border transition-all ${
-                            dueLabel === d
-                              ? 'bg-navi-blue/20 border-navi-blue/40 text-navi-blue font-semibold'
-                              : 'border-white/10 text-white/50 hover:border-white/25 hover:text-white/70'
-                          }`}
-                        >
-                          {d}
-                        </button>
-                      ))}
-                      <input
-                        type="date"
-                        value={/^\d{4}-\d{2}-\d{2}$/.test(dueLabel) ? dueLabel : ''}
-                        onChange={e => { if (e.target.value) { setDueLabel(e.target.value); setActivePanel(null) } }}
-                        className="text-xs px-3 py-1.5 rounded-lg border border-white/10 bg-transparent text-white/50 focus:outline-none focus:border-navi-blue/40 [color-scheme:dark]"
+                    <div className="pt-3 space-y-3">
+                      {/* One-time */}
+                      <div className="flex flex-wrap gap-2 items-center">
+                        {(['Today', 'Tomorrow', 'This Week', 'Next Week'] as const).map(d => (
+                          <button key={d}
+                            onClick={() => { setDueLabel(prev => prev === d ? '' : d); setRecurrLabel(''); setActivePanel(null) }}
+                            className={`text-xs px-3 py-1.5 rounded-lg border transition-all ${
+                              !recurrLabel && dueLabel === d
+                                ? 'bg-navi-blue/20 border-navi-blue/40 text-navi-blue font-semibold'
+                                : 'border-white/10 text-white/50 hover:border-white/25 hover:text-white/70'
+                            }`}
+                          >
+                            {d}
+                          </button>
+                        ))}
+                        <input
+                          type="date"
+                          value={!recurrLabel && /^\d{4}-\d{2}-\d{2}$/.test(dueLabel) ? dueLabel : ''}
+                          onChange={e => { if (e.target.value) { setDueLabel(e.target.value); setRecurrLabel(''); setActivePanel(null) } }}
+                          className="text-xs px-3 py-1.5 rounded-lg border border-white/10 bg-transparent text-white/50 focus:outline-none focus:border-navi-blue/40 [color-scheme:dark]"
+                        />
+                        {(dueLabel || recurrLabel) && (
+                          <button
+                            onClick={() => { setDueLabel(''); setRecurrLabel(''); setActivePanel(null) }}
+                            className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-white/35 hover:border-white/25 hover:text-white/55 transition-all"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                      {/* Recurring */}
+                      <RecurrencePicker
+                        value={recurrLabel}
+                        onChange={val => { setRecurrLabel(val); if (val) { setDueLabel(''); setActivePanel(null) } }}
                       />
-                      {dueLabel && (
-                        <button
-                          onClick={() => { setDueLabel(''); setActivePanel(null) }}
-                          className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-white/35 hover:border-white/25 hover:text-white/55 transition-all"
-                        >
-                          Clear
-                        </button>
-                      )}
                     </div>
                   )}
 

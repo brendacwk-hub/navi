@@ -8,6 +8,7 @@ import { useWorkData } from '@/shared/lib/work-data-context'
 import { useToast } from '@/shared/lib/toast-context'
 import { type CycleFilter, filterToLeaves, CADENCE_FILTERS } from '@/shared/lib/filter-utils'
 import { allCycleDone, isRecurring, resolveLabel, computeSkipDate } from '@/shared/lib/sort-utils'
+import { RecurrencePicker, isRecurrString, fmtRecurrDisplay } from './RecurrencePicker'
 
 const effortColors: Record<Effort, { bg: string; text: string; border: string }> = {
   quick:  { bg: 'bg-green-500/15',  text: 'text-green-400',  border: 'border-green-500/30' },
@@ -24,6 +25,8 @@ const SUB_AREAS_BY_AREA: Partial<Record<string, string[]>> = {
 
 function fmtTrigger(label: string | undefined): { display: string; overdue: boolean } {
   if (!label) return { display: '', overdue: false }
+  // New recurrence pattern → friendly display, never overdue
+  if (isRecurrString(label)) return { display: fmtRecurrDisplay(label), overdue: false }
   if (/^\d{4}-\d{2}-\d{2}$/.test(label)) {
     const d = new Date(label + 'T00:00:00')
     const today = new Date(); today.setHours(0, 0, 0, 0)
@@ -118,7 +121,9 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
   const [editMust, setEditMust] = useState(cycle.must)
   const [editUrgent, setEditUrgent] = useState(cycle.urgent ?? false)
   const [editEffort, setEditEffort] = useState<Effort>(cycle.effort)
-  const [editDue, setEditDue] = useState(cycle.triggerLabel ?? '')
+  const initTrigger = cycle.triggerLabel ?? ''
+  const [editDue,    setEditDue]    = useState(isRecurrString(initTrigger) ? '' : initTrigger)
+  const [editRecurr, setEditRecurr] = useState(isRecurrString(initTrigger) ? initTrigger : '')
   const [editSubArea, setEditSubArea] = useState(cycle.subArea ?? '')
   const [editNotes, setEditNotes] = useState(cycle.notes ?? '')
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -142,7 +147,7 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
       must: editMust,
       urgent: editUrgent,
       effort: editEffort,
-      triggerLabel: resolveLabel(editDue),
+      triggerLabel: editRecurr || resolveLabel(editDue),
       subArea: editSubArea || undefined,
       notes: editNotes.trim() || undefined,
     })
@@ -155,7 +160,9 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
     setEditMust(cycle.must)
     setEditUrgent(cycle.urgent ?? false)
     setEditEffort(cycle.effort)
-    setEditDue(cycle.triggerLabel ?? '')
+    const trigger = cycle.triggerLabel ?? ''
+    setEditDue(isRecurrString(trigger) ? '' : trigger)
+    setEditRecurr(isRecurrString(trigger) ? trigger : '')
     setEditSubArea(cycle.subArea ?? '')
     setEditNotes(cycle.notes ?? '')
     setEditingTitle(true)
@@ -230,23 +237,29 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
                   </button>
                 ))}
               </div>
-              {/* Due date */}
+              {/* Due date — one-time */}
               <div className="flex gap-1.5 flex-wrap items-center">
                 {(['Today', 'Tomorrow', 'This Week', 'Next Week'] as const).map(d => (
-                  <button key={d} onMouseDown={ev => ev.preventDefault()} onClick={() => setEditDue(d)}
+                  <button key={d} onMouseDown={ev => ev.preventDefault()} onClick={() => { setEditDue(d); setEditRecurr('') }}
                     className={`text-[10px] px-2 py-0.5 rounded border transition-all ${
-                      editDue === d ? 'bg-navi-blue/20 text-navi-blue border-navi-blue/40' : 'border-white/15 text-white/30 hover:border-white/30 hover:text-white/55'
+                      !editRecurr && editDue === d ? 'bg-navi-blue/20 text-navi-blue border-navi-blue/40' : 'border-white/15 text-white/30 hover:border-white/30 hover:text-white/55'
                     }`}>
                     {d}
                   </button>
                 ))}
                 <input
                   type="date"
-                  value={/^\d{4}-\d{2}-\d{2}$/.test(editDue) ? editDue : ''}
-                  onChange={e => setEditDue(e.target.value)}
+                  value={!editRecurr && /^\d{4}-\d{2}-\d{2}$/.test(editDue) ? editDue : ''}
+                  onChange={e => { setEditDue(e.target.value); setEditRecurr('') }}
                   className="text-[10px] px-2 py-0.5 rounded border border-white/15 bg-transparent text-white/55 focus:outline-none focus:border-navi-blue/50 [color-scheme:dark]"
                 />
               </div>
+              {/* Recurring */}
+              <RecurrencePicker
+                value={editRecurr}
+                onChange={val => { setEditRecurr(val); if (val) setEditDue('') }}
+                small
+              />
               {/* Sub-area */}
               {(SUB_AREAS_BY_AREA[cycle.area] ?? []).length > 0 && (
                 <div className="flex gap-1.5 flex-wrap">

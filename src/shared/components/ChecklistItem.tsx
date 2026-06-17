@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { ExternalLink, MessageSquare, Clock, ChevronRight, Pencil, X, Calendar } from 'lucide-react'
 import type { ChecklistItem as ChecklistItemType, Effort } from '@/shared/types'
 import { resolveLabel } from '@/shared/lib/sort-utils'
+import { RecurrencePicker, isRecurrString, fmtRecurrDisplay } from './RecurrencePicker'
 
 const effortDot: Record<Effort, string> = {
   quick: 'bg-green-500',
@@ -127,7 +128,12 @@ export function ChecklistItem({ item, depth = 0, onToggle, onNoteChange, onLabel
               )}
               {item.due && (
                 <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-navi-blue/15 text-navi-blue/80 border border-navi-blue/20">
-                  <Calendar className="w-2.5 h-2.5" /> {item.due}
+                  <Calendar className="w-2.5 h-2.5" />
+                  {isRecurrString(item.due)
+                    ? fmtRecurrDisplay(item.due)
+                    : /^\d{4}-\d{2}-\d{2}$/.test(item.due)
+                      ? new Date(item.due + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+                      : item.due}
                 </span>
               )}
               {item.effort && depth === 0 && (
@@ -226,31 +232,40 @@ export function ChecklistItem({ item, depth = 0, onToggle, onNoteChange, onLabel
 
       {/* Due date picker */}
       {dueOpen && onDueChange && (
-        <div style={{ paddingLeft: `${28 + indent}px` }} className="pb-2 pr-2 flex flex-wrap gap-1.5 items-center">
-          {DUE_PRESETS.map(preset => (
-            <button key={preset}
-              onClick={() => { onDueChange(item.id, resolveLabel(preset)); setDueOpen(false) }}
-              className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all ${
-                item.due === resolveLabel(preset)
-                  ? 'bg-navi-blue/20 border-navi-blue/40 text-navi-blue font-semibold'
-                  : 'border-white/10 text-white/50 hover:border-white/25 hover:text-white/75'
-              }`}
-            >
-              {preset}
-            </button>
-          ))}
-          <input
-            type="date"
-            value={/^\d{4}-\d{2}-\d{2}$/.test(item.due ?? '') ? (item.due ?? '') : ''}
-            onChange={e => { if (e.target.value) { onDueChange(item.id, e.target.value); setDueOpen(false) } }}
-            className="text-[11px] px-2 py-0.5 rounded-lg border border-white/10 bg-transparent text-white/55 focus:outline-none focus:border-navi-blue/50 [color-scheme:dark]"
+        <div style={{ paddingLeft: `${28 + indent}px` }} className="pb-2 pr-2 space-y-2">
+          {/* One-time presets */}
+          <div className="flex flex-wrap gap-1.5 items-center">
+            {DUE_PRESETS.map(preset => (
+              <button key={preset}
+                onClick={() => { onDueChange(item.id, resolveLabel(preset)); setDueOpen(false) }}
+                className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all ${
+                  !isRecurrString(item.due) && item.due === resolveLabel(preset)
+                    ? 'bg-navi-blue/20 border-navi-blue/40 text-navi-blue font-semibold'
+                    : 'border-white/10 text-white/50 hover:border-white/25 hover:text-white/75'
+                }`}
+              >
+                {preset}
+              </button>
+            ))}
+            <input
+              type="date"
+              value={!isRecurrString(item.due) && /^\d{4}-\d{2}-\d{2}$/.test(item.due ?? '') ? (item.due ?? '') : ''}
+              onChange={e => { if (e.target.value) { onDueChange(item.id, e.target.value); setDueOpen(false) } }}
+              className="text-[11px] px-2 py-0.5 rounded-lg border border-white/10 bg-transparent text-white/55 focus:outline-none focus:border-navi-blue/50 [color-scheme:dark]"
+            />
+            {item.due && (
+              <button onClick={() => { onDueChange(item.id, ''); setDueOpen(false) }}
+                className="text-[11px] px-2.5 py-1 rounded-lg border border-white/10 text-white/30 hover:text-white/55">
+                Clear
+              </button>
+            )}
+          </div>
+          {/* Recurring */}
+          <RecurrencePicker
+            value={isRecurrString(item.due) ? (item.due ?? '') : ''}
+            onChange={val => { onDueChange(item.id, val); if (val) setDueOpen(false) }}
+            small
           />
-          {item.due && (
-            <button onClick={() => { onDueChange(item.id, ''); setDueOpen(false) }}
-              className="text-[11px] px-2.5 py-1 rounded-lg border border-white/10 text-white/30 hover:text-white/55">
-              Clear
-            </button>
-          )}
         </div>
       )}
 

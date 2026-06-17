@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Play, X, Plus, Pencil } from 'lucide-react'
 import { useWorkData } from '@/shared/lib/work-data-context'
 import { resolveLabel } from '@/shared/lib/sort-utils'
+import { RecurrencePicker, isRecurrString } from '@/shared/components/RecurrencePicker'
 import type { WorkArea, Effort } from '@/shared/types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -149,14 +150,12 @@ export function TemplateFormModal({ initial, area: _area, allowAreaChange, onSav
             </div>
           )}
 
-          {/* Schedule */}
+          {/* Schedule / Recurring */}
           <div>
             <label className="block text-[11px] text-white/35 uppercase tracking-widest mb-1.5">Schedule</label>
-            <input
-              value={tmpl.triggerLabel ?? ''}
-              onChange={e => setField('triggerLabel', e.target.value || undefined)}
-              placeholder="e.g. Every Monday, 1st of month…"
-              className="w-full bg-white/6 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors"
+            <RecurrencePicker
+              value={isRecurrString(tmpl.triggerLabel) ? (tmpl.triggerLabel ?? '') : ''}
+              onChange={val => setField('triggerLabel', val || undefined)}
             />
           </div>
 

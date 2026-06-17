@@ -14,6 +14,19 @@ export interface FlatItem {
   sortDate: number
 }
 
+// ── New recurrence pattern: "every [N] unit from YYYY-MM-DD" ─────────────────
+const RECURR_RE = /^every (?:(\d+) )?(days?|weeks?|months?|years?) from (\d{4}-\d{2}-\d{2})$/i
+
+function parseRecurrFields(triggerLabel: string): { n: number; unit: string; start: Date } | null {
+  const m = triggerLabel.match(RECURR_RE)
+  if (!m) return null
+  return {
+    n:     m[1] ? parseInt(m[1]) : 1,
+    unit:  m[2].toLowerCase().replace(/s$/, ''),  // singular: day, week, month, year
+    start: new Date(m[3] + 'T00:00:00'),
+  }
+}
+
 export function computeSortDate(triggerLabel: string | undefined): number {
   if (!triggerLabel) return Infinity
   const label = triggerLabel.toLowerCase().trim()
@@ -21,6 +34,35 @@ export function computeSortDate(triggerLabel: string | undefined): number {
 
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+  // New recurrence pattern — return next occurrence >= today
+  const rp = parseRecurrFields(triggerLabel)
+  if (rp) {
+    const { n, unit, start } = rp
+    if (start >= today) return start.getTime()
+    if (unit === 'day') {
+      const daysDiff = Math.round((today.getTime() - start.getTime()) / 86400000)
+      const rem = daysDiff % n
+      return rem === 0 ? today.getTime() : addDays(today, n - rem).getTime()
+    }
+    if (unit === 'week') {
+      const period = n * 7
+      const daysDiff = Math.round((today.getTime() - start.getTime()) / 86400000)
+      const rem = daysDiff % period
+      return rem === 0 ? today.getTime() : addDays(today, period - rem).getTime()
+    }
+    if (unit === 'month') {
+      let d = new Date(start)
+      while (d < today) d = new Date(d.getFullYear(), d.getMonth() + n, start.getDate())
+      return d.getTime()
+    }
+    if (unit === 'year') {
+      let yr = start.getFullYear()
+      while (new Date(yr, start.getMonth(), start.getDate()) < today) yr += n
+      return new Date(yr, start.getMonth(), start.getDate()).getTime()
+    }
+    return Infinity
+  }
 
   // QuickAdd presets
   if (label === 'today') return today.getTime()
@@ -163,6 +205,26 @@ export function isTriggerDueToday(triggerLabel: string | undefined, today: Date)
   const label = triggerLabel.toLowerCase().trim()
   if (!label) return false
 
+  // New recurrence pattern
+  const rp = parseRecurrFields(triggerLabel)
+  if (rp) {
+    const { n, unit, start } = rp
+    if (today.getTime() < start.getTime()) return false
+    const daysDiff = Math.round((today.getTime() - start.getTime()) / 86400000)
+    if (unit === 'day') return daysDiff % n === 0
+    if (unit === 'week') return daysDiff % (n * 7) === 0
+    if (unit === 'month') {
+      if (today.getDate() !== start.getDate()) return false
+      const months = (today.getFullYear() - start.getFullYear()) * 12 + (today.getMonth() - start.getMonth())
+      return months % n === 0
+    }
+    if (unit === 'year') {
+      if (today.getMonth() !== start.getMonth() || today.getDate() !== start.getDate()) return false
+      return (today.getFullYear() - start.getFullYear()) % n === 0
+    }
+    return false
+  }
+
   if (label === 'today') return true
 
   // ISO date: due today or overdue
@@ -214,6 +276,35 @@ export function computeSkipDate(triggerLabel: string | undefined): string | null
   const label = (triggerLabel ?? '').toLowerCase().trim()
   const today = new Date(); today.setHours(0, 0, 0, 0)
 
+  // New recurrence pattern — next occurrence strictly AFTER today
+  const rp = parseRecurrFields(triggerLabel ?? '')
+  if (rp) {
+    const { n, unit, start } = rp
+    if (unit === 'day') {
+      const daysDiff = Math.round((today.getTime() - start.getTime()) / 86400000)
+      const rem = daysDiff % n
+      const skip = rem === 0 ? n : (n - rem)
+      return addDays(today, skip).toISOString().slice(0, 10)
+    }
+    if (unit === 'week') {
+      const period = n * 7
+      const daysDiff = Math.round((today.getTime() - start.getTime()) / 86400000)
+      const rem = daysDiff % period
+      const skip = rem === 0 ? period : (period - rem)
+      return addDays(today, skip).toISOString().slice(0, 10)
+    }
+    if (unit === 'month') {
+      let d = new Date(start)
+      while (d <= today) d = new Date(d.getFullYear(), d.getMonth() + n, start.getDate())
+      return d.toISOString().slice(0, 10)
+    }
+    if (unit === 'year') {
+      let yr = start.getFullYear()
+      while (new Date(yr, start.getMonth(), start.getDate()) <= today) yr += n
+      return new Date(yr, start.getMonth(), start.getDate()).toISOString().slice(0, 10)
+    }
+  }
+
   // Weekday patterns → skip 1 week
   const weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
   for (let i = 0; i < weekdays.length; i++) {
@@ -260,9 +351,8 @@ export function isRecurring(triggerLabel: string | undefined): boolean {
 // Returns YYYY-MM-DD of next scheduled occurrence
 export function computeNextDue(triggerLabel: string | undefined): string | null {
   if (!isRecurring(triggerLabel)) return null
-  const ts = computeSortDate(triggerLabel)
-  if (!isFinite(ts)) return null
-  return new Date(ts).toISOString().slice(0, 10)
+  // Always use computeSkipDate so we get NEXT occurrence, never today itself
+  return computeSkipDate(triggerLabel)
 }
 
 export function allCycleDone(cycle: Cycle): boolean {
