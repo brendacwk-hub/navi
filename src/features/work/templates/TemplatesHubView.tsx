@@ -86,7 +86,12 @@ export function TemplatesHubView() {
     return sortTemplates(flat.filter(t => {
       if (areaFilter && t.area !== areaFilter) return false
       const q = query.trim().toLowerCase()
-      if (q && !t.title.toLowerCase().includes(q) && !(t.description ?? '').toLowerCase().includes(q) && !t.items.some(s => s.label.toLowerCase().includes(q))) return false
+      if (q) {
+        const inTitle = t.title.toLowerCase().includes(q)
+        const inDesc  = (t.description ?? '').toLowerCase().includes(q)
+        const inSteps = Array.isArray(t.items) && t.items.some(s => (s.label ?? '').toLowerCase().includes(q))
+        if (!inTitle && !inDesc && !inSteps) return false
+      }
       if (effortFilter === 'Must') return t.must
       if (effortFilter !== 'All') return t.effort === effortFilter.toLowerCase()
       return true
