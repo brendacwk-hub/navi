@@ -44,7 +44,7 @@ const AREA_ACCENT: Record<WorkArea, { badge: string; btn: string }> = {
 
 const EFFORT_OPTIONS: Effort[] = ['quick', 'medium', 'heavy']
 const effortDot: Record<Effort, string> = { quick: 'bg-green-500', medium: 'bg-yellow-500', heavy: 'bg-orange-500' }
-const DUE_PRESETS = ['Today', 'Tomorrow', 'This Week', 'Next Week'] as const
+const DUE_PRESETS = ['Today', 'Tomorrow', 'This Week', 'Next Mon', 'Next Week', 'End of Month', 'Next Month'] as const
 
 // ── DB helpers ────────────────────────────────────────────────────────────────
 
@@ -307,12 +307,18 @@ export function RunModal({ template, area, onClose }: { template: WorkTemplate; 
           </div>
           <div>
             <label className="block text-[11px] text-white/35 uppercase tracking-widest mb-2">Due date</label>
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-1.5 flex-wrap mb-2">
               {DUE_PRESETS.map(d => (
                 <button key={d} onClick={() => setDue(prev => prev === d ? '' : d)}
                   className={`text-xs px-3 py-1.5 rounded-lg border transition-all ${due === d ? `${accent.btn} font-semibold` : 'border-white/10 text-white/45 hover:border-white/25'}`}>{d}</button>
               ))}
             </div>
+            <input
+              type="date"
+              value={/^\d{4}-\d{2}-\d{2}$/.test(due) && !DUE_PRESETS.includes(due as typeof DUE_PRESETS[number]) ? due : ''}
+              onChange={e => setDue(e.target.value)}
+              className="w-full bg-white/6 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white/60 focus:outline-none focus:border-white/25 transition-colors"
+            />
           </div>
           {/* Urgent + Notes */}
           <div className="flex items-center justify-between">

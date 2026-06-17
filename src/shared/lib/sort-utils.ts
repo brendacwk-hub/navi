@@ -86,6 +86,16 @@ export function resolveLabel(label: string): string {
     const diff = ((5 - base.getDay() + 7) % 7) + 7
     const d = new Date(base); d.setDate(d.getDate() + diff); return iso(d)
   }
+  if (label === 'Next Mon') {
+    const diff = ((1 - base.getDay() + 7) % 7) || 7
+    const d = new Date(base); d.setDate(d.getDate() + diff); return iso(d)
+  }
+  if (label === 'End of Month') {
+    const d = new Date(base.getFullYear(), base.getMonth() + 1, 0); return iso(d)
+  }
+  if (label === 'Next Month') {
+    const d = new Date(base.getFullYear(), base.getMonth() + 2, 0); return iso(d)
+  }
   return label
 }
 

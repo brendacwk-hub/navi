@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Search, Plus, ChevronDown } from 'lucide-react'
+import { Search, Plus } from 'lucide-react'
 import {
   loadTemplates, saveTemplates, newTemplate,
   TemplateCard, TemplateFormModal, RunModal,
@@ -34,12 +34,9 @@ function sortTemplates(templates: WorkTemplate[]): WorkTemplate[] {
   return [...templates].sort((a, b) => {
     const aTime = a.triggerLabel ? computeSortDate(a.triggerLabel) : null
     const bTime = b.triggerLabel ? computeSortDate(b.triggerLabel) : null
-    // Timed templates first
     if (aTime !== null && bTime === null) return -1
     if (aTime === null && bTime !== null) return 1
-    // Both timed → sort by time
     if (aTime !== null && bTime !== null) return aTime - bTime
-    // Both untimed → area order: Finance > HR > Ops > Others
     return AREA_ORDER[a.area] - AREA_ORDER[b.area]
   })
 }
@@ -57,7 +54,6 @@ export function TemplatesHubView() {
   const [running, setRunning] = useState<WorkTemplate | null>(null)
   const [editing, setEditing] = useState<WorkTemplate | null>(null)
   const [adding, setAdding] = useState(false)
-  const [addArea, setAddArea] = useState<WorkArea>('finance')
 
   useEffect(() => {
     Promise.all(AREAS.map(a => loadTemplates(a.value))).then(([finance, hr, ops, others]) => {
@@ -97,26 +93,14 @@ export function TemplatesHubView() {
     }))
   }, [all, areaFilter, effortFilter, query])
 
-  const activeAddArea = areaFilter ?? addArea
+  // Default add area: selected tab, or Finance
+  const activeAddArea: WorkArea = areaFilter ?? 'finance'
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
 
-      {/* ── Search ─────────────────────────────────────────── */}
-      <div className="px-4 pt-4 pb-3 flex-shrink-0">
-        <div className="flex items-center gap-2 bg-white/6 border border-white/10 rounded-xl px-3.5 py-2.5">
-          <Search className="w-3.5 h-3.5 text-white/30 flex-shrink-0" />
-          <input
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search templates…"
-            className="flex-1 bg-transparent text-sm text-white placeholder-white/25 focus:outline-none"
-          />
-        </div>
-      </div>
-
       {/* ── Area tabs ──────────────────────────────────────── */}
-      <div className="flex gap-1 px-4 pb-2.5 overflow-x-auto overflow-y-hidden scrollbar-none flex-shrink-0">
+      <div className="flex gap-1 px-4 pt-4 pb-2 overflow-x-auto overflow-y-hidden scrollbar-none flex-shrink-0">
         {AREAS.map(a => (
           <button
             key={a.value}
@@ -131,7 +115,7 @@ export function TemplatesHubView() {
       </div>
 
       {/* ── Filter chips ───────────────────────────────────── */}
-      <div className="flex gap-1.5 px-4 pb-3 overflow-x-auto overflow-y-hidden scrollbar-none flex-shrink-0 border-b border-white/6">
+      <div className="flex gap-1.5 px-4 pb-3 overflow-x-auto overflow-y-hidden scrollbar-none flex-shrink-0">
         {EFFORT_FILTERS.map(f => (
           <button
             key={f}
@@ -147,8 +131,28 @@ export function TemplatesHubView() {
         ))}
       </div>
 
-      {/* ── Template list ──────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-8 space-y-3">
+      {/* ── Search + Add button ────────────────────────────── */}
+      <div className="flex items-center gap-2 px-4 pb-3 flex-shrink-0 border-b border-white/6">
+        <div className="flex items-center gap-2 bg-white/6 border border-white/10 rounded-xl px-3.5 py-2 flex-1">
+          <Search className="w-3.5 h-3.5 text-white/30 flex-shrink-0" />
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search templates…"
+            className="flex-1 bg-transparent text-sm text-white placeholder-white/25 focus:outline-none"
+          />
+        </div>
+        <button
+          onClick={() => setAdding(true)}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navi-blue/15 border border-navi-blue/30 text-navi-blue text-xs font-semibold hover:bg-navi-blue/25 transition-all whitespace-nowrap flex-shrink-0"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Add Template
+        </button>
+      </div>
+
+      {/* ── Template grid ──────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-8">
         {loading ? (
           <div className="py-8 text-center text-sm text-white/30">Loading…</div>
         ) : visible.length === 0 ? (
@@ -162,39 +166,18 @@ export function TemplatesHubView() {
             )}
           </div>
         ) : (
-          visible.map(tmpl => (
-            <TemplateCard
-              key={tmpl.id}
-              template={tmpl}
-              area={tmpl.area}
-              onRun={() => setRunning(tmpl)}
-              onEdit={() => setEditing(tmpl)}
-            />
-          ))
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {visible.map(tmpl => (
+              <TemplateCard
+                key={tmpl.id}
+                template={tmpl}
+                area={tmpl.area}
+                onRun={() => setRunning(tmpl)}
+                onEdit={() => setEditing(tmpl)}
+              />
+            ))}
+          </div>
         )}
-
-        {/* Add template row */}
-        <div className="pt-2 flex items-center gap-2">
-          {!areaFilter && (
-            <div className="relative flex-shrink-0">
-              <select
-                value={addArea}
-                onChange={e => setAddArea(e.target.value as WorkArea)}
-                className="appearance-none bg-white/6 border border-white/10 rounded-lg pl-3 pr-7 py-2 text-xs text-white/55 focus:outline-none cursor-pointer"
-              >
-                {AREAS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
-              </select>
-              <ChevronDown className="w-3 h-3 text-white/30 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          )}
-          <button
-            onClick={() => setAdding(true)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-navi-blue/15 border border-navi-blue/30 text-navi-blue text-xs font-semibold hover:bg-navi-blue/25 transition-all"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Add Template
-          </button>
-        </div>
       </div>
 
       {running && <RunModal template={running} area={running.area} onClose={() => setRunning(null)} />}
@@ -212,7 +195,7 @@ export function TemplatesHubView() {
         <TemplateFormModal
           initial={newTemplate(activeAddArea)}
           area={activeAddArea}
-          allowAreaChange={!areaFilter}
+          allowAreaChange
           onSave={handleSave}
           onClose={() => setAdding(false)}
         />
