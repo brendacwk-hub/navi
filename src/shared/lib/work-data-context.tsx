@@ -159,7 +159,21 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
   // ── Load from DB on mount ─────────────────────────────────────────────────
   const loadFromSupabase = useCallback(async () => {
     try {
-      const rows = await dbRead('cycles', { col: 'mode', val: 'work' }) as ReturnType<typeof fromRow>[]
+      let rows = await dbRead('cycles', { col: 'mode', val: 'work' }) as ReturnType<typeof fromRow>[]
+
+      // Fallback: mode column may not be migrated yet — read all cycles and treat
+      // non-personal ones as work cycles, then backfill mode='work' in DB.
+      if (rows.length === 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const allRows = await dbRead('cycles') as any[]
+        if (allRows.length > 0) {
+          rows = allRows.filter((r: any) => !r.mode || r.mode === 'work')
+          const toFix = rows.filter((r: any) => !r.mode)
+          if (toFix.length > 0) {
+            dbWrite({ table: 'cycles', operation: 'upsert', data: toFix.map((r: any) => ({ ...toRow(fromRow(r)), mode: 'work' })) })
+          }
+        }
+      }
 
       if (rows.length > 0) {
         const allStatic = [...initFinance, ...initHr]
@@ -219,8 +233,11 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
         setOpsCycles(activeCycles.filter(c => c.area === 'ops'))
         setOthersCycles(activeCycles.filter(c => c.area === 'others'))
       } else {
-        // First ever load — seed the DB with initial data
-        dbWrite({ table: 'cycles', operation: 'upsert', data: [...initFinance, ...initHr].map(toRow) })
+        // First ever load — seed the DB with initial data and show cycles immediately
+        const initCycles = [...initFinance, ...initHr]
+        dbWrite({ table: 'cycles', operation: 'upsert', data: initCycles.map(toRow) })
+        setFinanceCycles(initFinance)
+        setHrCycles(initHr)
       }
 
       // Load completed task titles for QuickAdd suggestions
@@ -247,7 +264,14 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
   // ── Refresh (pull-to-refresh) ─────────────────────────────────────────────
   const refreshData = useCallback(async () => {
     try {
-      const rows = await dbRead('cycles', { col: 'mode', val: 'work' }) as ReturnType<typeof fromRow>[]
+      let rows = await dbRead('cycles', { col: 'mode', val: 'work' }) as ReturnType<typeof fromRow>[]
+      if (rows.length === 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const allRows = await dbRead('cycles') as any[]
+        if (allRows.length > 0) {
+          rows = allRows.filter((r: any) => !r.mode || r.mode === 'work')
+        }
+      }
       if (rows.length > 0) {
         const allStatic = [...initFinance, ...initHr]
         const staticById = new Map(allStatic.map(c => [c.id, c]))
