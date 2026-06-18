@@ -77,25 +77,13 @@ export function SettingsTab() {
   const [statusMsg, setStatusMsg]         = useState<string | null>(null)
   const [archive, setArchive]             = useState<CompletedTask[]>([])
   const [archiveLoading, setArchiveLoading] = useState(true)
-  const [archiveTableMissing, setArchiveTableMissing] = useState(false)
   const [reopening, setReopening]         = useState<string | null>(null)
 
   const loadArchive = useCallback(async () => {
     setArchiveLoading(true)
     setArchiveTableMissing(false)
     try {
-      // 1. Fetch from completed_tasks
-      const res  = await fetch('/api/db?table=completed_tasks')
-      const json = await res.json()
-      const tableExists = res.ok && !json.error
-      if (!tableExists) {
-        setArchiveTableMissing(true)
-      }
-      const archivedRows: CompletedTask[] = tableExists
-        ? (json.data ?? []).map((r: CompletedTask) => ({ ...r, _source: 'completed_tasks' as const }))
-        : []
-
-      // 2. Also scan cycles for any status='complete' rows not yet migrated
+      // Primary: cycles with status='complete' (no extra table needed)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let cycleRows: CompletedTask[] = []
       try {
@@ -104,18 +92,30 @@ export function SettingsTab() {
         if (cRes.ok && !cJson.error) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const completedCycles = (cJson.data ?? []).filter((c: any) => !c.mode || c.mode === 'work')
-          const archivedIds = new Set(archivedRows.map(r => r.id))
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          cycleRows = completedCycles.filter((c: any) => !archivedIds.has(c.id)).map((c: any) => ({
+          cycleRows = completedCycles.map((c: any) => ({
             id: c.id, title: c.title, area: c.area, effort: c.effort ?? '',
             sub_area: c.sub_area ?? null, items: c.items ?? null,
             completed_at: c.last_completed_at ?? new Date().toISOString(),
             notes: c.notes ?? null, _source: 'cycles' as const,
           }))
         }
-      } catch { /* cycles scan is best-effort */ }
+      } catch { /* ignore */ }
 
-      const merged = [...archivedRows, ...cycleRows]
+      // Secondary: completed_tasks table if it exists (legacy data)
+      let legacyRows: CompletedTask[] = []
+      try {
+        const res  = await fetch('/api/db?table=completed_tasks')
+        const json = await res.json()
+        if (res.ok && !json.error) {
+          const cycleIds = new Set(cycleRows.map(r => r.id))
+          legacyRows = (json.data ?? [])
+            .filter((r: CompletedTask) => !cycleIds.has(r.id))
+            .map((r: CompletedTask) => ({ ...r, _source: 'completed_tasks' as const }))
+        }
+      } catch { /* table may not exist */ }
+
+      const merged = [...cycleRows, ...legacyRows]
       merged.sort((a, b) => b.completed_at.localeCompare(a.completed_at))
       setArchive(merged)
     } finally {
@@ -433,21 +433,6 @@ export function SettingsTab() {
             </div>
           ) : archive.length > 0 ? (
             <>
-              {archiveTableMissing && (
-                <div className="mb-3 space-y-1.5">
-                  <p className="text-xs text-white/40">Run this in Supabase to enable the full archive:</p>
-                  <pre className="text-[10px] text-navi-blue/80 bg-white/4 rounded-lg p-3 overflow-x-auto leading-relaxed">{`CREATE TABLE IF NOT EXISTS completed_tasks (
-  id text PRIMARY KEY,
-  title text NOT NULL,
-  area text NOT NULL,
-  effort text,
-  sub_area text,
-  items jsonb,
-  completed_at timestamptz DEFAULT now(),
-  notes text
-);`}</pre>
-                </div>
-              )}
               <div className="space-y-1 max-h-80 overflow-y-auto pr-1">
                 {archive.map(task => (
                   <div key={task.id} className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
@@ -472,28 +457,6 @@ export function SettingsTab() {
                 ))}
               </div>
             </>
-          ) : archiveTableMissing ? (
-            <div className="py-3 space-y-3">
-              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/8 border border-amber-500/20">
-                <span className="text-base leading-none mt-0.5">⚠️</span>
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-amber-300/80">Archive table not created yet</p>
-                  <p className="text-[11px] text-white/40 leading-relaxed">
-                    Go to your <span className="text-white/60">Supabase dashboard → SQL Editor</span>, paste and run the SQL below. After that, completed cycles will be saved here automatically.
-                  </p>
-                </div>
-              </div>
-              <pre className="text-[10px] text-navi-blue/80 bg-white/4 rounded-lg p-3 overflow-x-auto leading-relaxed select-all">{`CREATE TABLE IF NOT EXISTS completed_tasks (
-  id text PRIMARY KEY,
-  title text NOT NULL,
-  area text NOT NULL,
-  effort text,
-  sub_area text,
-  items jsonb,
-  completed_at timestamptz DEFAULT now(),
-  notes text
-);`}</pre>
-            </div>
           ) : (
             <p className="text-xs text-white/25 py-2">No completed tasks yet — finish all items in any cycle and it will appear here.</p>
           )}

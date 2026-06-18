@@ -216,17 +216,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
         ]
         const allCycles = applyRecurrenceResets(merged, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
 
-        // Migrate existing completed non-recurring cycles → completed_tasks table
-        const toArchive = allCycles.filter(c => c.status === 'complete' && !isRecurring(c.triggerLabel))
-        if (toArchive.length > 0) {
-          const now = new Date().toISOString()
-          dbWrite({ table: 'completed_tasks', operation: 'upsert', data: toArchive.map(c => ({
-            id: c.id, title: c.title, area: c.area, effort: c.effort,
-            sub_area: c.subArea ?? null, items: c.items ?? null,
-            completed_at: c.lastCompletedAt ?? now, notes: c.notes ?? null,
-          }))})
-          toArchive.forEach(c => dbWrite({ table: 'cycles', operation: 'delete', matchId: c.id }))
-        }
+        // Completed non-recurring cycles stay in DB with status='complete' — shown in Settings archive
         const activeCycles = allCycles.filter(c => !(c.status === 'complete' && !isRecurring(c.triggerLabel)))
         setFinanceCycles(activeCycles.filter(c => c.area === 'finance'))
         setHrCycles(activeCycles.filter(c => c.area === 'hr'))
@@ -240,11 +230,11 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
         setHrCycles(initHr)
       }
 
-      // Load completed task titles for QuickAdd suggestions
+      // Load completed task titles for QuickAdd suggestions (from cycles with status=complete)
       try {
-        const completedRows = await dbRead('completed_tasks') as { title: string }[]
+        const completedRows = await dbRead('cycles', { col: 'status', val: 'complete' }) as { title: string }[]
         setCompletedTitles(completedRows.map(r => r.title).filter(Boolean))
-      } catch { /* table may not exist yet */ }
+      } catch { /* ignore */ }
 
       const todayRows = await dbRead('today_tasks', { col: 'id', val: 'singleton' })
       if (todayRows.length > 0) {
@@ -282,10 +272,11 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
           return { ...row, triggerLabel: s.triggerLabel, effort: s.effort, must: s.must, title: s.title, subArea: s.subArea, area: s.area }
         })
         const refreshed = applyRecurrenceResets(hydrated, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
-        setFinanceCycles(refreshed.filter(c => c.area === 'finance'))
-        setHrCycles(refreshed.filter(c => c.area === 'hr'))
-        setOpsCycles(refreshed.filter(c => c.area === 'ops'))
-        setOthersCycles(refreshed.filter(c => c.area === 'others'))
+        const activeRefreshed = refreshed.filter(c => !(c.status === 'complete' && !isRecurring(c.triggerLabel)))
+        setFinanceCycles(activeRefreshed.filter(c => c.area === 'finance'))
+        setHrCycles(activeRefreshed.filter(c => c.area === 'hr'))
+        setOpsCycles(activeRefreshed.filter(c => c.area === 'ops'))
+        setOthersCycles(activeRefreshed.filter(c => c.area === 'others'))
       }
       const todayRows = await dbRead('today_tasks', { col: 'id', val: 'singleton' })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -319,14 +310,10 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
   const updateCycle = useCallback((area: WorkArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes' | 'nextDueAt' | 'items'>>) => {
     cycleSetter(area)(prev => {
       const target = prev.find(c => c.id === id)
-      // Archive non-recurring cycles when explicitly marked complete
+      // Mark non-recurring cycles complete in cycles table (archived in Settings)
       if (patch.status === 'complete' && target && !isRecurring(target.triggerLabel)) {
-        dbWrite({ table: 'completed_tasks', operation: 'upsert', data: {
-          id: target.id, title: target.title, area: target.area, effort: target.effort,
-          sub_area: target.subArea ?? null, items: target.items ?? null,
-          completed_at: new Date().toISOString(), notes: target.notes ?? null,
-        }})
-        dbWrite({ table: 'cycles', operation: 'delete', matchId: id })
+        const completedCycle = { ...target, status: 'complete' as const, lastCompletedAt: new Date().toISOString() }
+        dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(completedCycle) })
         setCompletedTitles(ct => [...new Set([...ct, target.title])])
         return prev.filter(c => c.id !== id)
       }
@@ -363,12 +350,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
         const completedAt = new Date().toISOString()
         const timerId = setTimeout(() => {
           pendingCompletions.current.delete(cycleId)
-          dbWrite({ table: 'completed_tasks', operation: 'upsert', data: {
-            id: changed.id, title: changed.title, area: changed.area, effort: changed.effort,
-            sub_area: changed.subArea ?? null, items: changed.items ?? null,
-            completed_at: completedAt, notes: changed.notes ?? null,
-          }})
-          dbWrite({ table: 'cycles', operation: 'delete', matchId: cycleId })
+          dbWrite({ table: 'cycles', operation: 'upsert', data: toRow({ ...changed, status: 'complete', lastCompletedAt: completedAt }) })
           setCompletedTitles(ct => [...new Set([...ct, changed.title])])
         }, 5000)
         pendingCompletions.current.set(cycleId, { cycle: changed, area, timerId })
