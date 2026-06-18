@@ -398,9 +398,8 @@ export function allCycleDone(cycle: Cycle): boolean {
   const checkItems = (items: ChecklistItem[]): boolean => {
     if (items.length === 0) return false
     return items.every(item => {
-      if (item.status !== 'done') return false
       if (item.subItems && item.subItems.length > 0) return item.subItems.every(s => s.status === 'done')
-      return true
+      return item.status === 'done'
     })
   }
   if (cycle.phases && cycle.phases.length > 0) return cycle.phases.every(p => checkItems(p.items))
