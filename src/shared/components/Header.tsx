@@ -12,19 +12,39 @@ interface HeaderProps {
   menuOpen?: boolean
 }
 
+// Shared pages belong to no mode — badge shows whichever mode the user came from
+const SHARED_PATHS = ['/work/settings', '/work/calendar', '/work/analytics']
+
 function ModeBadge() {
-  const pathname = usePathname()
-  const router   = useRouter()
-  const isPersonal = pathname.startsWith('/personal')
+  const pathname    = usePathname()
+  const router      = useRouter()
+
+  const isPersonalPath = pathname.startsWith('/personal')
+  const isSharedPath   = SHARED_PATHS.some(p => pathname.startsWith(p))
+
+  const [isPersonal, setIsPersonal] = useState(isPersonalPath)
+
+  useEffect(() => {
+    if (isPersonalPath) {
+      localStorage.setItem('navi_mode', 'personal')
+      setIsPersonal(true)
+    } else if (isSharedPath) {
+      // On shared pages show badge based on where the user came from
+      setIsPersonal(localStorage.getItem('navi_mode') === 'personal')
+    } else {
+      localStorage.setItem('navi_mode', 'work')
+      setIsPersonal(false)
+    }
+  }, [pathname]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const switchMode = () => {
     if (isPersonal) {
       const last = localStorage.getItem('lastWork') ?? '/work'
-      localStorage.setItem('lastPersonal', pathname)
+      if (!isSharedPath) localStorage.setItem('lastPersonal', pathname)
       router.push(last)
     } else {
       const last = localStorage.getItem('lastPersonal') ?? '/personal/today'
-      localStorage.setItem('lastWork', pathname)
+      if (!isSharedPath) localStorage.setItem('lastWork', pathname)
       router.push(last)
     }
   }

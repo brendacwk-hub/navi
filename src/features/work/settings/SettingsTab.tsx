@@ -76,13 +76,19 @@ export function SettingsTab() {
   const [statusMsg, setStatusMsg]         = useState<string | null>(null)
   const [archive, setArchive]             = useState<CompletedTask[]>([])
   const [archiveLoading, setArchiveLoading] = useState(true)
+  const [archiveTableMissing, setArchiveTableMissing] = useState(false)
   const [reopening, setReopening]         = useState<string | null>(null)
 
   const loadArchive = useCallback(async () => {
     setArchiveLoading(true)
+    setArchiveTableMissing(false)
     try {
       const res  = await fetch('/api/db?table=completed_tasks')
       const json = await res.json()
+      if (!res.ok || json.error) {
+        setArchiveTableMissing(true)
+        return
+      }
       const rows = (json.data ?? []) as CompletedTask[]
       rows.sort((a, b) => b.completed_at.localeCompare(a.completed_at))
       setArchive(rows)
@@ -171,17 +177,7 @@ export function SettingsTab() {
   async function toggleCalendar(id: string) {
     if (!conn) return
     const current = conn.selectedIds
-    let next: string[]
-    if (current.includes(id)) {
-      next = current.filter(x => x !== id)
-    } else {
-      if (current.length >= 2) {
-        setStatusMsg('You can connect up to 2 calendars')
-        setTimeout(() => setStatusMsg(null), 3000)
-        return
-      }
-      next = [...current, id]
-    }
+    const next = current.includes(id) ? current.filter(x => x !== id) : [...current, id]
     await savePrefs({ selectedIds: next })
   }
 
@@ -239,7 +235,7 @@ export function SettingsTab() {
             <div className="space-y-3">
               <div className="flex items-center justify-between mb-1">
                 <p className="text-[11px] text-white/35 uppercase tracking-widest font-semibold">
-                  Select up to 2 calendars
+                  Select calendars to show
                 </p>
                 {saving && <Loader2 className="w-3.5 h-3.5 text-white/30 animate-spin" />}
               </div>
@@ -403,6 +399,20 @@ export function SettingsTab() {
           {archiveLoading ? (
             <div className="flex items-center gap-2 text-xs text-white/30 py-2">
               <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…
+            </div>
+          ) : archiveTableMissing ? (
+            <div className="py-3 space-y-2">
+              <p className="text-xs text-white/40">Table not set up yet. Run this in the Supabase SQL editor:</p>
+              <pre className="text-[10px] text-navi-blue/80 bg-white/4 rounded-lg p-3 overflow-x-auto leading-relaxed">{`CREATE TABLE IF NOT EXISTS completed_tasks (
+  id text PRIMARY KEY,
+  title text NOT NULL,
+  area text NOT NULL,
+  effort text,
+  sub_area text,
+  items jsonb,
+  completed_at timestamptz DEFAULT now(),
+  notes text
+);`}</pre>
             </div>
           ) : archive.length === 0 ? (
             <p className="text-xs text-white/25 py-2">No completed tasks yet</p>

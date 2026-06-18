@@ -337,6 +337,38 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-41 · Google Calendar Birthdays calendar not selectable (2-calendar limit)
+**Symptom:** Birthdays calendar appeared in Settings but could not be selected when the user already had 2 other calendars ticked.  
+**Root cause:** `toggleCalendar` in `SettingsTab.tsx` had a hard cap of 2 selected calendars (`if (current.length >= 2) return`). This cap was supposed to be removed in `ec7822a` but was accidentally re-introduced when SettingsTab was rewritten to add the completed-tasks archive.  
+**Fix:** Removed the 2-calendar limit entirely. Users can now select any number of calendars. Updated header label from "Select up to 2 calendars" to "Select calendars to show".  
+**Lesson:** When rewriting a component from scratch (e.g., to add a new section), diff against the previous version first. Regression bugs from rewrites are silent — they won't show up in TypeScript errors or build output.
+
+---
+
+### B-42 · Completed Tasks archive in Settings shows nothing
+**Symptom:** Settings → Completed Tasks section always shows "No completed tasks yet" even after tasks have been completed.  
+**Root cause:** The `completed_tasks` table was never created in Supabase — no `CREATE TABLE` SQL was ever provided or run. When `GET /api/db?table=completed_tasks` returned a 400 error, `SettingsTab.loadArchive` silently returned `json.data ?? []` = `[]` without distinguishing "table missing" from "table exists but is empty". Additionally, the mode-filter bug in `WorkDataContext` (B-45) prevented the migration logic (which moves completed cycles to `completed_tasks`) from running on load.  
+**Fix:** (1) Added `archiveTableMissing` state — when the API returns a non-OK response, show a code block with the required `CREATE TABLE` SQL so the user can run it in the Supabase SQL editor. (2) Added the SQL to `README.md` Pending SQL section. (3) The mode-filter resilience fix (B-45) ensures the migration logic now runs correctly.  
+**Lesson:** Always provide the full SQL migration for every table the app depends on. Never assume a table exists — handle HTTP 4xx from the DB proxy and show the user an actionable next step.
+
+---
+
+### B-43 · Mode badge switches to Work when navigating to shared tabs from Personal mode
+**Symptom:** When in Personal mode and tapping Calendar, Analytics, or Settings (all shared `/work/*` routes) from the PersonalSidebar, the header badge switched from "🏠 Personal" to "💼 Work". Navigating away from the shared page left the app in Work mode.  
+**Root cause:** `ModeBadge` derived `isPersonal` purely from `pathname.startsWith('/personal')`. Shared pages live under `/work/*` so the badge always read Work there. Additionally, `PersonalSidebar` shared-page links were plain `<Link>` elements that didn't save `lastPersonal` before navigating — so tapping the mode badge from a shared page would try to restore a stale personal destination.  
+**Fix:** (1) `ModeBadge` now tracks `navi_mode` in localStorage. When on a personal page, writes `navi_mode='personal'`. When on a non-shared work page, writes `navi_mode='work'`. When on a shared page (`/work/settings`, `/work/calendar`, `/work/analytics`), reads `navi_mode` to show the correct badge without overwriting it. (2) `PersonalSidebar` shared links are now `<button>` elements with a `handleSharedLink` handler that saves `lastPersonal = pathname` before navigating — ensuring the badge's "switch to personal" action returns to the correct personal page.  
+**Lesson:** "Shared" pages need a mode-neutral identity. The cleanest long-term fix would be moving them to top-level routes (`/settings`, `/calendar`) so they have no mode prefix at all. The localStorage workaround works, but moving them to top-level routes avoids the need for it.
+
+---
+
+### B-44 · Work cycles not loading after mode filter added (empty work mode)
+**Symptom:** After deploying personal mode infrastructure, all work cycles disappeared — the Finance, HR, Ops, Others tabs showed empty.  
+**Root cause:** `WorkDataContext.loadFromSupabase` was changed to `dbRead('cycles', { col: 'mode', val: 'work' })`. If this returns 0 rows (e.g., mode column not yet backfilled via SQL migration, or Supabase filter error), the code fell into the `else` branch which seeded the DB but never called any `set*Cycles` setter — leaving React state empty. The UI would show blank area tabs.  
+**Fix:** (1) Added a fallback: if the mode-filtered read returns 0 rows, try fetching all cycles without filter and keep those with `!mode || mode === 'work'`. Backfills `mode='work'` in DB for any rows missing it. (2) Fixed the `else` branch (first-ever load) to call `setFinanceCycles(initFinance)` and `setHrCycles(initHr)` so initial cycles appear immediately without needing a page refresh. (3) Applied the same fallback to `refreshData`.  
+**Lesson:** When adding a new DB filter to an existing query, always handle the zero-results case explicitly — both "truly empty" and "filter returned nothing because migration not applied" must set state. Never let an else branch write to DB without also updating React state.
+
+---
+
 ## How to use this doc
 
 - After every fix session, add a new entry here.

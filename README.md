@@ -87,6 +87,18 @@ No `vercel` CLI needed.
 
 **Pending SQL (run in Supabase SQL editor):**
 ```sql
+-- Completed tasks archive
+CREATE TABLE IF NOT EXISTS completed_tasks (
+  id text PRIMARY KEY,
+  title text NOT NULL,
+  area text NOT NULL,
+  effort text,
+  sub_area text,
+  items jsonb,
+  completed_at timestamptz DEFAULT now(),
+  notes text
+);
+
 -- Personal mode
 ALTER TABLE cycles ADD COLUMN IF NOT EXISTS mode text NOT NULL DEFAULT 'work';
 
