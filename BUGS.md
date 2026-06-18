@@ -337,19 +337,22 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
-### B-41 · Google Calendar Birthdays calendar not selectable (2-calendar limit)
-**Symptom:** Birthdays calendar appeared in Settings but could not be selected when the user already had 2 other calendars ticked.  
-**Root cause:** `toggleCalendar` in `SettingsTab.tsx` had a hard cap of 2 selected calendars (`if (current.length >= 2) return`). This cap was supposed to be removed in `ec7822a` but was accidentally re-introduced when SettingsTab was rewritten to add the completed-tasks archive.  
-**Fix:** Removed the 2-calendar limit entirely. Users can now select any number of calendars. Updated header label from "Select up to 2 calendars" to "Select calendars to show".  
-**Lesson:** When rewriting a component from scratch (e.g., to add a new section), diff against the previous version first. Regression bugs from rewrites are silent — they won't show up in TypeScript errors or build output.
+### B-41 · Google Calendar Birthdays calendar not appearing in Settings
+**Symptom:** Birthdays calendar did not appear in the Settings calendar list. Removing the 2-calendar selection limit (first fix attempt) didn't resolve it because the calendar wasn't in the list to begin with.  
+**Root cause (first layer):** `toggleCalendar` had a hard cap of 2 selected calendars — removed in `ec7822a` but re-introduced when SettingsTab was rewritten.  
+**Root cause (second layer):** The calendar route only tried ONE Birthdays calendar ID (`#contacts@group.v.calendar.google.com`). Google uses different IDs depending on account type (`contactsbirthdays@contacts.google.com` is another common form). If the insert failed, the catch block silently discarded the error and returned the original list — no Birthdays calendar.  
+**Fix:** (1) Removed 2-calendar limit. (2) Route now tries BOTH known Birthdays IDs in sequence; also checks the existing list for any calendar with "birthday" in the summary (case-insensitive) before attempting inserts. First successful insert triggers a refetch; if neither ID works, original list is returned.  
+**Lesson:** Google Calendar system calendar IDs are account/region dependent. Always try multiple known IDs and fall back to name-based detection. Never swallow insert errors without at least trying the next option.
 
 ---
 
 ### B-42 · Completed Tasks archive in Settings shows nothing
-**Symptom:** Settings → Completed Tasks section always shows "No completed tasks yet" even after tasks have been completed.  
-**Root cause:** The `completed_tasks` table was never created in Supabase — no `CREATE TABLE` SQL was ever provided or run. When `GET /api/db?table=completed_tasks` returned a 400 error, `SettingsTab.loadArchive` silently returned `json.data ?? []` = `[]` without distinguishing "table missing" from "table exists but is empty". Additionally, the mode-filter bug in `WorkDataContext` (B-45) prevented the migration logic (which moves completed cycles to `completed_tasks`) from running on load.  
-**Fix:** (1) Added `archiveTableMissing` state — when the API returns a non-OK response, show a code block with the required `CREATE TABLE` SQL so the user can run it in the Supabase SQL editor. (2) Added the SQL to `README.md` Pending SQL section. (3) The mode-filter resilience fix (B-45) ensures the migration logic now runs correctly.  
-**Lesson:** Always provide the full SQL migration for every table the app depends on. Never assume a table exists — handle HTTP 4xx from the DB proxy and show the user an actionable next step.
+**Symptom:** Settings → Completed Tasks section always showed "No completed tasks yet" even after tasks were completed.  
+**Root cause (first layer):** The `completed_tasks` table was never created in Supabase. `loadArchive` silently returned `[]` when the API returned 400, making it indistinguishable from "empty table".  
+**Root cause (second layer):** `loadArchive` only queried `completed_tasks` — it never scanned `cycles WHERE status='complete'` for tasks that were completed before the archive table existed or before the migration logic ran.  
+**Root cause (third layer):** `reopenTask` re-inserted into `cycles` without `mode: 'work'`, so reopened tasks were filtered out by the mode filter and disappeared.  
+**Fix:** (1) `archiveTableMissing` state shows the `CREATE TABLE` SQL inline when the API returns an error. (2) `loadArchive` now ALSO fetches `cycles WHERE status='complete'` and merges results (deduplicating by id), so any un-migrated historical completed tasks appear immediately. (3) `reopenTask` now handles both sources (`_source: 'completed_tasks'` vs `_source: 'cycles'`) and always writes `mode: 'work'` when reinserting. (4) SQL added to README.md.  
+**Lesson:** An archive feature must scan ALL places the data could live, not just the primary archive table. Historical data may be stranded in the source table if migration didn't complete. Always include `mode` when writing back to `cycles`.
 
 ---
 

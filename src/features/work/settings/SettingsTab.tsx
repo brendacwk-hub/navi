@@ -21,6 +21,7 @@ interface CompletedTask {
   items: unknown
   completed_at: string
   notes: string | null
+  _source?: 'completed_tasks' | 'cycles'  // internal — tracks which table to reopen from
 }
 
 const AREA_BADGE: Record<string, string> = {
@@ -83,15 +84,40 @@ export function SettingsTab() {
     setArchiveLoading(true)
     setArchiveTableMissing(false)
     try {
+      // 1. Fetch from completed_tasks
       const res  = await fetch('/api/db?table=completed_tasks')
       const json = await res.json()
-      if (!res.ok || json.error) {
+      const tableExists = res.ok && !json.error
+      if (!tableExists) {
         setArchiveTableMissing(true)
-        return
       }
-      const rows = (json.data ?? []) as CompletedTask[]
-      rows.sort((a, b) => b.completed_at.localeCompare(a.completed_at))
-      setArchive(rows)
+      const archivedRows: CompletedTask[] = tableExists
+        ? (json.data ?? []).map((r: CompletedTask) => ({ ...r, _source: 'completed_tasks' as const }))
+        : []
+
+      // 2. Also scan cycles for any status='complete' rows not yet migrated
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let cycleRows: CompletedTask[] = []
+      try {
+        const cRes  = await fetch('/api/db?table=cycles&eqCol=status&eqVal=complete')
+        const cJson = await cRes.json()
+        if (cRes.ok && !cJson.error) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const completedCycles = (cJson.data ?? []).filter((c: any) => !c.mode || c.mode === 'work')
+          const archivedIds = new Set(archivedRows.map(r => r.id))
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          cycleRows = completedCycles.filter((c: any) => !archivedIds.has(c.id)).map((c: any) => ({
+            id: c.id, title: c.title, area: c.area, effort: c.effort ?? '',
+            sub_area: c.sub_area ?? null, items: c.items ?? null,
+            completed_at: c.last_completed_at ?? new Date().toISOString(),
+            notes: c.notes ?? null, _source: 'cycles' as const,
+          }))
+        }
+      } catch { /* cycles scan is best-effort */ }
+
+      const merged = [...archivedRows, ...cycleRows]
+      merged.sort((a, b) => b.completed_at.localeCompare(a.completed_at))
+      setArchive(merged)
     } finally {
       setArchiveLoading(false)
     }
@@ -101,6 +127,7 @@ export function SettingsTab() {
     setReopening(task.id)
     try {
       const resetItems = resetItemStatuses(task.items)
+      // Re-insert (or update) the cycle back to active state
       await fetch('/api/db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -112,14 +139,18 @@ export function SettingsTab() {
             trigger_label: null, sub_area: task.sub_area ?? null,
             items: resetItems, phases: null, notes: task.notes ?? null,
             next_due_at: null, last_completed_at: null,
+            mode: 'work',
           },
         }),
       })
-      await fetch('/api/db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ table: 'completed_tasks', operation: 'delete', matchId: task.id }),
-      })
+      // Remove from whichever source it came from
+      if (task._source !== 'cycles') {
+        await fetch('/api/db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ table: 'completed_tasks', operation: 'delete', matchId: task.id }),
+        })
+      }
       setArchive(prev => prev.filter(t => t.id !== task.id))
     } finally {
       setReopening(null)
@@ -400,6 +431,47 @@ export function SettingsTab() {
             <div className="flex items-center gap-2 text-xs text-white/30 py-2">
               <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…
             </div>
+          ) : archive.length > 0 ? (
+            <>
+              {archiveTableMissing && (
+                <div className="mb-3 space-y-1.5">
+                  <p className="text-xs text-white/40">Run this in Supabase to enable the full archive:</p>
+                  <pre className="text-[10px] text-navi-blue/80 bg-white/4 rounded-lg p-3 overflow-x-auto leading-relaxed">{`CREATE TABLE IF NOT EXISTS completed_tasks (
+  id text PRIMARY KEY,
+  title text NOT NULL,
+  area text NOT NULL,
+  effort text,
+  sub_area text,
+  items jsonb,
+  completed_at timestamptz DEFAULT now(),
+  notes text
+);`}</pre>
+                </div>
+              )}
+              <div className="space-y-1 max-h-80 overflow-y-auto pr-1">
+                {archive.map(task => (
+                  <div key={task.id} className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium flex-shrink-0 capitalize ${AREA_BADGE[task.area] ?? AREA_BADGE.finance}`}>
+                      {task.area === 'hr' ? 'HR' : task.area}
+                    </span>
+                    <span className="flex-1 text-xs text-white/70 truncate">{task.title}</span>
+                    <span className="text-[10px] text-white/25 flex-shrink-0">
+                      {new Date(task.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                    </span>
+                    <button
+                      onClick={() => reopenTask(task)}
+                      disabled={reopening === task.id}
+                      className="flex-shrink-0 flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-white/10 text-white/35 hover:text-navi-blue hover:border-navi-blue/30 transition-all disabled:opacity-40"
+                    >
+                      {reopening === task.id
+                        ? <Loader2 className="w-3 h-3 animate-spin" />
+                        : <RotateCcw className="w-3 h-3" />}
+                      Reopen
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
           ) : archiveTableMissing ? (
             <div className="py-3 space-y-2">
               <p className="text-xs text-white/40">Table not set up yet. Run this in the Supabase SQL editor:</p>
@@ -414,32 +486,8 @@ export function SettingsTab() {
   notes text
 );`}</pre>
             </div>
-          ) : archive.length === 0 ? (
-            <p className="text-xs text-white/25 py-2">No completed tasks yet</p>
           ) : (
-            <div className="space-y-1 max-h-80 overflow-y-auto pr-1">
-              {archive.map(task => (
-                <div key={task.id} className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium flex-shrink-0 capitalize ${AREA_BADGE[task.area] ?? AREA_BADGE.finance}`}>
-                    {task.area === 'hr' ? 'HR' : task.area}
-                  </span>
-                  <span className="flex-1 text-xs text-white/70 truncate">{task.title}</span>
-                  <span className="text-[10px] text-white/25 flex-shrink-0">
-                    {new Date(task.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                  </span>
-                  <button
-                    onClick={() => reopenTask(task)}
-                    disabled={reopening === task.id}
-                    className="flex-shrink-0 flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-white/10 text-white/35 hover:text-navi-blue hover:border-navi-blue/30 transition-all disabled:opacity-40"
-                  >
-                    {reopening === task.id
-                      ? <Loader2 className="w-3 h-3 animate-spin" />
-                      : <RotateCcw className="w-3 h-3" />}
-                    Reopen
-                  </button>
-                </div>
-              ))}
-            </div>
+            <p className="text-xs text-white/25 py-2">No completed tasks yet</p>
           )}
         </div>
       </section>

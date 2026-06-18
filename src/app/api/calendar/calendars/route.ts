@@ -2,7 +2,16 @@ import { NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { getAuthClient, getStoredAuth, saveAuth } from '@/shared/lib/google-auth'
 
-const BIRTHDAYS_ID = '#contacts@group.v.calendar.google.com'
+// Google uses different Birthdays calendar IDs depending on account type/region
+const BIRTHDAYS_IDS = [
+  '#contacts@group.v.calendar.google.com',
+  'contactsbirthdays@contacts.google.com',
+]
+
+function isBirthdaysCalendar(c: { id?: string | null; summary?: string | null }) {
+  return BIRTHDAYS_IDS.some(id => c.id === id) ||
+    (c.summary?.toLowerCase().includes('birthday') ?? false)
+}
 
 function toCalItem(c: { id?: string | null; summary?: string | null; description?: string | null; backgroundColor?: string | null; primary?: boolean | null }) {
   return {
@@ -23,15 +32,17 @@ export async function GET() {
 
   const items = data.items ?? []
 
-  // Birthdays is a special system calendar Google hides by default.
-  // If it's not in the list, insert it so the user can select it.
-  if (!items.find(c => c.id === BIRTHDAYS_ID)) {
-    try {
-      await cal.calendarList.insert({ requestBody: { id: BIRTHDAYS_ID } })
-      const { data: refreshed } = await cal.calendarList.list({ maxResults: 50, showHidden: true })
-      return NextResponse.json({ calendars: (refreshed.items ?? []).map(toCalItem) })
-    } catch {
-      // Already in list or not available — continue with original results
+  // If no Birthdays calendar found (by known ID or by name), try inserting each known ID
+  if (!items.find(isBirthdaysCalendar)) {
+    for (const birthdayId of BIRTHDAYS_IDS) {
+      try {
+        await cal.calendarList.insert({ requestBody: { id: birthdayId } })
+        // Insert succeeded — refetch and return the updated list
+        const { data: refreshed } = await cal.calendarList.list({ maxResults: 50, showHidden: true })
+        return NextResponse.json({ calendars: (refreshed.items ?? []).map(toCalItem) })
+      } catch {
+        // This ID didn't work — try the next one
+      }
     }
   }
 
