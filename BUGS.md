@@ -289,6 +289,38 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-35 · allCycleDone checked parent status before sub-items (Task+ auto-complete bug)
+**Symptom:** Checking off all sub-tasks from the Today tab did not auto-archive the parent cycle. The cycle remained visible with the "Overdue" badge even after 1/1 sub-tasks were ticked.  
+**Root cause:** `allCycleDone` in `sort-utils.ts` evaluated `item.status !== 'done'` first. For Task+ items, the parent ChecklistItem status stays `'todo'` when sub-items are toggled — only the sub-item status changes. So the function always returned `false` for any parent item, blocking the auto-archive path in `toggleItem`.  
+**Fix:** Moved subItems check BEFORE parent status check. If an item has subItems, evaluate only those (leaf-only). Leaf items with no subItems use their own status. Matches the progress bar counting logic exactly.  
+**Lesson:** "Done" for a parent item with sub-tasks means all sub-tasks are done — the parent's own status field is irrelevant. Any completeness check must be leaf-only.
+
+---
+
+### B-36 · Birthdays calendar not appearing in Settings calendar list
+**Symptom:** Google Calendar's Birthdays calendar never appeared in Settings → Calendar selector, even with `showHidden: true` in the API call.  
+**Root cause:** The Birthdays calendar (`#contacts@group.v.calendar.google.com`) is a special Google system calendar that is not automatically included in `calendarList.list()` results. It must be explicitly inserted into the user's calendar list via `calendarList.insert()` before it can be fetched.  
+**Fix:** In `GET /api/calendar/calendars`: after fetching the list, if the Birthdays calendar ID is absent, call `calendarList.insert({ requestBody: { id: BIRTHDAYS_ID } })` then re-fetch and return the updated list. Subsequent calls return it normally.  
+**Lesson:** Some Google Calendar system calendars (Birthdays, Contacts) do not auto-appear in calendarList.list(). Must be explicitly inserted. Wrap the insert in try/catch to handle the 409-conflict case (already in list).
+
+---
+
+### B-37 · Ops and Finance tabs missing ··· overflow trigger button
+**Symptom:** Ops and Finance tabs had `overflowOpen` state and dropdown content, but no button to actually open the dropdown — the ··· button existed only in HRTab.  
+**Root cause:** The ··· button was added to HRTab but not backported to FinanceTab and OpsTab during the overflow refactor.  
+**Fix:** Added `<button onClick={() => setOverflowOpen(o => !o)}>···</button>` to both FinanceTab and OpsTab, matching the HRTab pattern exactly.  
+**Lesson:** When adding a UI pattern to one area tab, search for the same state setup (`overflowOpen`) in all other tabs and apply the same fix.
+
+---
+
+### B-38 · Today tab filter used item-level due dates as override (not additive)
+**Symptom:** A cycle with `triggerLabel = '2026-06-18'` (today) did not appear in Today tab when any of its incomplete items had an explicit `due` date set to a future date.  
+**Root cause:** Commit cb50883 changed the filter from additive ("show if trigger is today OR any item is due today") to override ("if items have due dates, use earliest as effective date — falls back to trigger only if NO items have dates"). A cycle due today with even one item scheduled for next week would be hidden.  
+**Fix:** Restored trigger-first logic: check cycle-level trigger first (always shows if due today or overdue). Item-level due dates are additive — they surface additional cycles with no trigger, but never override a trigger that already fires today.  
+**Lesson:** Cycle-level trigger and item-level due dates serve different purposes. Trigger = "when to surface this cycle." Item due = "when a specific step must be done." Never let item dates override the cycle's visibility trigger.
+
+---
+
 ## How to use this doc
 
 - After every fix session, add a new entry here.
