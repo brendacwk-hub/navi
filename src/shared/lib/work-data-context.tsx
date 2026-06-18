@@ -57,8 +57,8 @@ function toRow(c: Cycle) {
     items: c.items ?? null, phases: c.phases ?? null,
     last_completed_at: c.lastCompletedAt ?? null,
     next_due_at: c.nextDueAt ?? null,
+    mode: 'work',
   }
-  // notes column is added via migration — only include when present to avoid PGRST204
   if (c.notes !== undefined) row.notes = c.notes
   return row
 }
@@ -159,7 +159,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
   // ── Load from DB on mount ─────────────────────────────────────────────────
   const loadFromSupabase = useCallback(async () => {
     try {
-      const rows = await dbRead('cycles') as ReturnType<typeof fromRow>[]
+      const rows = await dbRead('cycles', { col: 'mode', val: 'work' }) as ReturnType<typeof fromRow>[]
 
       if (rows.length > 0) {
         const allStatic = [...initFinance, ...initHr]
@@ -247,7 +247,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
   // ── Refresh (pull-to-refresh) ─────────────────────────────────────────────
   const refreshData = useCallback(async () => {
     try {
-      const rows = await dbRead('cycles') as ReturnType<typeof fromRow>[]
+      const rows = await dbRead('cycles', { col: 'mode', val: 'work' }) as ReturnType<typeof fromRow>[]
       if (rows.length > 0) {
         const allStatic = [...initFinance, ...initHr]
         const staticById = new Map(allStatic.map(c => [c.id, c]))

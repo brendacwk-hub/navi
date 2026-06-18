@@ -149,9 +149,9 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           )
         })()}
 
-        {/* Other links */}
+        {/* Inbox + Habits */}
         <div className="pt-4" />
-        {otherLinks.map(({ label, href, icon: Icon }) => {
+        {otherLinks.filter(l => l.href !== '/work/calendar').map(({ label, href, icon: Icon }) => {
           const active = pathname === href
           const isInbox = href === '/work/inbox'
           return (
@@ -166,6 +166,21 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                   {unreadCount}
                 </span>
               )}
+            </Link>
+          )
+        })}
+
+        {/* Divider + shared tabs */}
+        <div className="mx-3 my-2 border-t border-white/8" />
+        {otherLinks.filter(l => l.href === '/work/calendar').map(({ label, href, icon: Icon }) => {
+          const active = pathname === href
+          return (
+            <Link key={href} href={href} onClick={onNavigate} title={label}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                active ? 'bg-navi-blue/15 text-white' : 'text-white/50 hover:text-white/80 hover:bg-white/5'
+              }`}>
+              <Icon className={`w-4 h-4 flex-shrink-0 ${active ? 'text-navi-blue' : 'text-white/30'}`} />
+              <span className="flex-1">{label}</span>
             </Link>
           )
         })}

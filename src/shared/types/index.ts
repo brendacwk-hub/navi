@@ -1,6 +1,6 @@
 export type Area = 'finance' | 'hr' | 'ops' | 'others'
 export type WorkArea = 'finance' | 'hr' | 'ops' | 'others'
-export type PersonalArea = 'health' | 'creative' | 'learning' | 'life-admin' | 'personal-finance' | 'social'
+export type PersonalArea = 'housework' | 'personal-finance' | 'sidoi' | 'tobuy'
 export type Mode = 'work' | 'personal'
 export type Effort = 'quick' | 'medium' | 'heavy'
 export type TaskStatus = 'active' | 'snoozed' | 'waiting' | 'blocked' | 'done' | 'urgent'
@@ -34,7 +34,7 @@ export interface CyclePhase {
 export interface Cycle {
   id: string
   title: string
-  area: Area
+  area: WorkArea | PersonalArea
   subArea?: string
   effort: Effort
   must: boolean
