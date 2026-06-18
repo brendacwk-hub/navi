@@ -321,6 +321,14 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-39 · Sub-tasks in Task+ / Templates had no drag-to-reorder
+**Symptom:** When editing a Task+ cycle or a Template, sub-tasks / steps could only be reordered by deleting and re-adding them — there was no drag handle.  
+**Root cause:** Feature not yet built. Items were rendered as a plain list with no sortable wrapper.  
+**Fix:** Added `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`. In `CycleCard.tsx`, wrapping the items list in `DndContext + SortableContext + SortableItemRow` (with `GripVertical` drag handle) when `editingTitle === true`. In `TemplatesView.tsx`, same pattern for the steps list in `TemplateFormModal` (always available). `updateCycle` updated to accept `items` in its patch so reordered items persist to DB.  
+**Lesson:** Touch-compatible drag on iPhone Safari requires both `PointerSensor` and `TouchSensor` from @dnd-kit — `PointerSensor` alone does not fire on touch-only devices.
+
+---
+
 ## How to use this doc
 
 - After every fix session, add a new entry here.

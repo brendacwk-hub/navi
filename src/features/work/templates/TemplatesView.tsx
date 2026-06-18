@@ -1,11 +1,20 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Play, X, Plus, Pencil } from 'lucide-react'
+import { Play, X, Plus, Pencil, GripVertical } from 'lucide-react'
 import { useWorkData } from '@/shared/lib/work-data-context'
 import { resolveLabel } from '@/shared/lib/sort-utils'
 import { RecurrencePicker, isRecurrString } from '@/shared/components/RecurrencePicker'
 import type { WorkArea, Effort } from '@/shared/types'
+import {
+  DndContext, closestCenter, PointerSensor, TouchSensor, KeyboardSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext, sortableKeyboardCoordinates, useSortable,
+  verticalListSortingStrategy, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -70,6 +79,20 @@ export function newTemplate(area: WorkArea): WorkTemplate {
   return { id: `tmpl-${Date.now()}`, title: '', description: '', area, effort: 'medium', must: false, items: [{ id: `s-${Date.now()}`, label: '' }] }
 }
 
+// ── Sortable step row ─────────────────────────────────────────────────────────
+
+function SortableStepRow({ id, children }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  return (
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }} className="flex items-center gap-1">
+      <button {...attributes} {...listeners} className="touch-none flex-shrink-0 cursor-grab active:cursor-grabbing text-white/20 hover:text-white/45 transition-colors p-0.5" tabIndex={-1}>
+        <GripVertical className="w-3.5 h-3.5" />
+      </button>
+      <div className="flex-1 min-w-0">{children}</div>
+    </div>
+  )
+}
+
 // ── Template Form Modal ───────────────────────────────────────────────────────
 
 export function TemplateFormModal({ initial, area: _area, allowAreaChange, onSave, onDelete, onClose }: {
@@ -92,6 +115,20 @@ export function TemplateFormModal({ initial, area: _area, allowAreaChange, onSav
     setTmpl(prev => ({ ...prev, items: [...prev.items, { id: `s-${Date.now()}`, label: '' }] }))
   const removeStep = (idx: number) =>
     setTmpl(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }))
+
+  const stepSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+  const handleStepDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = tmpl.items.findIndex(i => i.id === active.id)
+    const newIndex = tmpl.items.findIndex(i => i.id === over.id)
+    if (oldIndex === -1 || newIndex === -1) return
+    setTmpl(prev => ({ ...prev, items: arrayMove(prev.items, oldIndex, newIndex) }))
+  }
 
   const canSave = tmpl.title.trim() && Array.isArray(tmpl.items) && tmpl.items.some(s => s.label.trim())
 
@@ -202,32 +239,38 @@ export function TemplateFormModal({ initial, area: _area, allowAreaChange, onSav
           {/* Steps */}
           <div>
             <label className="block text-[11px] text-white/35 uppercase tracking-widest mb-2">Steps *</label>
-            <div className="space-y-2">
-              {tmpl.items.map((step, idx) => (
-                <div key={step.id} className="flex items-center gap-2">
-                  <span className="text-white/20 text-[11px] w-4 text-center flex-shrink-0">{idx + 1}</span>
-                  <input
-                    value={step.label}
-                    onChange={e => setStep(idx, { label: e.target.value })}
-                    placeholder={`Step ${idx + 1}`}
-                    className="flex-1 bg-white/6 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors"
-                  />
-                  <button
-                    onClick={() => setStep(idx, { optional: !step.optional })}
-                    className={`flex-shrink-0 text-[10px] px-2 py-1 rounded border transition-all ${
-                      step.optional ? 'border-white/25 text-white/50 bg-white/8' : 'border-white/10 text-white/20 hover:border-white/20'
-                    }`}
-                  >
-                    opt
-                  </button>
-                  {tmpl.items.length > 1 && (
-                    <button onClick={() => removeStep(idx)} className="flex-shrink-0 text-white/20 hover:text-red-400 transition-colors">
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+            <DndContext sensors={stepSensors} collisionDetection={closestCenter} onDragEnd={handleStepDragEnd}>
+              <SortableContext items={tmpl.items.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-2">
+                  {tmpl.items.map((step, idx) => (
+                    <SortableStepRow key={step.id} id={step.id}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-white/20 text-[11px] w-4 text-center flex-shrink-0">{idx + 1}</span>
+                        <input
+                          value={step.label}
+                          onChange={e => setStep(idx, { label: e.target.value })}
+                          placeholder={`Step ${idx + 1}`}
+                          className="flex-1 bg-white/6 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors"
+                        />
+                        <button
+                          onClick={() => setStep(idx, { optional: !step.optional })}
+                          className={`flex-shrink-0 text-[10px] px-2 py-1 rounded border transition-all ${
+                            step.optional ? 'border-white/25 text-white/50 bg-white/8' : 'border-white/10 text-white/20 hover:border-white/20'
+                          }`}
+                        >
+                          opt
+                        </button>
+                        {tmpl.items.length > 1 && (
+                          <button onClick={() => removeStep(idx)} className="flex-shrink-0 text-white/20 hover:text-red-400 transition-colors">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </SortableStepRow>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </SortableContext>
+            </DndContext>
             <button onClick={addStep} className="mt-2 flex items-center gap-1.5 text-xs text-white/35 hover:text-white/60 transition-colors">
               <Plus className="w-3 h-3" />
               Add step

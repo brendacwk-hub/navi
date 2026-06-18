@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, ChevronRight, Zap, Lock, Pencil, X, FileText, Check, Plus } from 'lucide-react'
+import { ChevronDown, ChevronRight, Zap, Lock, Pencil, X, FileText, Check, Plus, GripVertical } from 'lucide-react'
 import type { Cycle, CyclePhase, Effort } from '@/shared/types'
 import { ChecklistItem } from './ChecklistItem'
 import { useWorkData } from '@/shared/lib/work-data-context'
@@ -9,6 +9,15 @@ import { useToast } from '@/shared/lib/toast-context'
 import { type CycleFilter, filterToLeaves, CADENCE_FILTERS } from '@/shared/lib/filter-utils'
 import { allCycleDone, isRecurring, resolveLabel, computeSkipDate } from '@/shared/lib/sort-utils'
 import { RecurrencePicker, isRecurrString, fmtRecurrDisplay } from './RecurrencePicker'
+import {
+  DndContext, closestCenter, PointerSensor, TouchSensor, KeyboardSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext, sortableKeyboardCoordinates, useSortable,
+  verticalListSortingStrategy, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 const effortColors: Record<Effort, { bg: string; text: string; border: string }> = {
   quick:  { bg: 'bg-green-500/15',  text: 'text-green-400',  border: 'border-green-500/30' },
@@ -57,6 +66,18 @@ function countItems(items: { status: string; subItems?: { status: string }[] }[]
 }
 
 type WorkAreaLocal = 'finance' | 'hr' | 'ops' | 'others'
+
+function SortableItemRow({ id, children }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  return (
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }} className="flex items-start gap-1">
+      <button {...attributes} {...listeners} className="touch-none flex-shrink-0 cursor-grab active:cursor-grabbing mt-1 text-white/20 hover:text-white/45 transition-colors p-0.5" tabIndex={-1}>
+        <GripVertical className="w-3.5 h-3.5" />
+      </button>
+      <div className="flex-1 min-w-0">{children}</div>
+    </div>
+  )
+}
 
 function PhaseSection({ phase, cycle, filter }: { phase: CyclePhase; cycle: Cycle; filter: CycleFilter }) {
   const [open, setOpen] = useState(phase.status === 'active')
@@ -135,6 +156,20 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
   const { updateCycle, deleteCycle, deleteItem, toggleItem, setItemLabel, setItemNote, setItemUrgent, setItemDue, addCycleItem } = useWorkData()
   const { showToast } = useToast()
   const area = cycle.area as WorkAreaLocal
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+  const handleItemDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id || !cycle.items) return
+    const oldIndex = cycle.items.findIndex(i => i.id === active.id)
+    const newIndex = cycle.items.findIndex(i => i.id === over.id)
+    if (oldIndex === -1 || newIndex === -1) return
+    updateCycle(area, cycle.id, { items: arrayMove(cycle.items, oldIndex, newIndex) })
+  }
 
   useEffect(() => { if (filter !== 'All') setExpanded(true) }, [filter])
   useEffect(() => { if (editingTitle) titleInputRef.current?.focus() }, [editingTitle])
@@ -484,6 +519,24 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
             <div className="space-y-0.5">
               {visibleItems.length === 0 && !addingStep ? (
                 <p className="text-xs text-white/25 py-1 px-2">No items match this filter</p>
+              ) : editingTitle ? (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleItemDragEnd}>
+                  <SortableContext items={visibleItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                    {visibleItems.map(item => (
+                      <SortableItemRow key={item.id} id={item.id}>
+                        <ChecklistItem
+                          item={item}
+                          onToggle={id => toggleItem(area, cycle.id, id)}
+                          onNoteChange={(id, note) => setItemNote(area, cycle.id, id, note)}
+                          onLabelChange={(id, label) => setItemLabel(area, cycle.id, id, label)}
+                          onUrgentChange={(id, urgent) => setItemUrgent(area, cycle.id, id, urgent)}
+                          onDueChange={(id, due) => setItemDue(area, cycle.id, id, due)}
+                          onDelete={id => deleteItem(area, cycle.id, id)}
+                        />
+                      </SortableItemRow>
+                    ))}
+                  </SortableContext>
+                </DndContext>
               ) : (
                 visibleItems.map(item => (
                   <ChecklistItem
