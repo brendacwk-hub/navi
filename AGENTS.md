@@ -49,7 +49,8 @@ Today → Housework → Finance → Sidoi → To Buy → [divider] → Diary →
 - Background: `#0e1628` (dark navy, from Stash app)
 - Primary accent: `#f0a8c8` (soft pink)
 - Borders/muted: `rgba(180,140,220,...)`
-- Area accent colors: Housework `#6ee7b7` · Finance `#c4b5fd` · Sidoi `#f9a8d4` · To Buy `#fcd34d`
+- Area accent colors: Housework `#fb7185` (coral) · Finance `#22d3ee` (cyan) · Sidoi `#f9a8d4` (rose pink) · To Buy `#fcd34d` (amber)
+- NOTE: NO PURPLE anywhere in personal mode or any other UI. User explicitly hates purple.
 
 ## Data layer
 - All personal cycles stored in the same `cycles` table with `mode = 'personal'`
@@ -73,6 +74,18 @@ Today → Housework → Finance → Sidoi → To Buy → [divider] → Diary →
 - Personality notes: `navi/personal/personality.md` (inside repo, traits + values + goals + routines)
 - **Weekly Review**: mode-specific — Personal mode Monday review covers personal areas only; Work covers work only
 - **Calendar**: shows personal cycles alongside work cycles and GCal events (personal cycles in pink/soft accent)
+
+## Architecture decisions
+
+**Mode detection:** URL-based. `/work/*` = work, `/personal/*` = personal, `/calendar|/settings|/analytics` = shared.
+Header reads `usePathname()` to determine active mode for the badge pill.
+`remember last page` stored in localStorage per mode — badge tap navigates to `localStorage.getItem('lastWork')` or `localStorage.getItem('lastPersonal')`.
+
+**Layouts:** Separate `src/app/work/layout.tsx` and `src/app/personal/layout.tsx`. Both use the ONE shared `Sidebar.tsx` (receives mode from URL). Any structural Sidebar changes happen once.
+
+**Shared pages:** `/calendar`, `/settings`, `/analytics` — top-level routes, no mode prefix. Both sidebars link here.
+
+**Weekly Reviews DB:** Separate `personal_weekly_reviews` table (same schema as `weekly_reviews`, no mode column).
 
 ## Build order
 1. DB migration (`mode` column on `cycles`)

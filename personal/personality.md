@@ -1,98 +1,130 @@
 # Personality Notes — Brenda
 
-This file is read by the Diary prompt generator to create personalised, context-aware daily prompts.
-Update any section whenever something changes. The more honest and specific, the better the prompts.
+Read by the Diary prompt generator to create personalised, context-aware daily prompts.
+Source: personal-profile.md (at /Users/brendaevg/work_control/personal-profile.md). Keep in sync.
 
 ---
 
 ## Who I Am
 
 **Role & context:**
-<!-- e.g. I manage Finance, HR and Ops for a company. I also run Sidoi, a crochet business. -->
+Finance, Operations, and HR manager simultaneously — all three, always at once.
+Works at Aspen Digital (financial services, aspendigital.co).
+Also runs Sidoi — a crochet side hustle.
 
-**Where I live:**
-<!-- e.g. Hong Kong. Sometimes work connects to Abu Dhabi. -->
+**Location:**
+Hong Kong primarily. Some responsibilities extend to Abu Dhabi office.
+Works in English; some Cantonese in day-to-day life.
 
 **Life stage:**
-<!-- e.g. Mid-20s, building my career and side business simultaneously. -->
+Building career and side business simultaneously. Highly capable, high-volume work life.
+
+---
+
+## Daily Rhythm
+
+**Work hours:** Monday–Friday, approximately 11am–8pm HKT.
+Before 11am: exercises, eases into the day without urgency.
+Lunch: approximately 1pm–2:30pm.
+First instinct when sitting down: get a clear picture of what's overdue, due today, and what's new.
+
+**Notifications:** MacBook during work hours, iPhone outside work hours.
 
 ---
 
 ## Traits & Tendencies
 
-**Energy:**
-<!-- e.g. I'm introverted — social events drain me. I recharge with quiet creative time. -->
+**Energy:** Energised by completing things, solving novel problems, feeling capable and on top of things, learning, helping others.
+Drained by: long disorganised lists, chaos, being pushed without structure.
 
-**Work style:**
-<!-- e.g. I prefer to batch similar tasks. I lose focus in the afternoon. I'm detail-oriented. -->
+**Work style:** Prefers scanning over configuring. If AI gets it 80% right, fixes the 20%. Doesn't set up every field from scratch. Deadline is the heaviest factor, but stakes + effort + energy all matter.
 
-**Emotional patterns:**
-<!-- e.g. I tend to overthink decisions. I feel most grounded when I've been creative. -->
+**When overwhelmed:** Sometimes bulldozes through the most urgent thing. Sometimes makes a list and works through it methodically. Occasionally stalls deciding. Most helped when the system makes the priority decision clearly.
 
-**What a good day looks like:**
-<!-- e.g. Got through my Finance tasks early, made progress on a Sidoi order, had time to rest. -->
-
-**What a hard day looks like:**
-<!-- e.g. Back-to-back meetings, no creative time, feeling behind on everything. -->
+**On a perfect day:** Cleared the backlog, made meaningful progress on something AI or systems-related, all recurring cycles ran cleanly with no surprises.
 
 ---
 
 ## What I Value
 
-<!-- List 5–8 things that matter most to you -->
-- 
-- 
-- 
+1. Completing things and feeling on top of work
+2. Creativity and making things with my hands (crochet, AI scripts, tools)
+3. Learning — especially building AI systems and automations
+4. Financial independence
+5. Calm, structure, and predictability in daily life
+6. Warmth and encouragement (from tools and people)
 
 ---
 
 ## Goals
 
-**Right now I'm working toward:**
-<!-- e.g. Growing Sidoi to 10+ orders a month. Building a consistent journalling habit. -->
+**Right now:**
+- Navi Personal mode built and in daily use
+- Sidoi crochet business growing (more consistent orders)
+- Building a weekly review habit (prompted every Monday)
+- Building a journalling/diary habit (what we're building now)
 
-**This year:**
-<!-- e.g. Staying healthy, being more present with family, learning a new skill. -->
+**Ongoing:**
+- Monthly Finance chain runs without surprises
+- HR and Ops work stays on top of deadlines
+- AI tools and internal scripts continue improving team efficiency
 
 ---
 
 ## Routines
 
-**Morning:**
-<!-- e.g. I check Navi first thing. I prefer not to schedule calls before 10am. -->
+**Morning:** Exercise before 11am. No urgency. Eases into the day.
+**Work start:** Clear picture of overdue + today + inbox. That picture should be waiting in the app.
+**Evening:** Wants a "Close Day" moment — visual of what was finished, warm AI message, rescheduling anything unfinished. Day should close deliberately, not just stop.
 
-**Evening:**
-<!-- e.g. I wind down by 11pm. I like to review what I did in the day. -->
-
-**Exercise / health habits:**
-<!-- e.g. I try to walk 30 min daily. I'm working on better sleep. -->
+**Health habits:** Tracks exercise streak (gym, runs, classes). Cares deeply about not breaking the streak. Annual health check-ups and dental appointments scheduled once, reminded when they approach.
 
 ---
 
-## Sidoi (Crochet Business)
+## Personal Life Areas
 
-**What it means to me:**
-<!-- e.g. Creative outlet + income. I love making things with my hands. -->
+**Housework:** Recurring household tasks. No sub-areas.
 
-**Current focus:**
-<!-- e.g. Building the Orders pipeline. Testing new patterns. Growing Instagram presence. -->
+**Finance (personal):** Recurring bill reminders — rent, phone, utilities, insurance (health, life, travel), software subscriptions. No number tracking needed; just reminders so nothing gets missed.
 
-**Challenges:**
-<!-- e.g. Finding time to make consistently. Pricing my work fairly. -->
+**Sidoi (crochet side hustle):** Making and selling crochet items. Sub-areas: Orders / Marketing / Planning.
+
+**To Buy:** Mix of recurring restocks and one-off wishlist items.
+
+**Social & family (tracked via Calendar/Diary prompts):** Birthdays, events, promises to people, occasional check-ins. These slip most easily.
 
 ---
 
-## Relationships & Social
+## Sidoi Notes
 
-**People who matter most:**
-<!-- e.g. Close family, a few close friends. -->
+Creative outlet + income. Loves making things with her hands.
+Instagram presence for marketing.
+Challenges: finding consistent making time, pricing work fairly.
 
-**Social preferences:**
-<!-- e.g. I prefer small gatherings. I'm selective about commitments. -->
+---
+
+## Tools Context
+
+**Stash app:** Personal content bookmarking system (separate app, FastAPI + Supabase). Saves links, images, articles, PDFs. Uses Gemini Flash + Claude Haiku for AI categorisation. Has iOS Shortcut + Telegram bot.
+Learning lives in Stash, not in Navi.
+
+**Navi:** This app. Work mode live. Personal mode being built.
+
+---
+
+## Tone Preferences for Diary Prompts
+
+- Warm and encouraging, not clinical or corporate
+- Frame things constructively: "payroll is coming up in 3 days" not "payroll is overdue"
+- Acknowledge completions; celebrate small wins
+- Reserve urgency language for things that are actually urgent
+- No purple anywhere in the UI (strong preference)
+- Font: Comfortaa (warm, rounded)
 
 ---
 
 ## Reflections Log
-<!-- The Diary AI will occasionally note patterns it observes here over time. -->
-<!-- e.g. "June 2026: Brenda tends to feel more energised on days she works on Sidoi." -->
+<!-- The Diary AI updates this section with observed patterns over time -->
 
+**2026-06-15 (from weekly review):**
+"There are too many to be done at once, I did not know where to start." (context: co-workers resigned, their tasks transferred to Brenda)
