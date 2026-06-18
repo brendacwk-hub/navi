@@ -36,14 +36,14 @@ Never use a plain text `<input>` for scheduling. Never add a new date UI without
 `PersonalArea = 'housework' | 'personal-finance' | 'sidoi' | 'tobuy'`
 
 ## Mode switching
-- Header badge tap: switches URL between `/work/*` and `/personal/*`
+- Header badge: single pill, 💼 Work / 🏠 Personal, tap to switch
+- Switches URL between `/work/*` and `/personal/*`; remembers last page per mode (localStorage)
 - Instant, no animation
 - Header + sidebar background: `#0c0c0c` (work) → `#0e1628` navy (personal)
-- Badge turns pink in personal mode
-- Sidebar content swaps completely; Calendar + Analytics appear in both sidebars (after thin divider)
+- Sidebar content swaps completely
 
 ## Personal sidebar order
-Today → Housework → Finance → Sidoi → To Buy → [divider] → Diary → Calendar (shared) → Analytics (shared)
+Today → Housework → Finance → Sidoi → To Buy → [divider] → Diary → Calendar → Analytics → Settings (footer)
 
 ## Visual theme (Personal)
 - Background: `#0e1628` (dark navy, from Stash app)
@@ -58,17 +58,47 @@ Today → Housework → Finance → Sidoi → To Buy → [divider] → Diary →
 - DB migration: `ALTER TABLE cycles ADD COLUMN IF NOT EXISTS mode text NOT NULL DEFAULT 'work';`
 
 ## Shared vs isolated
-- **Shared:** Calendar tab, Analytics tab (both appear in work + personal sidebars)
+- **Shared:** Calendar, Analytics, Settings (all appear in both sidebars)
 - **Work-only:** Inbox, Habits (habit dots appear on shared Calendar)
 - **Personal-only:** Diary tab
-- **Isolated:** QuickAdd is context-aware (personal mode shows only personal areas)
+- **Isolated:** QuickAdd is mode-aware (personal mode = personal areas only); Calendar has NO QuickAdd
+- **Search:** mode-aware (personal mode searches personal cycles only; work searches work only)
 
 ## Diary tab
-- One entry per day; emoji mood picker (😄 🙂 😐 😔 😢)
-- Smart prompts from day 1: based on Google Calendar events, completed tasks, busy work day detection, personality notes
-- 50% basic rotating questions (no daily repeats) + 50% context-specific
-- Free write section below prompts
-- Personality notes file: `navi/personal/personality.md` (traits + values + goals + routines — user fills in)
+- One entry per day; emoji mood picker (😄 🙂 😐 😔 😢) + prompted fields + free write
+- **Gemini API** called live on every open — context passed: personality notes + today's GCal events + personal tasks completed + cross-mode busy day detection
+- 50% basic rotating questions (no daily repeats) + 50% context-specific questions
+- Scrollable past entries below today's entry (most recent first); past entries editable
+- Daily push reminder at user-set time (Settings → Notifications → Diary reminder)
+- Personality notes: `navi/personal/personality.md` (inside repo, traits + values + goals + routines)
+- **Weekly Review**: mode-specific — Personal mode Monday review covers personal areas only; Work covers work only
+- **Calendar**: shows personal cycles alongside work cycles and GCal events (personal cycles in pink/soft accent)
+
+## Build order
+1. DB migration (`mode` column on `cycles`)
+2. `/personal/*` routes + layout
+3. Header badge toggle (💼 Work / 🏠 Personal, single pill, instant switch)
+4. Personal sidebar (navy theme, area nav, shared tabs section with divider)
+5. Work sidebar: add divider before Calendar/Analytics/Settings
+6. `PersonalDataContext` (mirrors WorkDataContext, reads `mode='personal'`)
+7. Area tabs: Housework → Finance → Sidoi (Orders/Marketing/Planning) → To Buy
+8. Personal Today (today's personal tasks, Weekly Review modal, no focus strip, no Coming Up)
+9. Diary tab (Gemini prompts, mood picker, history, push reminder)
+10. Templates for personal areas
+11. Calendar: show personal cycles alongside work cycles
+
+## QuickAdd in Personal mode
+- Same Task / Task+ / Cycle types as Work mode
+- Area selector shows: Housework / Finance / Sidoi / To Buy
+- Calendar tab: no QuickAdd button
+
+## Sidoi MVP
+- Orders / Marketing / Planning are standard task tabs (Task / Task+ / Cycle)
+- No special order-tracking UI for now; enhance in a future session
+
+## iPhone widget
+- Existing `?mode=work` shows work tasks (unchanged)
+- New `?mode=personal` to show today's personal tasks (build after core personal mode)
 
 ## Components reused from Work mode (no changes needed)
 CycleCard, ChecklistItem, RecurrencePicker, sort-utils, filter-utils, search-utils, QuickAddButton (area selector extended)
