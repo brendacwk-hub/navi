@@ -372,6 +372,22 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-45 · Settings/Calendar/Analytics from Personal mode switched user to Work layout
+**Symptom:** Clicking Settings (or Calendar, Analytics) from the PersonalSidebar navigated to `/work/settings` etc., which are under the Work layout — so the Work sidebar was shown. Clicking "Today" in that Work sidebar sent the user to Work Today instead of Personal Today.  
+**Root cause:** The B-43 fix only tracked mode in localStorage and updated the badge, but the LAYOUT was still determined by the route prefix (`/work/*` = Work layout). PersonalSidebar linked shared pages to `/work/*` routes, so the full shell swapped to Work on navigation.  
+**Fix:** Created dedicated personal-layout routes: `/personal/settings`, `/personal/calendar`, `/personal/analytics` (calendar and analytics are "Coming soon" placeholders; settings renders the shared `SettingsTab`). Updated all PersonalSidebar links to point to these personal routes. All links now use `<Link>` (no `handleSharedLink` needed). Users stay in the PersonalShell + PersonalSidebar when navigating these sections from personal mode.  
+**Lesson:** The only true fix for layout isolation is route isolation. localStorage badges can mask the problem visually but don't change which shell Next.js renders. If a page must work in both modes, it either needs a top-level route with a mode-aware shell, or two separate route-tree copies under `/work/*` and `/personal/*`.
+
+---
+
+### B-46 · Birthdays calendar appears blank or undetectable if ID format differs
+**Symptom:** Even after inserting the Birthdays calendar via the API (B-41 fix), some accounts returned it with `summary: null` — appearing as a blank nameless entry in the Settings calendar list. Also, IDs containing "birthday" or the `contacts+calendar` pattern were not detected by `isBirthdaysCalendar`.  
+**Root cause:** `toCalItem` passed `c.summary` through directly with no null fallback, so a null-summary calendar rendered as empty text. `isBirthdaysCalendar` only checked two exact IDs and a name-contains check on summary — it missed ID-level substring detection.  
+**Fix:** `toCalItem` now falls back to `'Birthdays'` for any birthday-identified calendar with a null summary, and to the raw `c.id` for any other null-summary calendar. `isBirthdaysCalendar` now also checks if the lowercased ID contains "birthday", or if it contains both "contacts" and "calendar" — covering additional account-specific ID variants.  
+**Lesson:** Third-party calendar APIs can return null for display-name fields on system calendars. Always provide a meaningful fallback name based on the ID type, not just the summary field.
+
+---
+
 ## How to use this doc
 
 - After every fix session, add a new entry here.

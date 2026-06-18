@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { LayoutDashboard, Home, Wallet, ShoppingBag, BookOpen, CalendarDays, BarChart3, SlidersHorizontal, Scissors } from 'lucide-react'
 
 const areaLinks = [
@@ -11,22 +11,14 @@ const areaLinks = [
   { label: 'To Buy',    href: '/personal/tobuy',     icon: ShoppingBag,color: 'text-[#fcd34d]', bg: 'bg-[#fcd34d]/15' },
 ]
 
-// Shared pages — save lastPersonal before navigating so mode badge + back-nav work correctly
-const sharedLinks = [
-  { label: 'Diary',     href: '/personal/diary',     icon: BookOpen,    shared: false },
-  { label: 'Calendar',  href: '/work/calendar',      icon: CalendarDays,shared: true },
-  { label: 'Analytics', href: '/work/analytics',     icon: BarChart3,   shared: true },
+const extraLinks = [
+  { label: 'Diary',     href: '/personal/diary',      icon: BookOpen    },
+  { label: 'Calendar',  href: '/personal/calendar',   icon: CalendarDays },
+  { label: 'Analytics', href: '/personal/analytics',  icon: BarChart3   },
 ]
 
 export function PersonalSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
-  const router   = useRouter()
-
-  const handleSharedLink = (href: string) => {
-    localStorage.setItem('lastPersonal', pathname)
-    onNavigate?.()
-    router.push(href)
-  }
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
 
@@ -69,19 +61,14 @@ export function PersonalSidebar({ onNavigate }: { onNavigate?: () => void }) {
         {/* Divider */}
         <div className="mx-3 my-2 border-t border-white/8" />
 
-        {/* Diary + shared tabs */}
-        {sharedLinks.map(({ label, href, icon: Icon, shared }) => {
+        {/* Diary + other tabs */}
+        {extraLinks.map(({ label, href, icon: Icon }) => {
           const active = isActive(href)
-          const cls = `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold transition-all ${
-            active ? 'bg-[#f0a8c8]/15 text-white' : 'text-white/50 hover:text-white/80 hover:bg-white/5'
-          }`
-          return shared ? (
-            <button key={href} onClick={() => handleSharedLink(href)} className={`w-full text-left ${cls}`}>
-              <Icon className={`w-4 h-4 flex-shrink-0 ${active ? 'text-[#f0a8c8]' : 'text-white/30'}`} />
-              {label}
-            </button>
-          ) : (
-            <Link key={href} href={href} onClick={onNavigate} className={cls}>
+          return (
+            <Link key={href} href={href} onClick={onNavigate}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                active ? 'bg-[#f0a8c8]/15 text-white' : 'text-white/50 hover:text-white/80 hover:bg-white/5'
+              }`}>
               <Icon className={`w-4 h-4 flex-shrink-0 ${active ? 'text-[#f0a8c8]' : 'text-white/30'}`} />
               {label}
             </Link>
@@ -92,15 +79,15 @@ export function PersonalSidebar({ onNavigate }: { onNavigate?: () => void }) {
       {/* Footer */}
       <div className="px-3 py-3 border-t border-white/6">
         {(() => {
-          const active = isActive('/work/settings')
+          const active = isActive('/personal/settings')
           return (
-            <button onClick={() => handleSharedLink('/work/settings')}
-              className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold transition-all ${
+            <Link href="/personal/settings" onClick={onNavigate}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold transition-all ${
                 active ? 'bg-[#f0a8c8]/15 text-white' : 'text-white/50 hover:text-white/80 hover:bg-white/5'
               }`}>
               <SlidersHorizontal className={`w-4 h-4 flex-shrink-0 ${active ? 'text-[#f0a8c8]' : 'text-white/30'}`} />
               Settings
-            </button>
+            </Link>
           )
         })()}
       </div>

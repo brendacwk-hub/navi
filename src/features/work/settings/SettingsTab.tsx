@@ -473,9 +473,17 @@ export function SettingsTab() {
               </div>
             </>
           ) : archiveTableMissing ? (
-            <div className="py-3 space-y-2">
-              <p className="text-xs text-white/40">Table not set up yet. Run this in the Supabase SQL editor:</p>
-              <pre className="text-[10px] text-navi-blue/80 bg-white/4 rounded-lg p-3 overflow-x-auto leading-relaxed">{`CREATE TABLE IF NOT EXISTS completed_tasks (
+            <div className="py-3 space-y-3">
+              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/8 border border-amber-500/20">
+                <span className="text-base leading-none mt-0.5">⚠️</span>
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-amber-300/80">Archive table not created yet</p>
+                  <p className="text-[11px] text-white/40 leading-relaxed">
+                    Go to your <span className="text-white/60">Supabase dashboard → SQL Editor</span>, paste and run the SQL below. After that, completed cycles will be saved here automatically.
+                  </p>
+                </div>
+              </div>
+              <pre className="text-[10px] text-navi-blue/80 bg-white/4 rounded-lg p-3 overflow-x-auto leading-relaxed select-all">{`CREATE TABLE IF NOT EXISTS completed_tasks (
   id text PRIMARY KEY,
   title text NOT NULL,
   area text NOT NULL,
@@ -487,7 +495,7 @@ export function SettingsTab() {
 );`}</pre>
             </div>
           ) : (
-            <p className="text-xs text-white/25 py-2">No completed tasks yet</p>
+            <p className="text-xs text-white/25 py-2">No completed tasks yet — finish all items in any cycle and it will appear here.</p>
           )}
         </div>
       </section>

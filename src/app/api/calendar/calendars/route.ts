@@ -9,16 +9,21 @@ const BIRTHDAYS_IDS = [
 ]
 
 function isBirthdaysCalendar(c: { id?: string | null; summary?: string | null }) {
-  return BIRTHDAYS_IDS.some(id => c.id === id) ||
-    (c.summary?.toLowerCase().includes('birthday') ?? false)
+  const id   = (c.id   ?? '').toLowerCase()
+  const name = (c.summary ?? '').toLowerCase()
+  return BIRTHDAYS_IDS.some(bid => c.id === bid) ||
+    name.includes('birthday') ||
+    id.includes('birthday') ||
+    (id.includes('contacts') && id.includes('calendar'))
 }
 
 function toCalItem(c: { id?: string | null; summary?: string | null; description?: string | null; backgroundColor?: string | null; primary?: boolean | null }) {
+  const isBirthday = isBirthdaysCalendar(c)
   return {
     id:          c.id,
-    summary:     c.summary,
+    summary:     c.summary ?? (isBirthday ? 'Birthdays' : c.id ?? 'Calendar'),
     description: c.description ?? null,
-    color:       c.backgroundColor ?? '#4285f4',
+    color:       c.backgroundColor ?? (isBirthday ? '#e91e63' : '#4285f4'),
     primary:     c.primary ?? false,
   }
 }
