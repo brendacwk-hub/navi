@@ -81,7 +81,6 @@ export function SettingsTab() {
 
   const loadArchive = useCallback(async () => {
     setArchiveLoading(true)
-    setArchiveTableMissing(false)
     try {
       // Primary: cycles with status='complete' (no extra table needed)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
