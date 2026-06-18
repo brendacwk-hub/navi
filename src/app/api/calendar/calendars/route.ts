@@ -7,7 +7,7 @@ export async function GET() {
   if (!client) return NextResponse.json({ error: 'not_connected' }, { status: 401 })
 
   const cal = google.calendar({ version: 'v3', auth: client })
-  const { data } = await cal.calendarList.list({ maxResults: 50 })
+  const { data } = await cal.calendarList.list({ maxResults: 50, showHidden: true })
 
   return NextResponse.json({
     calendars: (data.items ?? []).map(c => ({
@@ -27,7 +27,7 @@ export async function PATCH(req: Request) {
   if (!row) return NextResponse.json({ error: 'not_connected' }, { status: 401 })
 
   const patch: Record<string, unknown> = {}
-  if (body.selectedIds    !== undefined) patch.selected_calendar_ids = body.selectedIds.slice(0, 2)
+  if (body.selectedIds    !== undefined) patch.selected_calendar_ids = body.selectedIds
   if (body.calendarColors !== undefined) patch.calendar_colors       = body.calendarColors
 
   await saveAuth(patch as Parameters<typeof saveAuth>[0])
