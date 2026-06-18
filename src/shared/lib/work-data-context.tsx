@@ -7,6 +7,7 @@ import { todayTaskData as initToday } from '@/features/work/tasks/today/data'
 import type { Cycle, ChecklistItem, WorkArea } from '@/shared/types'
 import type { TodayTaskData, TodaySubItem } from '@/features/work/tasks/today/data'
 import { isRecurring, computeNextDue, allCycleDone, resetCycle } from '@/shared/lib/sort-utils'
+import { useToast } from '@/shared/lib/toast-context'
 
 // ── Server route helpers — bypass RLS using service role key ──────────────────
 type DbOp = { table: string; operation: 'upsert' | 'insert' | 'delete'; data?: unknown; matchId?: string }
@@ -117,7 +118,7 @@ interface WorkDataCtx {
   financeCycles: Cycle[]; hrCycles: Cycle[]; opsCycles: Cycle[]; othersCycles: Cycle[]
   completedTitles: string[]
   addCycle: (area: WorkArea, cycle: Cycle) => void
-  updateCycle: (area: WorkArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes' | 'nextDueAt'>>) => void
+  updateCycle: (area: WorkArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes' | 'nextDueAt' | 'items'>>) => void
   deleteCycle: (area: WorkArea, id: string) => void
   deleteItem: (area: WorkArea, cycleId: string, itemId: string) => void
   addCycleItem: (area: WorkArea, cycleId: string, label: string) => void
@@ -152,6 +153,8 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
   const [todayLoaded,     setTodayLoaded]     = useState(false)
   const [completedTitles, setCompletedTitles] = useState<string[]>([])
   const sbReady = useRef(false)
+  const { showToast } = useToast()
+  const pendingCompletions = useRef<Map<string, { cycle: Cycle; area: WorkArea; timerId: ReturnType<typeof setTimeout> }>>(new Map())
 
   // ── Load from DB on mount ─────────────────────────────────────────────────
   const loadFromSupabase = useCallback(async () => {
@@ -289,7 +292,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
     dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(cycle) })
   }, [cycleSetter])
 
-  const updateCycle = useCallback((area: WorkArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes' | 'nextDueAt'>>) => {
+  const updateCycle = useCallback((area: WorkArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes' | 'nextDueAt' | 'items'>>) => {
     cycleSetter(area)(prev => {
       const target = prev.find(c => c.id === id)
       // Archive non-recurring cycles when explicitly marked complete
@@ -331,15 +334,35 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
           return toggled.map(c => c.id === cycleId ? withDue : c)
         }
       }
-      // If non-recurring and now fully done → auto-archive
+      // If non-recurring and now fully done → auto-archive with 5s undo window
       if (!isRecurring(changed.triggerLabel) && allCycleDone(changed)) {
-        dbWrite({ table: 'completed_tasks', operation: 'upsert', data: {
-          id: changed.id, title: changed.title, area: changed.area, effort: changed.effort,
-          sub_area: changed.subArea ?? null, items: changed.items ?? null,
-          completed_at: new Date().toISOString(), notes: changed.notes ?? null,
-        }})
-        dbWrite({ table: 'cycles', operation: 'delete', matchId: cycleId })
-        setCompletedTitles(ct => [...new Set([...ct, changed.title])])
+        const completedAt = new Date().toISOString()
+        const timerId = setTimeout(() => {
+          pendingCompletions.current.delete(cycleId)
+          dbWrite({ table: 'completed_tasks', operation: 'upsert', data: {
+            id: changed.id, title: changed.title, area: changed.area, effort: changed.effort,
+            sub_area: changed.subArea ?? null, items: changed.items ?? null,
+            completed_at: completedAt, notes: changed.notes ?? null,
+          }})
+          dbWrite({ table: 'cycles', operation: 'delete', matchId: cycleId })
+          setCompletedTitles(ct => [...new Set([...ct, changed.title])])
+        }, 5000)
+        pendingCompletions.current.set(cycleId, { cycle: changed, area, timerId })
+        showToast(`"${changed.title}" completed`, {
+          duration: 5000,
+          action: {
+            label: 'Undo',
+            onClick: () => {
+              const pending = pendingCompletions.current.get(cycleId)
+              if (!pending) return
+              clearTimeout(pending.timerId)
+              pendingCompletions.current.delete(cycleId)
+              const restored = patchCycleItem(pending.cycle, itemId, i => ({ ...i, status: 'todo' }))
+              cycleSetter(area)(prev => [...prev, restored])
+              syncCycle(restored)
+            },
+          },
+        })
         return toggled.filter(c => c.id !== cycleId)
       }
       syncCycle(changed)

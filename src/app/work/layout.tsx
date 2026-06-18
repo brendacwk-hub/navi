@@ -9,17 +9,17 @@ import { WorkShell } from '@/shared/components/WorkShell'
 export default function WorkLayout({ children }: { children: React.ReactNode }) {
   return (
     <PreferencesProvider>
-      <WorkDataProvider>
-        <InboxProvider>
-          <HabitProvider>
-            <SearchProvider>
-              <ToastProvider>
+      <ToastProvider>
+        <WorkDataProvider>
+          <InboxProvider>
+            <HabitProvider>
+              <SearchProvider>
                 <WorkShell>{children}</WorkShell>
-              </ToastProvider>
-            </SearchProvider>
-          </HabitProvider>
-        </InboxProvider>
-      </WorkDataProvider>
+              </SearchProvider>
+            </HabitProvider>
+          </InboxProvider>
+        </WorkDataProvider>
+      </ToastProvider>
     </PreferencesProvider>
   )
 }

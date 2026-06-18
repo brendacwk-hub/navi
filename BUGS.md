@@ -321,6 +321,14 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-40 · Accidentally completed cycles had no recovery path on mobile
+**Symptom:** When all sub-tasks were checked and a cycle auto-completed, it disappeared instantly with no way to undo on mobile (the "Reopen" button only existed on desktop hover).  
+**Root cause:** Auto-archive fired immediately in `toggleItem` with no undo window; completed cycles were stored in `completed_tasks` but only accessible via Supabase directly.  
+**Fix:** Two-part: (1) Auto-archive now delays DB writes by 5 seconds and shows a toast with an "Undo" button — clicking undo cancels the timer, restores the cycle in state, and re-syncs to DB. (2) Settings → Completed Tasks archive: fetches `completed_tasks` table on load, shows entries newest-first, each with a Reopen button that re-inserts into `cycles` and removes from `completed_tasks`.  
+**Lesson:** Any destructive auto-action needs an undo window. 5 seconds is enough for the "oops" case; the Settings archive is the safety net for anything that slipped through.
+
+---
+
 ### B-39 · Sub-tasks in Task+ / Templates had no drag-to-reorder
 **Symptom:** When editing a Task+ cycle or a Template, sub-tasks / steps could only be reordered by deleting and re-adding them — there was no drag handle.  
 **Root cause:** Feature not yet built. Items were rendered as a plain list with no sortable wrapper.  

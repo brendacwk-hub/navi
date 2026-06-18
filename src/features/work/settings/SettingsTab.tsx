@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { CheckCircle2, Circle, ExternalLink, Loader2, LogOut, RefreshCw, Bell, BellOff } from 'lucide-react'
+import { useEffect, useState, useCallback } from 'react'
+import { CheckCircle2, Circle, ExternalLink, Loader2, LogOut, RefreshCw, Bell, BellOff, RotateCcw } from 'lucide-react'
 import { usePushNotifications } from '@/shared/lib/use-push-notifications'
 import { usePreferences, type FontScale } from '@/shared/lib/preferences-context'
 
@@ -10,6 +10,24 @@ interface CalendarItem {
   summary: string
   color: string
   primary: boolean
+}
+
+interface CompletedTask {
+  id: string
+  title: string
+  area: string
+  effort: string
+  sub_area: string | null
+  items: unknown
+  completed_at: string
+  notes: string | null
+}
+
+const AREA_BADGE: Record<string, string> = {
+  finance: 'bg-finance/15 text-finance border-finance/25',
+  hr:      'bg-hr/15 text-hr border-hr/25',
+  ops:     'bg-ops/15 text-ops border-ops/25',
+  others:  'bg-others/15 text-others border-others/25',
 }
 
 interface ConnectionState {
@@ -39,21 +57,76 @@ const FONT_LABELS: { value: FontScale; label: string; desc: string }[] = [
   { value: 'large',  label: 'Large',  desc: '+10%' },
 ]
 
+function resetItemStatuses(items: unknown): unknown {
+  if (!Array.isArray(items)) return items
+  return items.map((i: Record<string, unknown>) => ({
+    ...i,
+    status: 'todo',
+    subItems: i.subItems ? resetItemStatuses(i.subItems) : undefined,
+  }))
+}
+
 export function SettingsTab() {
   const { status: pushStatus, subscribe, unsubscribe } = usePushNotifications()
   const { fontScale, setFontScale } = usePreferences()
-  const [conn, setConn]           = useState<ConnectionState | null>(null)
-  const [calendars, setCalendars] = useState<CalendarItem[]>([])
-  const [saving, setSaving]       = useState(false)
-  const [loading, setLoading]     = useState(true)
-  const [statusMsg, setStatusMsg] = useState<string | null>(null)
+  const [conn, setConn]                   = useState<ConnectionState | null>(null)
+  const [calendars, setCalendars]         = useState<CalendarItem[]>([])
+  const [saving, setSaving]               = useState(false)
+  const [loading, setLoading]             = useState(true)
+  const [statusMsg, setStatusMsg]         = useState<string | null>(null)
+  const [archive, setArchive]             = useState<CompletedTask[]>([])
+  const [archiveLoading, setArchiveLoading] = useState(true)
+  const [reopening, setReopening]         = useState<string | null>(null)
+
+  const loadArchive = useCallback(async () => {
+    setArchiveLoading(true)
+    try {
+      const res  = await fetch('/api/db?table=completed_tasks')
+      const json = await res.json()
+      const rows = (json.data ?? []) as CompletedTask[]
+      rows.sort((a, b) => b.completed_at.localeCompare(a.completed_at))
+      setArchive(rows)
+    } finally {
+      setArchiveLoading(false)
+    }
+  }, [])
+
+  async function reopenTask(task: CompletedTask) {
+    setReopening(task.id)
+    try {
+      const resetItems = resetItemStatuses(task.items)
+      await fetch('/api/db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table: 'cycles', operation: 'upsert',
+          data: {
+            id: task.id, title: task.title, area: task.area, effort: task.effort,
+            must: false, urgent: false, status: 'active',
+            trigger_label: null, sub_area: task.sub_area ?? null,
+            items: resetItems, phases: null, notes: task.notes ?? null,
+            next_due_at: null, last_completed_at: null,
+          },
+        }),
+      })
+      await fetch('/api/db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ table: 'completed_tasks', operation: 'delete', matchId: task.id }),
+      })
+      setArchive(prev => prev.filter(t => t.id !== task.id))
+    } finally {
+      setReopening(null)
+    }
+  }
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('connected') === '1') setStatusMsg('Google Calendar connected!')
     if (params.get('error'))             setStatusMsg(`Connection failed: ${params.get('error')}`)
     loadStatus()
-  }, [])
+    loadArchive()
+  }, [loadArchive])
 
   async function loadStatus() {
     setLoading(true)
@@ -311,6 +384,52 @@ export function SettingsTab() {
             <p className="mt-3 text-[11px] text-white/25 leading-relaxed">
               You&apos;ll receive habit reminders at times set in the Habits tab, plus a morning summary at 9am.
             </p>
+          )}
+        </div>
+      </section>
+
+      {/* ── Completed Tasks Archive ───────────────────────────── */}
+      <section className="rounded-2xl border border-white/8 bg-white/2 overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/6">
+          <div>
+            <h3 className="text-sm font-semibold text-white">Completed Tasks</h3>
+            <p className="text-[11px] text-white/35 mt-0.5">Reopen anything finished by mistake</p>
+          </div>
+          <button onClick={loadArchive} className="text-white/25 hover:text-white/55 transition-colors">
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <div className="px-5 py-3">
+          {archiveLoading ? (
+            <div className="flex items-center gap-2 text-xs text-white/30 py-2">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…
+            </div>
+          ) : archive.length === 0 ? (
+            <p className="text-xs text-white/25 py-2">No completed tasks yet</p>
+          ) : (
+            <div className="space-y-1 max-h-80 overflow-y-auto pr-1">
+              {archive.map(task => (
+                <div key={task.id} className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium flex-shrink-0 capitalize ${AREA_BADGE[task.area] ?? AREA_BADGE.finance}`}>
+                    {task.area === 'hr' ? 'HR' : task.area}
+                  </span>
+                  <span className="flex-1 text-xs text-white/70 truncate">{task.title}</span>
+                  <span className="text-[10px] text-white/25 flex-shrink-0">
+                    {new Date(task.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                  </span>
+                  <button
+                    onClick={() => reopenTask(task)}
+                    disabled={reopening === task.id}
+                    className="flex-shrink-0 flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-white/10 text-white/35 hover:text-navi-blue hover:border-navi-blue/30 transition-all disabled:opacity-40"
+                  >
+                    {reopening === task.id
+                      ? <Loader2 className="w-3 h-3 animate-spin" />
+                      : <RotateCcw className="w-3 h-3" />}
+                    Reopen
+                  </button>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </section>
