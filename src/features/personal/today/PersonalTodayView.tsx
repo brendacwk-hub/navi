@@ -55,7 +55,10 @@ function PersonalHabitStrip() {
   if (todayHabits.length === 0) return null
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div
+      className="flex items-center gap-2 overflow-x-auto pb-0.5"
+      style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
+    >
       {todayHabits.map(habit => {
         const { count, suffix } = getHabitDisplay(habit, todayLogs, weekLogs, today)
         const done = count >= habit.goal
@@ -63,7 +66,7 @@ function PersonalHabitStrip() {
           <div
             key={habit.id}
             onClick={() => logHabit(habit.id)}
-            className="flex items-center gap-1.5 pl-2.5 pr-1 py-1.5 rounded-xl border transition-all cursor-pointer active:scale-95"
+            className="flex-shrink-0 flex items-center gap-1.5 pl-2.5 pr-1 py-1.5 rounded-xl border transition-all cursor-pointer active:scale-95"
             style={done
               ? { borderColor: '#22c55e4d', backgroundColor: '#22c55e14' }
               : { borderColor: `${PINK}33`, backgroundColor: `${PINK}0d` }
