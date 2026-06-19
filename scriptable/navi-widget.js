@@ -37,8 +37,8 @@ var AREA = {
 
 var widget = new ListWidget()
 widget.backgroundColor = new Color("#0c0c0c")
-widget.setPadding(6, 12, 8, 12)
-widget.spacing = 4
+widget.setPadding(5, 10, 6, 10)
+widget.spacing = 3
 
 var dateStr = new Date().toLocaleDateString("en-HK", { weekday: "short", day: "numeric" })
 
@@ -50,16 +50,16 @@ if (calEvents.length > 0) {
   var tStr = ev.startDate.toLocaleTimeString("en-HK", { hour: "numeric", minute: "2-digit", hour12: false })
   var extra = calEvents.length > 1 ? " +" + (calEvents.length - 1) : ""
   var evTxt = topRow.addText(ev.title + extra + "  " + tStr)
-  evTxt.font = Font.systemFont(10)
-  evTxt.textColor = new Color("#ffffff", 0.6)
+  evTxt.font = Font.systemFont(9)
+  evTxt.textColor = new Color("#ffffff", 0.55)
   evTxt.lineLimit = 1
   topRow.addSpacer()
   var dTxt = topRow.addText(dateStr)
-  dTxt.font = Font.systemFont(10)
-  dTxt.textColor = new Color("#ffffff", 0.35)
+  dTxt.font = Font.systemFont(9)
+  dTxt.textColor = new Color("#ffffff", 0.3)
 }
 
-var colW = Math.floor((Device.screenSize().width * 0.86 - 28) / 2)
+var colW = Math.floor((Device.screenSize().width * 0.86 - 24) / 2)
 
 function isDone(item) {
   if (item.status === "done" || item.status === "complete") return true
@@ -79,30 +79,30 @@ function makeCol(parent, data, label, labelColor, bg, inlineDate) {
   col.layoutVertically()
   col.size = new Size(colW, 0)
   col.backgroundColor = new Color(bg)
-  col.cornerRadius = 8
-  col.setPadding(6, 8, 6, 8)
-  col.spacing = 3
+  col.cornerRadius = 7
+  col.setPadding(5, 7, 5, 7)
+  col.spacing = 2
 
   var hdr = col.addStack()
   hdr.layoutHorizontally()
   hdr.spacing = 3
 
   var lbl = hdr.addText(label)
-  lbl.font = Font.boldSystemFont(11)
+  lbl.font = Font.boldSystemFont(10)
   lbl.textColor = new Color(labelColor)
 
   hdr.addSpacer()
 
   for (var i = 0; i < undone.length; i++) {
     var et = hdr.addText(undone[i].emoji)
-    et.font = Font.systemFont(12)
+    et.font = Font.systemFont(11)
   }
 
   if (inlineDate) {
-    if (undone.length > 0) hdr.addSpacer(4)
+    if (undone.length > 0) hdr.addSpacer(3)
     var dt = hdr.addText(inlineDate)
     dt.font = Font.systemFont(9)
-    dt.textColor = new Color("#ffffff", 0.3)
+    dt.textColor = new Color("#ffffff", 0.28)
   }
 
   for (var j = 0; j < items.length; j++) {
@@ -111,24 +111,24 @@ function makeCol(parent, data, label, labelColor, bg, inlineDate) {
     var irow = col.addStack()
     irow.layoutHorizontally()
     irow.backgroundColor = new Color(hex, 0.18)
-    irow.cornerRadius = 5
-    irow.setPadding(4, 6, 4, 6)
+    irow.cornerRadius = 4
+    irow.setPadding(3, 5, 3, 5)
     var itxt = irow.addText(item.title)
-    itxt.font = Font.systemFont(10)
+    itxt.font = Font.systemFont(9)
     itxt.textColor = new Color(hex)
     itxt.lineLimit = 1
   }
 
   if (undone.length === 0 && items.length === 0) {
     var cl = col.addText("All clear")
-    cl.font = Font.systemFont(10)
-    cl.textColor = new Color("#ffffff", 0.25)
+    cl.font = Font.systemFont(9)
+    cl.textColor = new Color("#ffffff", 0.22)
   }
 }
 
 var cols = widget.addStack()
 cols.layoutHorizontally()
-cols.spacing = 8
+cols.spacing = 7
 
 var noEvent = calEvents.length === 0
 makeCol(cols, p, "Home", "#f0a8c8", "#0e1628", null)
