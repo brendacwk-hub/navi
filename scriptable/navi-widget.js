@@ -42,10 +42,11 @@ widget.spacing = 3
 
 var dateStr = new Date().toLocaleDateString("en-HK", { weekday: "short", day: "numeric" })
 
+// Date always shows top-right; event text on left when available
+var topRow = widget.addStack()
+topRow.layoutHorizontally()
+topRow.spacing = 4
 if (calEvents.length > 0) {
-  var topRow = widget.addStack()
-  topRow.layoutHorizontally()
-  topRow.spacing = 4
   var ev = calEvents[0]
   var tStr = ev.startDate.toLocaleTimeString("en-HK", { hour: "numeric", minute: "2-digit", hour12: false })
   var extra = calEvents.length > 1 ? " +" + (calEvents.length - 1) : ""
@@ -53,13 +54,11 @@ if (calEvents.length > 0) {
   evTxt.font = Font.systemFont(9)
   evTxt.textColor = new Color("#ffffff", 0.55)
   evTxt.lineLimit = 1
-  topRow.addSpacer()
-  var dTxt = topRow.addText(dateStr)
-  dTxt.font = Font.systemFont(9)
-  dTxt.textColor = new Color("#ffffff", 0.5)
 }
-
-var colW = Math.floor((Device.screenSize().width * 0.86 - 24) / 2)
+topRow.addSpacer()
+var dTxt = topRow.addText(dateStr)
+dTxt.font = Font.systemFont(9)
+dTxt.textColor = new Color("#ffffff", 0.55)
 
 function isDone(item) {
   if (item.done === true) return true
@@ -69,7 +68,14 @@ function isDone(item) {
   return false
 }
 
-function makeCol(parent, data, label, labelColor, bg, inlineDate) {
+// Adaptive column widths: Home shrinks to 26% when it has no tasks/cycles
+var homeItems = (p.tasks || []).filter(function(t) { return !isDone(t) })
+  .concat((p.cycles || []).filter(function(c) { return !isDone(c) }))
+var totalAvail = Math.floor(Device.screenSize().width * 0.86 - 24 - 7)
+var homeW = homeItems.length > 0 ? Math.floor(totalAvail / 2) : Math.floor(totalAvail * 0.26)
+var workW = totalAvail - homeW
+
+function makeCol(parent, data, label, labelColor, bg, colW) {
   var habits = data.habits || []
   var undone = habits.filter(function(h) { return !h.complete })
   var tasks = (data.tasks || []).filter(function(t) { return !isDone(t) })
@@ -99,13 +105,6 @@ function makeCol(parent, data, label, labelColor, bg, inlineDate) {
     et.font = Font.systemFont(11)
   }
 
-  if (inlineDate) {
-    if (undone.length > 0) hdr.addSpacer(3)
-    var dt = hdr.addText(inlineDate)
-    dt.font = Font.systemFont(9)
-    dt.textColor = new Color("#ffffff", 0.5)
-  }
-
   for (var j = 0; j < items.length; j++) {
     var item = items[j]
     var areaKey = (item.area || "").toLowerCase()
@@ -116,9 +115,9 @@ function makeCol(parent, data, label, labelColor, bg, inlineDate) {
     irow.cornerRadius = 4
     irow.setPadding(3, 5, 3, 5)
     var itxt = irow.addText(item.title || item.label || "")
-    itxt.font = Font.systemFont(9)
+    itxt.font = Font.systemFont(10)
     itxt.textColor = new Color(hex)
-    itxt.lineLimit = 1
+    itxt.lineLimit = 2
   }
 
   if (undone.length === 0 && items.length === 0) {
@@ -132,9 +131,8 @@ var cols = widget.addStack()
 cols.layoutHorizontally()
 cols.spacing = 7
 
-var noEvent = calEvents.length === 0
-makeCol(cols, p, "Home", "#f0a8c8", "#0e1628", null)
-makeCol(cols, w, "Work", "#aaaaaa", "#111111", noEvent ? dateStr : null)
+makeCol(cols, p, "Home", "#f0a8c8", "#0e1628", homeW)
+makeCol(cols, w, "Work", "#ffffff", "#111111", workW)
 
 Script.setWidget(widget)
 Script.complete()
