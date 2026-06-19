@@ -69,6 +69,7 @@ export function DiaryView() {
   const [body, setBody]               = useState('')
   const [loadingPrompts, setLoadingPrompts] = useState(false)
   const [savedAt, setSavedAt]         = useState<string | null>(null)
+  const [saving, setSaving]           = useState(false)
   const [hasEntry, setHasEntry]       = useState(false)
   const [pastEntries, setPastEntries] = useState<DiaryEntry[]>([])
   const [expanded, setExpanded]       = useState<string | null>(null)
@@ -185,6 +186,35 @@ export function DiaryView() {
   function handleBody(val: string) {
     setBody(val)
     scheduleSave(mood, questions, answers, val)
+  }
+
+  async function handleSave() {
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null }
+    setSaving(true)
+    await new Promise<void>(resolve => {
+      dbWrite({
+        table: 'diary_entries',
+        operation: 'upsert',
+        data: {
+          id: today,
+          mood,
+          prompts: questions.map((q, i) => ({ question: q, answer: answers[i] ?? '' })),
+          body,
+          created_at: new Date().toISOString(),
+        },
+      })
+      setTimeout(resolve, 400)
+    })
+    const t = new Date()
+    setSavedAt(`${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`)
+    setSaving(false)
+  }
+
+  function refreshPrompts() {
+    promptsFetched.current = false
+    setQuestions([])
+    setAnswers([])
+    fetchPrompts()
   }
 
   // ── Google Docs export ────────────────────────────────────────────────────
@@ -384,6 +414,16 @@ export function DiaryView() {
       {/* Prompt mode */}
       {mode === 'prompt' && (
         <section className="space-y-4">
+          {/* Refresh prompts button */}
+          {!loadingPrompts && (
+            <div className="flex justify-end -mb-1">
+              <button onClick={refreshPrompts} disabled={loadingPrompts}
+                className="text-[11px] font-medium flex items-center gap-1 transition-colors active:scale-95"
+                style={{ color: `${PINK}70` }}>
+                ↻ New questions
+              </button>
+            </div>
+          )}
           {loadingPrompts ? (
             <>
               <div className="h-4 rounded-md animate-pulse w-3/4" style={{ backgroundColor: `${PINK}18` }} />
@@ -430,6 +470,17 @@ export function DiaryView() {
             onBlur={e  => (e.target.style.borderColor = 'rgba(255,255,255,0.08)')} />
         </section>
       )}
+
+      {/* Save button */}
+      <button onClick={handleSave} disabled={saving}
+        className="w-full py-3 rounded-2xl text-sm font-semibold transition-all active:scale-95 disabled:opacity-50"
+        style={{
+          background: `linear-gradient(135deg, ${PINK}20, ${PINK}08)`,
+          border: `1px solid ${PINK}50`,
+          color: PINK,
+        }}>
+        {saving ? 'Saving…' : savedAt ? `✓ Saved at ${savedAt}` : 'Save diary'}
+      </button>
 
       {/* Past entries (in writing view too) */}
       {pastEntries.length > 0 && (
