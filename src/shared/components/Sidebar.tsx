@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Wallet, Users, Settings, Package,
-  MoreHorizontal, Inbox, Lightbulb, CalendarDays, Activity, BarChart3,
+  MoreHorizontal, Inbox, CalendarDays, Activity, BarChart3,
   ChevronDown, SlidersHorizontal, FileText,
 } from 'lucide-react'
 import { useInbox } from '@/shared/lib/inbox-context'
@@ -35,7 +35,6 @@ const otherLinks = [
 ]
 
 const comingSoonLinks = [
-  { label: 'Ideas',     icon: Lightbulb },
   { label: 'Analytics', icon: BarChart3 },
 ]
 
