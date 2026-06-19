@@ -23,26 +23,35 @@ var AREA = {
 
 var widget = new ListWidget()
 widget.backgroundColor = new Color("#0c0c0c")
-widget.setPadding(10, 10, 10, 10)
+widget.setPadding(14, 12, 10, 12)
 widget.spacing = 6
 
 var top = widget.addStack()
-top.layoutVertically()
-top.spacing = 1
+top.layoutHorizontally()
+top.spacing = 4
 var ti = top.addText("Navi")
 ti.font = Font.boldSystemFont(13)
 ti.textColor = Color.white()
-var di = top.addText(new Date().toLocaleDateString("en-HK", { weekday: "short", day: "numeric", month: "short" }))
+top.addSpacer()
+var di = top.addText(new Date().toLocaleDateString("en-HK", { weekday: "short", day: "numeric" }))
 di.font = Font.systemFont(10)
 di.textColor = new Color("#ffffff", 0.35)
 
 var colW = Math.floor((Device.screenSize().width * 0.86 - 28) / 2)
 
+function isDone(item) {
+  if (item.status === "done" || item.status === "complete") return true
+  if (item.progress === 100) return true
+  if (item.total > 0 && item.done === item.total) return true
+  return false
+}
+
 function makeCol(parent, data, label, labelColor, bg) {
   var habits = data.habits || []
   var undone = habits.filter(function(h) { return !h.complete })
-  var tasks = (data.tasks || []).filter(function(t) { return t.status !== "done" && t.status !== "complete" })
-  var items = tasks.concat(data.cycles || []).slice(0, 6)
+  var tasks = (data.tasks || []).filter(function(t) { return !isDone(t) })
+  var cycles = (data.cycles || []).filter(function(c) { return !isDone(c) })
+  var items = tasks.concat(cycles).slice(0, 6)
 
   var col = parent.addStack()
   col.layoutVertically()
