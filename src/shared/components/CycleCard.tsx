@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useContext } from 'react'
 import { ChevronDown, ChevronRight, Zap, Lock, Pencil, X, FileText, Check, Plus, GripVertical } from 'lucide-react'
 import type { Cycle, CyclePhase, Effort } from '@/shared/types'
 import { ChecklistItem } from './ChecklistItem'
-import { useWorkData } from '@/shared/lib/work-data-context'
+import { WorkDataContext } from '@/shared/lib/work-data-context'
+import { PersonalDataContext } from '@/shared/lib/personal-data-context'
 import { useToast } from '@/shared/lib/toast-context'
 import { type CycleFilter, filterToLeaves, CADENCE_FILTERS } from '@/shared/lib/filter-utils'
 import { allCycleDone, isRecurring, resolveLabel, computeSkipDate } from '@/shared/lib/sort-utils'
@@ -81,7 +82,9 @@ function SortableItemRow({ id, children }: { id: string; children: React.ReactNo
 
 function PhaseSection({ phase, cycle, filter }: { phase: CyclePhase; cycle: Cycle; filter: CycleFilter }) {
   const [open, setOpen] = useState(phase.status === 'active')
-  const { toggleItem, setItemLabel, setItemNote, setItemUrgent, setItemDue, deleteItem } = useWorkData()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ctx = (useContext(WorkDataContext) ?? useContext(PersonalDataContext)) as any
+  const { toggleItem, setItemLabel, setItemNote, setItemUrgent, setItemDue, deleteItem } = ctx
   const area = cycle.area as WorkAreaLocal
   const cycleId = cycle.id
 
@@ -153,7 +156,9 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
   const titleInputRef = useRef<HTMLInputElement>(null)
   const newStepRef = useRef<HTMLInputElement>(null)
 
-  const { updateCycle, deleteCycle, deleteItem, toggleItem, setItemLabel, setItemNote, setItemUrgent, setItemDue, addCycleItem } = useWorkData()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ctx = (useContext(WorkDataContext) ?? useContext(PersonalDataContext)) as any
+  const { updateCycle, deleteCycle, deleteItem, toggleItem, setItemLabel, setItemNote, setItemUrgent, setItemDue, addCycleItem } = ctx
   const { showToast } = useToast()
   const area = cycle.area as WorkAreaLocal
 
@@ -210,6 +215,13 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
     ops:     { border: 'border-ops/25',     bg: 'bg-ops/5',      progress: 'bg-ops' },
     others:  { border: 'border-others/25',  bg: 'bg-others/5',   progress: 'bg-others' },
   }
+  const personalAreaColor: Record<string, string> = {
+    housework:          '#fb7185',
+    'personal-finance': '#22d3ee',
+    sidoi:              '#f9a8d4',
+    tobuy:              '#fcd34d',
+  }
+  const personalColor = personalAreaColor[cycle.area]
   const style = areaStyle[cycle.area] ?? areaStyle.finance
 
   const { display: dueLabelDisplay, overdue: isOverdue } = fmtTrigger(cycle.triggerLabel)
@@ -234,7 +246,10 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
   const pct = totals.total > 0 ? Math.round((totals.done / totals.total) * 100) : 0
 
   return (
-    <div className={`rounded-xl border overflow-hidden transition-all group/card ${style.border} ${style.bg}`}>
+    <div
+      className={`rounded-xl border overflow-hidden transition-all group/card ${personalColor ? '' : `${style.border} ${style.bg}`}`}
+      style={personalColor ? { borderColor: personalColor + '40', backgroundColor: personalColor + '0d' } : {}}
+    >
       {/* Header */}
       <div
         className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none"
@@ -466,7 +481,10 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
             <>
               <div className="text-[11px] text-white/40 tabular-nums">{totals.done}/{totals.total}</div>
               <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full transition-all ${style.progress}`} style={{ width: `${pct}%` }} />
+                <div
+                  className={`h-full rounded-full transition-all ${personalColor ? '' : style.progress}`}
+                  style={{ width: `${pct}%`, ...(personalColor ? { backgroundColor: personalColor } : {}) }}
+                />
               </div>
             </>
           )}

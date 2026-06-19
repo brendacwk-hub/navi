@@ -142,7 +142,7 @@ interface WorkDataCtx {
   refreshData: () => Promise<void>
 }
 
-const WorkDataContext = createContext<WorkDataCtx | null>(null)
+export const WorkDataContext = createContext<WorkDataCtx | null>(null)
 
 export function WorkDataProvider({ children }: { children: React.ReactNode }) {
   const [financeCycles,   setFinanceCycles]   = useState<Cycle[]>(initFinance)

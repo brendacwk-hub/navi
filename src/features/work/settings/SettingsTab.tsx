@@ -98,7 +98,6 @@ export function SettingsTab() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const completed: CompletedTask[] = (json.data ?? []).filter((c: any) => {
-        if (c.mode && c.mode !== 'work') return false
         if ((c.trigger_label as string | null)?.startsWith('every ')) return false
         if (Array.isArray(c.items)  && c.items.length  > 0 && c.items.every(leafDone)) return true
         if (Array.isArray(c.phases) && c.phases.length > 0 &&

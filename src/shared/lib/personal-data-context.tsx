@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef } f
 import type { Cycle, ChecklistItem, PersonalArea } from '@/shared/types'
 import { isRecurring, computeNextDue, allCycleDone, resetCycle } from '@/shared/lib/sort-utils'
 import { useToast } from '@/shared/lib/toast-context'
+import { personalFinanceCycles as initPersonalFinance } from '@/features/personal/finance/data'
 
 // ── DB helpers ────────────────────────────────────────────────────────────────
 type DbOp = { table: string; operation: 'upsert' | 'insert' | 'delete'; data?: unknown; matchId?: string }
@@ -115,7 +116,7 @@ interface PersonalDataCtx {
   refreshData: () => Promise<void>
 }
 
-const PersonalDataContext = createContext<PersonalDataCtx | null>(null)
+export const PersonalDataContext = createContext<PersonalDataCtx | null>(null)
 
 export function PersonalDataProvider({ children }: { children: React.ReactNode }) {
   const [houseworkCycles,       setHouseworkCycles]       = useState<Cycle[]>([])
@@ -140,13 +141,23 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
   const loadFromSupabase = useCallback(async () => {
     try {
       const rows = await dbRead('cycles', { col: 'mode', val: 'personal' }) as ReturnType<typeof fromRow>[]
-      if (rows.length > 0) {
-        const cycles = applyRecurrenceResets(rows.map(fromRow), c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
-        setHouseworkCycles(cycles.filter(c => c.area === 'housework'))
-        setPersonalFinanceCycles(cycles.filter(c => c.area === 'personal-finance'))
-        setSidoiCycles(cycles.filter(c => c.area === 'sidoi'))
-        setTobuyCycles(cycles.filter(c => c.area === 'tobuy'))
+      const dbIdSet = new Set(rows.map((r: { id: string }) => r.id))
+
+      // Pre-seed defaults not yet in DB
+      const toInsert = initPersonalFinance.filter(c => !dbIdSet.has(c.id))
+      if (toInsert.length > 0) {
+        dbWrite({ table: 'cycles', operation: 'upsert', data: toInsert.map(toRow) })
       }
+
+      const all = [
+        ...rows.map(fromRow),
+        ...toInsert,
+      ]
+      const cycles = applyRecurrenceResets(all, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
+      setHouseworkCycles(cycles.filter(c => c.area === 'housework'))
+      setPersonalFinanceCycles(cycles.filter(c => c.area === 'personal-finance'))
+      setSidoiCycles(cycles.filter(c => c.area === 'sidoi'))
+      setTobuyCycles(cycles.filter(c => c.area === 'tobuy'))
     } catch (e) {
       console.error('[personal refreshData]', e)
     }
