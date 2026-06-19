@@ -69,8 +69,9 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  // Diary reminder at 21:00 — only if today's entry is empty
-  if (nh === 21 && nm <= 5) {
+  // Diary reminder at 21:00 on Sundays — only if today's entry is empty
+  const hktDay = new Date(now.getTime() + 8 * 60 * 60 * 1000).getUTCDay() // 0 = Sunday
+  if (nh === 21 && nm <= 5 && hktDay === 0) {
     const todayKey = now.toLocaleDateString('en-CA') // YYYY-MM-DD in local time
     const { data: entry } = await supabase
       .from('diary_entries')

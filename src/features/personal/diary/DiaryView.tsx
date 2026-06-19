@@ -5,10 +5,13 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 const PINK = '#f0a8c8'
 const MOODS = ['😄', '🙂', '😐', '😔', '😢']
 
+type Mode = 'prompt' | 'freewrite'
+
+interface PromptEntry { question: string; answer: string }
 interface DiaryEntry {
   id: string
   mood: string
-  prompts: { question: string; answer: string }[]
+  prompts: PromptEntry[]
   body: string
   created_at: string
 }
@@ -42,22 +45,22 @@ function autoResize(el: HTMLTextAreaElement) {
 }
 
 export function DiaryView() {
-  const today = todayKey()
-  const dateLabel = new Date().toLocaleDateString('en-HK', {
-    weekday: 'long', day: 'numeric', month: 'long'
-  })
+  const today    = todayKey()
+  const dateLabel = new Date().toLocaleDateString('en-HK', { weekday: 'long', day: 'numeric', month: 'long' })
 
+  const [mode, setMode]               = useState<Mode>('prompt')
   const [mood, setMood]               = useState('')
   const [questions, setQuestions]     = useState<string[]>([])
   const [answers, setAnswers]         = useState<string[]>([])
   const [body, setBody]               = useState('')
-  const [loadingPrompts, setLoadingPrompts] = useState(true)
+  const [loadingPrompts, setLoadingPrompts] = useState(false)
   const [savedAt, setSavedAt]         = useState<string | null>(null)
   const [pastEntries, setPastEntries] = useState<DiaryEntry[]>([])
   const [expanded, setExpanded]       = useState<string | null>(null)
 
-  const saveTimer    = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const initialized  = useRef(false)
+  const saveTimer       = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const initialized     = useRef(false)
+  const promptsFetched  = useRef(false)
 
   // ── Auto-save ──────────────────────────────────────────────────────────────
   const scheduleSave = useCallback((m: string, qs: string[], as: string[], b: string) => {
@@ -80,42 +83,49 @@ export function DiaryView() {
     }, 600)
   }, [today])
 
-  // ── Load on mount ──────────────────────────────────────────────────────────
+  // ── Fetch Gemini prompts ───────────────────────────────────────────────────
+  const fetchPrompts = useCallback(async () => {
+    if (promptsFetched.current) return
+    promptsFetched.current = true
+    setLoadingPrompts(true)
+    try {
+      const res  = await fetch(`/api/diary/prompts?date=${today}`)
+      const json = await res.json()
+      if (Array.isArray(json.prompts) && json.prompts.length > 0) {
+        setQuestions(json.prompts)
+        setAnswers(json.prompts.map(() => ''))
+      }
+    } catch { /* fallback: keep empty */ }
+    setLoadingPrompts(false)
+  }, [today])
+
+  // ── Load today's entry + past entries on mount ─────────────────────────────
   useEffect(() => {
     let cancelled = false
 
     async function init() {
-      // 1. Load today's saved entry
+      // Load today's saved entry
       const rows = await dbRead('diary_entries', { col: 'id', val: today })
       if (cancelled) return
 
-      let hasExistingQuestions = false
       if (rows.length > 0) {
         const entry = rows[0] as DiaryEntry
         setMood(entry.mood ?? '')
         setBody(entry.body ?? '')
+
         if (Array.isArray(entry.prompts) && entry.prompts.length > 0) {
           setQuestions(entry.prompts.map(p => p.question))
           setAnswers(entry.prompts.map(p => p.answer))
-          hasExistingQuestions = true
+          promptsFetched.current = true
+          // Had prompts → start in prompt mode
+          setMode('prompt')
+        } else if (entry.body?.trim()) {
+          // Only body, no prompts → start in freewrite mode
+          setMode('freewrite')
         }
       }
 
-      // 2. Fetch Gemini prompts (skip if we already have saved ones)
-      setLoadingPrompts(true)
-      if (!hasExistingQuestions) {
-        try {
-          const res = await fetch(`/api/diary/prompts?date=${today}`)
-          const json = await res.json()
-          if (!cancelled && Array.isArray(json.prompts) && json.prompts.length > 0) {
-            setQuestions(json.prompts)
-            setAnswers(json.prompts.map(() => ''))
-          }
-        } catch { /* use default */ }
-      }
-      if (!cancelled) setLoadingPrompts(false)
-
-      // 3. Load past entries
+      // Load past entries
       const all = await dbRead('diary_entries')
       if (!cancelled) {
         const past = (all as DiaryEntry[])
@@ -131,6 +141,16 @@ export function DiaryView() {
     return () => { cancelled = true }
   }, [today])
 
+  // Fetch prompts when prompt mode becomes active
+  useEffect(() => {
+    if (mode === 'prompt' && initialized.current && !promptsFetched.current) {
+      fetchPrompts()
+    }
+  }, [mode, fetchPrompts])
+
+  // Also fetch prompts immediately on first mount if default mode is prompt
+  // (handled via the mode effect above once initialized.current is set)
+
   // ── Handlers ──────────────────────────────────────────────────────────────
   function handleMood(m: string) {
     const next = m === mood ? '' : m
@@ -139,8 +159,7 @@ export function DiaryView() {
   }
 
   function handleAnswer(i: number, val: string) {
-    const next = [...answers]
-    next[i] = val
+    const next = [...answers]; next[i] = val
     setAnswers(next)
     scheduleSave(mood, questions, next, body)
   }
@@ -150,28 +169,49 @@ export function DiaryView() {
     scheduleSave(mood, questions, answers, val)
   }
 
-  // ── Shared textarea style ──────────────────────────────────────────────────
-  const taBase: React.CSSProperties = {
+  function switchMode(m: Mode) {
+    setMode(m)
+    if (m === 'prompt' && !promptsFetched.current && initialized.current) {
+      fetchPrompts()
+    }
+  }
+
+  // ── Shared styles ──────────────────────────────────────────────────────────
+  const taStyle: React.CSSProperties = {
     backgroundColor: 'rgba(255,255,255,0.04)',
     border: '1px solid rgba(255,255,255,0.08)',
   }
 
   return (
-    <div
-      className="flex-1 overflow-y-auto px-5 pt-5 pb-10 space-y-6"
-      style={{ backgroundColor: '#0e1628' }}
-    >
+    <div className="flex-1 overflow-y-auto px-5 pt-5 pb-10 space-y-5" style={{ backgroundColor: '#0e1628' }}>
+
       {/* Header */}
       <div className="flex items-baseline justify-between">
         <h2 className="text-lg font-semibold text-white">Diary</h2>
         <span className="text-xs" style={{ color: `${PINK}80` }}>{dateLabel}</span>
       </div>
 
-      {/* ── Mood ──────────────────────────────────────────────────────────── */}
+      {/* ── Mode selector ─────────────────────────────────────────────────── */}
+      <div className="flex gap-2">
+        {([['prompt', '✨ Prompt'], ['freewrite', '📝 Free write']] as [Mode, string][]).map(([m, label]) => (
+          <button
+            key={m}
+            onClick={() => switchMode(m)}
+            className="flex-1 py-2 rounded-xl text-sm font-semibold transition-all"
+            style={
+              mode === m
+                ? { backgroundColor: `${PINK}18`, border: `1px solid ${PINK}45`, color: PINK }
+                : { backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.35)' }
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Mood picker ───────────────────────────────────────────────────── */}
       <section>
-        <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest mb-3">
-          How are you feeling?
-        </p>
+        <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest mb-3">How are you feeling?</p>
         <div className="flex gap-2.5">
           {MOODS.map(m => (
             <button
@@ -190,78 +230,89 @@ export function DiaryView() {
         </div>
       </section>
 
-      {/* ── Prompts ───────────────────────────────────────────────────────── */}
-      <section className="space-y-4">
-        {loadingPrompts ? (
-          <>
-            <div className="h-4 rounded-md animate-pulse w-3/4" style={{ backgroundColor: 'rgba(240,168,200,0.12)' }} />
-            <div className="h-20 rounded-xl animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }} />
-            <div className="h-4 rounded-md animate-pulse w-1/2 mt-2" style={{ backgroundColor: 'rgba(240,168,200,0.12)' }} />
-            <div className="h-20 rounded-xl animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }} />
-          </>
-        ) : questions.map((q, i) => (
-          <div key={i}>
-            <p className="text-sm font-medium mb-2 leading-snug" style={{ color: PINK }}>{q}</p>
-            <textarea
-              value={answers[i] ?? ''}
-              onChange={e => { autoResize(e.target); handleAnswer(i, e.target.value) }}
-              placeholder="Write here…"
-              rows={3}
-              className="w-full rounded-xl px-4 py-3 text-sm text-white/80 placeholder-white/20 resize-none focus:outline-none transition-colors"
-              style={taBase}
-              onFocus={e => (e.target.style.borderColor = `${PINK}60`)}
-              onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.08)')}
-            />
-          </div>
-        ))}
-      </section>
+      {/* ── Prompt mode ───────────────────────────────────────────────────── */}
+      {mode === 'prompt' && (
+        <section className="space-y-4">
+          {loadingPrompts ? (
+            <>
+              <div className="h-4 rounded-md animate-pulse w-3/4" style={{ backgroundColor: `${PINK}18` }} />
+              <div className="h-20 rounded-xl animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }} />
+              <div className="h-4 rounded-md animate-pulse w-1/2" style={{ backgroundColor: `${PINK}18` }} />
+              <div className="h-20 rounded-xl animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }} />
+            </>
+          ) : questions.map((q, i) => (
+            <div key={i}>
+              <p className="text-sm font-medium mb-2 leading-snug" style={{ color: PINK }}>{q}</p>
+              <textarea
+                value={answers[i] ?? ''}
+                onChange={e => { autoResize(e.target); handleAnswer(i, e.target.value) }}
+                placeholder="Write here…"
+                rows={3}
+                className="w-full rounded-xl px-4 py-3 text-sm text-white/80 placeholder-white/20 resize-none focus:outline-none transition-colors"
+                style={taStyle}
+                onFocus={e => (e.target.style.borderColor = `${PINK}60`)}
+                onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.08)')}
+              />
+            </div>
+          ))}
 
-      {/* ── Free write ────────────────────────────────────────────────────── */}
-      <section>
-        <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest mb-3">
-          Free write
-        </p>
-        <textarea
-          value={body}
-          onChange={e => { autoResize(e.target); handleBody(e.target.value) }}
-          placeholder="Anything else on your mind…"
-          rows={4}
-          className="w-full rounded-xl px-4 py-3 text-sm text-white/80 placeholder-white/20 resize-none focus:outline-none transition-colors"
-          style={taBase}
-          onFocus={e => (e.target.style.borderColor = `${PINK}60`)}
-          onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.08)')}
-        />
-        {savedAt && (
-          <p className="text-[10px] text-white/18 text-right mt-1.5">
-            Saved {savedAt}
-          </p>
-        )}
-      </section>
+          {/* Prompt mode also has a small free-write section */}
+          {!loadingPrompts && questions.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest mb-2">Anything else</p>
+              <textarea
+                value={body}
+                onChange={e => { autoResize(e.target); handleBody(e.target.value) }}
+                placeholder="Anything else on your mind…"
+                rows={3}
+                className="w-full rounded-xl px-4 py-3 text-sm text-white/80 placeholder-white/20 resize-none focus:outline-none transition-colors"
+                style={taStyle}
+                onFocus={e => (e.target.style.borderColor = `${PINK}60`)}
+                onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.08)')}
+              />
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ── Free write mode ───────────────────────────────────────────────── */}
+      {mode === 'freewrite' && (
+        <section>
+          <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest mb-3">Write freely</p>
+          <textarea
+            value={body}
+            onChange={e => { autoResize(e.target); handleBody(e.target.value) }}
+            placeholder="Write anything on your mind…"
+            rows={10}
+            className="w-full rounded-xl px-4 py-3 text-sm text-white/80 placeholder-white/20 resize-none focus:outline-none transition-colors"
+            style={taStyle}
+            onFocus={e => (e.target.style.borderColor = `${PINK}60`)}
+            onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.08)')}
+          />
+        </section>
+      )}
+
+      {/* Saved indicator */}
+      {savedAt && (
+        <p className="text-[10px] text-white/18 text-right -mt-2">Saved {savedAt}</p>
+      )}
 
       {/* ── Past entries ──────────────────────────────────────────────────── */}
       {pastEntries.length > 0 && (
         <section>
-          <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest mb-3">
-            Past entries
-          </p>
+          <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest mb-3">Past entries</p>
           <div className="space-y-2">
             {pastEntries.map(entry => {
-              const isOpen = expanded === entry.id
-              const d = new Date(entry.id + 'T12:00:00')
-              const label = d.toLocaleDateString('en-HK', { weekday: 'short', day: 'numeric', month: 'short' })
+              const isOpen  = expanded === entry.id
+              const d       = new Date(entry.id + 'T12:00:00')
+              const label   = d.toLocaleDateString('en-HK', { weekday: 'short', day: 'numeric', month: 'short' })
               const firstAnswer = entry.prompts?.find(p => p.answer)?.answer ?? ''
-              const preview = firstAnswer || entry.body || ''
+              const preview = (firstAnswer || entry.body || '').slice(0, 70)
 
               return (
-                <div
-                  key={entry.id}
-                  className="rounded-xl overflow-hidden"
-                  style={{
-                    backgroundColor: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(255,255,255,0.07)',
-                  }}
-                >
-                  {/* Collapsed header — always visible */}
+                <div key={entry.id} className="rounded-xl overflow-hidden"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+
                   <button
                     onClick={() => setExpanded(isOpen ? null : entry.id)}
                     className="w-full flex items-center gap-3 px-4 py-3 text-left"
@@ -269,41 +320,24 @@ export function DiaryView() {
                     <span className="text-lg flex-shrink-0">{entry.mood || '📝'}</span>
                     <span className="text-xs text-white/45 flex-shrink-0">{label}</span>
                     {!isOpen && preview && (
-                      <span className="text-xs text-white/28 truncate flex-1 min-w-0">
-                        {preview.slice(0, 70)}
-                      </span>
+                      <span className="text-xs text-white/28 truncate flex-1 min-w-0">{preview}</span>
                     )}
-                    <span className="text-white/20 text-[10px] ml-auto flex-shrink-0">
-                      {isOpen ? '▲' : '▼'}
-                    </span>
+                    <span className="text-white/20 text-[10px] ml-auto flex-shrink-0">{isOpen ? '▲' : '▼'}</span>
                   </button>
 
-                  {/* Expanded body */}
                   {isOpen && (
-                    <div
-                      className="px-4 pb-4 pt-2 space-y-3"
-                      style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
-                    >
-                      {entry.prompts?.map((p, i) =>
-                        p.answer ? (
-                          <div key={i}>
-                            <p className="text-[11px] font-medium mb-1 leading-snug" style={{ color: `${PINK}90` }}>
-                              {p.question}
-                            </p>
-                            <p className="text-xs text-white/60 leading-relaxed whitespace-pre-wrap">
-                              {p.answer}
-                            </p>
-                          </div>
-                        ) : null
-                      )}
+                    <div className="px-4 pb-4 pt-2 space-y-3"
+                      style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                      {entry.prompts?.map((p, i) => p.answer ? (
+                        <div key={i}>
+                          <p className="text-[11px] font-medium mb-1 leading-snug" style={{ color: `${PINK}90` }}>{p.question}</p>
+                          <p className="text-xs text-white/60 leading-relaxed whitespace-pre-wrap">{p.answer}</p>
+                        </div>
+                      ) : null)}
                       {entry.body ? (
                         <div>
-                          <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-1">
-                            Free write
-                          </p>
-                          <p className="text-xs text-white/60 leading-relaxed whitespace-pre-wrap">
-                            {entry.body}
-                          </p>
+                          <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-1">Free write</p>
+                          <p className="text-xs text-white/60 leading-relaxed whitespace-pre-wrap">{entry.body}</p>
                         </div>
                       ) : null}
                     </div>
