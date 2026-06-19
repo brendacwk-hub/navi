@@ -1,0 +1,16 @@
+name: Navi notifications
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # every 5 minutes
+  workflow_dispatch:          # allow manual trigger from GitHub UI
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger push notifications
+        run: |
+          curl -f -s \
+            "https://navi-ruby.vercel.app/api/push/daily?apiKey=${{ secrets.NAVI_API_KEY }}" \
+            && echo "OK" || echo "Request failed (non-critical)"
