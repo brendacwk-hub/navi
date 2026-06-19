@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { CheckCircle2, Circle, ExternalLink, Loader2, LogOut, RefreshCw, Bell, BellOff, RotateCcw } from 'lucide-react'
+import { CheckCircle2, Circle, ExternalLink, Loader2, LogOut, Plus, RefreshCw, Bell, BellOff, RotateCcw, X } from 'lucide-react'
 import { usePushNotifications } from '@/shared/lib/use-push-notifications'
 import { usePreferences, type FontScale } from '@/shared/lib/preferences-context'
 
@@ -21,7 +21,7 @@ interface CompletedTask {
   items: unknown
   completed_at: string
   notes: string | null
-  _source?: 'completed_tasks' | 'cycles'  // internal — tracks which table to reopen from
+  _source?: 'completed_tasks' | 'cycles'
 }
 
 const AREA_BADGE: Record<string, string> = {
@@ -79,11 +79,22 @@ export function SettingsTab() {
   const [archiveLoading, setArchiveLoading] = useState(true)
   const [reopening, setReopening]         = useState<string | null>(null)
 
+  // Manual calendar ID input
+  const [customCalId, setCustomCalId]     = useState('')
+  const [addingCal, setAddingCal]         = useState(false)
+  const [calIdError, setCalIdError]       = useState<string | null>(null)
+
+  // Log completed task form
+  const [showLogForm, setShowLogForm]     = useState(false)
+  const [logTitle, setLogTitle]           = useState('')
+  const [logArea, setLogArea]             = useState<'finance' | 'hr' | 'ops' | 'others'>('finance')
+  const [logDate, setLogDate]             = useState(() => new Date().toISOString().slice(0, 10))
+  const [logSaving, setLogSaving]         = useState(false)
+
   const loadArchive = useCallback(async () => {
     setArchiveLoading(true)
     try {
-      // Primary: cycles with status='complete' (no extra table needed)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // Primary: cycles with status='complete'
       let cycleRows: CompletedTask[] = []
       try {
         const cRes  = await fetch('/api/db?table=cycles&eqCol=status&eqVal=complete')
@@ -95,13 +106,13 @@ export function SettingsTab() {
           cycleRows = completedCycles.map((c: any) => ({
             id: c.id, title: c.title, area: c.area, effort: c.effort ?? '',
             sub_area: c.sub_area ?? null, items: c.items ?? null,
-            completed_at: c.last_completed_at ?? new Date().toISOString(),
+            completed_at: c.last_completed_at ?? c.created_at ?? new Date().toISOString(),
             notes: c.notes ?? null, _source: 'cycles' as const,
           }))
         }
       } catch { /* ignore */ }
 
-      // Secondary: completed_tasks table if it exists (legacy data)
+      // Secondary: completed_tasks table (legacy data)
       let legacyRows: CompletedTask[] = []
       try {
         const res  = await fetch('/api/db?table=completed_tasks')
@@ -126,7 +137,6 @@ export function SettingsTab() {
     setReopening(task.id)
     try {
       const resetItems = resetItemStatuses(task.items)
-      // Re-insert (or update) the cycle back to active state
       await fetch('/api/db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -142,7 +152,6 @@ export function SettingsTab() {
           },
         }),
       })
-      // Remove from whichever source it came from
       if (task._source !== 'cycles') {
         await fetch('/api/db', {
           method: 'POST',
@@ -153,6 +162,35 @@ export function SettingsTab() {
       setArchive(prev => prev.filter(t => t.id !== task.id))
     } finally {
       setReopening(null)
+    }
+  }
+
+  async function logCompletedTask() {
+    if (!logTitle.trim()) return
+    setLogSaving(true)
+    try {
+      const id = `manual-${Date.now()}`
+      await fetch('/api/db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table: 'cycles', operation: 'upsert',
+          data: {
+            id, title: logTitle.trim(), area: logArea,
+            effort: 'medium', must: false, urgent: false,
+            status: 'complete', trigger_label: null, sub_area: null,
+            items: null, phases: null, notes: null,
+            last_completed_at: `${logDate}T00:00:00.000Z`,
+            next_due_at: null, mode: 'work',
+          },
+        }),
+      })
+      setLogTitle('')
+      setLogDate(new Date().toISOString().slice(0, 10))
+      setShowLogForm(false)
+      await loadArchive()
+    } finally {
+      setLogSaving(false)
     }
   }
 
@@ -214,6 +252,27 @@ export function SettingsTab() {
   async function setColor(calId: string, hex: string) {
     if (!conn) return
     await savePrefs({ calendarColors: { ...conn.calendarColors, [calId]: hex } })
+  }
+
+  async function addCustomCalendar() {
+    const id = customCalId.trim()
+    if (!id || !conn) return
+    setCalIdError(null)
+    setAddingCal(true)
+    try {
+      // Add to selected IDs directly — if the ID is invalid, events won't load but no harm done
+      const alreadyInList = calendars.some(c => c.id === id)
+      if (!alreadyInList) {
+        // Add synthetic entry to local list so it shows in the UI
+        setCalendars(prev => [...prev, { id, summary: id, color: '#4285f4', primary: false }])
+      }
+      await savePrefs({ selectedIds: [...conn.selectedIds.filter(x => x !== id), id] })
+      setCustomCalId('')
+    } catch {
+      setCalIdError('Could not add calendar. Check the ID and try again.')
+    } finally {
+      setAddingCal(false)
+    }
   }
 
   async function disconnect() {
@@ -281,7 +340,6 @@ export function SettingsTab() {
                       selected ? 'border-white/15 bg-white/4' : 'border-white/8 bg-white/2'
                     }`}
                   >
-                    {/* Calendar row */}
                     <button
                       onClick={() => toggleCalendar(cal.id)}
                       className="w-full flex items-center gap-3 px-3.5 py-3 text-left"
@@ -300,7 +358,6 @@ export function SettingsTab() {
                         : <Circle      className="w-4 h-4 text-white/15 flex-shrink-0" />}
                     </button>
 
-                    {/* Color picker — only when selected */}
                     {selected && (
                       <div className="px-3.5 pb-3 flex items-center gap-1.5 flex-wrap">
                         <span className="text-[10px] text-white/30 mr-1">Colour:</span>
@@ -323,19 +380,31 @@ export function SettingsTab() {
                 )
               })}
 
-              {(() => {
-                const hasBirthdays = calendars.some(cal => {
-                  const id = (cal.id ?? '').toLowerCase()
-                  const name = (cal.summary ?? '').toLowerCase()
-                  return name.includes('birthday') || id.includes('birthday') ||
-                    (id.includes('contacts') && id.includes('calendar'))
-                })
-                return !hasBirthdays && (
-                  <p className="text-[11px] text-white/35 leading-relaxed px-1">
-                    Don&apos;t see Birthdays? Open Google Calendar → Settings → Other calendars, enable Birthdays, then click Refresh below.
-                  </p>
-                )
-              })()}
+              {/* Manual calendar ID — fallback if Birthdays doesn't appear above */}
+              <div className="pt-1">
+                <p className="text-[11px] text-white/30 mb-2 leading-relaxed">
+                  Don&apos;t see Birthdays? Find the ID in Google Calendar → Settings → click Birthdays → Calendar ID, then paste below:
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customCalId}
+                    onChange={e => setCustomCalId(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addCustomCalendar()}
+                    placeholder="Paste calendar ID…"
+                    className="flex-1 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-white placeholder-white/20 focus:outline-none focus:border-white/25 font-mono"
+                  />
+                  <button
+                    onClick={addCustomCalendar}
+                    disabled={!customCalId.trim() || addingCal}
+                    className="px-3 py-1.5 rounded-lg bg-navi-blue/20 border border-navi-blue/30 text-navi-blue text-xs font-semibold hover:bg-navi-blue/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+                  >
+                    {addingCal ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                    Add
+                  </button>
+                </div>
+                {calIdError && <p className="mt-1 text-[11px] text-red-400/80">{calIdError}</p>}
+              </div>
 
               <button onClick={loadStatus}
                 className="flex items-center gap-1.5 text-[11px] text-white/25 hover:text-white/50 transition-colors mt-1">
@@ -438,47 +507,104 @@ export function SettingsTab() {
             <h3 className="text-sm font-semibold text-white">Completed Tasks</h3>
             <p className="text-[11px] text-white/35 mt-0.5">Reopen anything finished by mistake</p>
           </div>
-          <button onClick={loadArchive} disabled={archiveLoading} className="text-white/25 hover:text-white/55 transition-colors disabled:opacity-40">
-            {archiveLoading
-              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              : <RefreshCw className="w-3.5 h-3.5" />}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowLogForm(v => !v)}
+              className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg border border-white/10 text-white/35 hover:text-navi-blue hover:border-navi-blue/30 transition-all"
+            >
+              <Plus className="w-3 h-3" />
+              Log task
+            </button>
+            <button onClick={loadArchive} disabled={archiveLoading} className="text-white/25 hover:text-white/55 transition-colors disabled:opacity-40">
+              {archiveLoading
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : <RefreshCw className="w-3.5 h-3.5" />}
+            </button>
+          </div>
         </div>
+
+        {/* Manual log form */}
+        {showLogForm && (
+          <div className="px-5 py-3 border-b border-white/6 bg-white/2">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[11px] text-white/40 font-semibold uppercase tracking-widest">Log completed task</p>
+              <button onClick={() => setShowLogForm(false)} className="text-white/25 hover:text-white/50">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={logTitle}
+                onChange={e => setLogTitle(e.target.value)}
+                placeholder="Task title…"
+                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-white/20 focus:outline-none focus:border-white/25"
+              />
+              <div className="flex gap-2">
+                <select
+                  value={logArea}
+                  onChange={e => setLogArea(e.target.value as typeof logArea)}
+                  className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white focus:outline-none focus:border-white/25"
+                >
+                  <option value="finance">Finance</option>
+                  <option value="hr">HR</option>
+                  <option value="ops">Ops</option>
+                  <option value="others">Others</option>
+                </select>
+                <input
+                  type="date"
+                  value={logDate}
+                  onChange={e => setLogDate(e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white focus:outline-none focus:border-white/25"
+                />
+              </div>
+              <button
+                onClick={logCompletedTask}
+                disabled={!logTitle.trim() || logSaving}
+                className="w-full py-2 rounded-lg bg-navi-blue/20 border border-navi-blue/30 text-navi-blue text-sm font-semibold hover:bg-navi-blue/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {logSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                Add to archive
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="px-5 py-3">
           {archiveLoading ? (
             <div className="flex items-center gap-2 text-xs text-white/30 py-2">
               <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…
             </div>
           ) : archive.length > 0 ? (
-            <>
-              <div className="space-y-1 max-h-80 overflow-y-auto pr-1">
-                {archive.map(task => (
-                  <div key={task.id} className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium flex-shrink-0 capitalize ${AREA_BADGE[task.area] ?? AREA_BADGE.finance}`}>
-                      {task.area === 'hr' ? 'HR' : task.area}
-                    </span>
-                    <span className="flex-1 text-xs text-white/70 truncate">{task.title}</span>
-                    <span className="text-[10px] text-white/25 flex-shrink-0">
-                      {new Date(task.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                    </span>
-                    <button
-                      onClick={() => reopenTask(task)}
-                      disabled={reopening === task.id}
-                      className="flex-shrink-0 flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-white/10 text-white/35 hover:text-navi-blue hover:border-navi-blue/30 transition-all disabled:opacity-40"
-                    >
-                      {reopening === task.id
-                        ? <Loader2 className="w-3 h-3 animate-spin" />
-                        : <RotateCcw className="w-3 h-3" />}
-                      Reopen
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </>
+            <div className="space-y-1 max-h-80 overflow-y-auto pr-1">
+              {archive.map(task => (
+                <div key={task.id} className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium flex-shrink-0 capitalize ${AREA_BADGE[task.area] ?? AREA_BADGE.finance}`}>
+                    {task.area === 'hr' ? 'HR' : task.area}
+                  </span>
+                  <span className="flex-1 text-xs text-white/70 truncate">{task.title}</span>
+                  <span className="text-[10px] text-white/25 flex-shrink-0">
+                    {new Date(task.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                  </span>
+                  <button
+                    onClick={() => reopenTask(task)}
+                    disabled={reopening === task.id}
+                    className="flex-shrink-0 flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-white/10 text-white/35 hover:text-navi-blue hover:border-navi-blue/30 transition-all disabled:opacity-40"
+                  >
+                    {reopening === task.id
+                      ? <Loader2 className="w-3 h-3 animate-spin" />
+                      : <RotateCcw className="w-3 h-3" />}
+                    Reopen
+                  </button>
+                </div>
+              ))}
+            </div>
           ) : (
             <div className="py-2 space-y-1">
               <p className="text-xs text-white/25">No completed tasks yet.</p>
-              <p className="text-[11px] text-white/18 leading-relaxed">Check off all items in any Finance / HR / Ops / Others cycle — it will appear here automatically.</p>
+              <p className="text-[11px] text-white/18 leading-relaxed">
+                Check off all items in a cycle to archive it automatically, or tap &ldquo;Log task&rdquo; to add historical tasks manually.
+              </p>
             </div>
           )}
         </div>

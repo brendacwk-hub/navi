@@ -18,7 +18,15 @@ function isBirthdaysCalendar(c: { id?: string | null; summary?: string | null })
     (id.includes('contacts') && id.includes('calendar'))
 }
 
-function toCalItem(c: { id?: string | null; summary?: string | null; description?: string | null; backgroundColor?: string | null; primary?: boolean | null }) {
+interface CalItem {
+  id?: string | null
+  summary?: string | null
+  description?: string | null
+  backgroundColor?: string | null
+  primary?: boolean | null
+}
+
+function toCalItem(c: CalItem) {
   const isBirthday = isBirthdaysCalendar(c)
   return {
     id:          c.id,
@@ -34,25 +42,43 @@ export async function GET() {
   if (!client) return NextResponse.json({ error: 'not_connected' }, { status: 401 })
 
   const cal = google.calendar({ version: 'v3', auth: client })
-  const { data } = await cal.calendarList.list({ maxResults: 50, showHidden: true })
+  const { data } = await cal.calendarList.list({ maxResults: 250, showHidden: true })
 
-  const items = data.items ?? []
+  const items: CalItem[] = data.items ?? []
+  let mapped = items.map(toCalItem)
 
-  // If no Birthdays calendar found (by known ID or by name), try inserting each known ID
-  if (!items.find(isBirthdaysCalendar)) {
+  // If Birthdays not in the subscription list, probe it via events.list() —
+  // Google's Birthdays calendar is a system calendar that may not appear in calendarList
+  // but IS accessible via the events API for accounts where it's enabled
+  if (!mapped.some(c => isBirthdaysCalendar({ id: c.id, summary: c.summary }))) {
+    const probeYear = new Date().getFullYear()
+    const probeMin  = `${probeYear}-01-01T00:00:00Z`
+    const probeMax  = `${probeYear + 1}-01-01T00:00:00Z`
+
     for (const birthdayId of BIRTHDAYS_IDS) {
       try {
-        await cal.calendarList.insert({ requestBody: { id: birthdayId } })
-        // Insert succeeded — refetch and return the updated list
-        const { data: refreshed } = await cal.calendarList.list({ maxResults: 50, showHidden: true })
-        return NextResponse.json({ calendars: (refreshed.items ?? []).map(toCalItem) })
-      } catch {
-        // This ID didn't work — try the next one
+        await cal.events.list({
+          calendarId: birthdayId,
+          timeMin: probeMin,
+          timeMax: probeMax,
+          maxResults: 1,
+        })
+        // No exception = calendar is accessible — add it as a selectable option
+        mapped = [...mapped, {
+          id: birthdayId,
+          summary: 'Birthdays',
+          description: null,
+          color: '#e91e63',
+          primary: false,
+        }]
+        break
+      } catch (err) {
+        console.error(`[calendars] birthday probe failed for ${birthdayId}:`, (err as Error).message ?? err)
       }
     }
   }
 
-  return NextResponse.json({ calendars: items.map(toCalItem) })
+  return NextResponse.json({ calendars: mapped })
 }
 
 // PATCH — save selected calendars and/or color overrides

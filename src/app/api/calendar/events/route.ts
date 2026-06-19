@@ -2,6 +2,32 @@ import { NextRequest, NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { getAuthClient, getStoredAuth } from '@/shared/lib/google-auth'
 
+// System birthday calendar IDs — Google uses different IDs per account type
+const BIRTHDAY_IDS = [
+  '#contacts@group.v.calendar.google.com',
+  'contactsbirthdays@contacts.google.com',
+  'addressbook#contacts@group.v.calendar.google.com',
+]
+
+function mapEvent(
+  e: {
+    id?: string | null; summary?: string | null
+    start?: { dateTime?: string | null; date?: string | null } | null
+    end?: { dateTime?: string | null; date?: string | null } | null
+    location?: string | null; description?: string | null; htmlLink?: string | null
+  },
+  calId: string, calName: string, color: string,
+) {
+  return {
+    id: e.id, calendarId: calId, calendarName: calName, color,
+    title: e.summary ?? '(no title)',
+    start: e.start?.dateTime ?? e.start?.date ?? '',
+    end:   e.end?.dateTime   ?? e.end?.date   ?? '',
+    allDay: !e.start?.dateTime,
+    location: e.location ?? null, description: e.description ?? null, htmlLink: e.htmlLink ?? null,
+  }
+}
+
 export async function GET(req: NextRequest) {
   const client = await getAuthClient()
   if (!client) return NextResponse.json({ error: 'not_connected' }, { status: 401 })
@@ -18,39 +44,53 @@ export async function GET(req: NextRequest) {
 
   const cal = google.calendar({ version: 'v3', auth: client })
 
-  const results = await Promise.all(
-    calendarIds.map(async calId => {
-      const { data } = await cal.events.list({
-        calendarId:   calId,
-        timeMin,
-        timeMax,
-        singleEvents: true,
-        orderBy:      'startTime',
-        maxResults:   250,
-      })
-      // Get the calendar color from the list
-      const calList = await cal.calendarList.get({ calendarId: calId }).catch(() => null)
-      const googleColor = calList?.data.backgroundColor ?? '#4285f4'
-      const color       = row?.calendar_colors?.[calId] ?? googleColor
-      const summary = calList?.data.summary ?? calId
+  // Is a birthday calendar already explicitly selected by the user?
+  const birthdayAlreadySelected = calendarIds.some(id => {
+    const lid = id.toLowerCase()
+    return BIRTHDAY_IDS.includes(id) || lid.includes('birthday') || (lid.includes('contact') && lid.includes('calendar'))
+  })
 
-      return (data.items ?? []).map(e => ({
-        id:          e.id,
-        calendarId:  calId,
-        calendarName: summary,
-        color,
-        title:       e.summary ?? '(no title)',
-        start:       e.start?.dateTime ?? e.start?.date ?? '',
-        end:         e.end?.dateTime   ?? e.end?.date   ?? '',
-        allDay:      !e.start?.dateTime,
-        location:    e.location ?? null,
-        description: e.description ?? null,
-        htmlLink:    e.htmlLink ?? null,
-      }))
-    }),
-  )
+  // Fetch selected calendars + probe birthday calendars concurrently
+  const [selectedResults, birthdayEvents] = await Promise.all([
+    Promise.all(
+      calendarIds.map(async calId => {
+        try {
+          const { data } = await cal.events.list({
+            calendarId: calId, timeMin, timeMax,
+            singleEvents: true, orderBy: 'startTime', maxResults: 250,
+          })
+          const calList = await cal.calendarList.get({ calendarId: calId }).catch(() => null)
+          const googleColor = calList?.data.backgroundColor ?? '#4285f4'
+          const color   = row?.calendar_colors?.[calId] ?? googleColor
+          const summary = calList?.data.summary ?? calId
+          return (data.items ?? []).map(e => mapEvent(e, calId, summary, color))
+        } catch (err) {
+          console.error(`[events] failed to fetch ${calId}:`, err)
+          return []
+        }
+      }),
+    ),
+    // Probe birthday calendar IDs unless one is already explicitly selected
+    (async (): Promise<ReturnType<typeof mapEvent>[]> => {
+      if (birthdayAlreadySelected) return []
+      for (const birthdayId of BIRTHDAY_IDS) {
+        try {
+          const { data: bData } = await cal.events.list({
+            calendarId: birthdayId, timeMin, timeMax,
+            singleEvents: true, orderBy: 'startTime', maxResults: 250,
+          })
+          const birthdayColor = row?.calendar_colors?.['__birthdays__'] ?? '#e91e63'
+          // No exception = calendar accessible; events may be empty if no birthdays in this window
+          return (bData.items ?? []).map(e => mapEvent(e, birthdayId, 'Birthdays', birthdayColor))
+        } catch {
+          // This ID not accessible for this account, try the next
+        }
+      }
+      return []
+    })(),
+  ])
 
-  return NextResponse.json({ events: results.flat() })
+  return NextResponse.json({ events: [...selectedResults.flat(), ...birthdayEvents] })
 }
 
 // POST — create a new event
