@@ -25,12 +25,15 @@ var di = top.addText(new Date().toLocaleDateString("en-HK", { weekday: "short", 
 di.font = Font.systemFont(9)
 di.textColor = new Color("#ffffff", 0.3)
 
+var colW = Math.floor((Device.screenSize().width * 0.86 - 28) / 2)
+
 function makeCol(parent, data, label, labelColor, bg) {
   var habits = data.habits || []
   var items = (data.tasks || []).concat(data.cycles || []).slice(0, 5)
 
   var col = parent.addStack()
   col.layoutVertically()
+  col.size = new Size(colW, 0)
   col.backgroundColor = new Color(bg)
   col.cornerRadius = 8
   col.setPadding(7, 8, 7, 8)
