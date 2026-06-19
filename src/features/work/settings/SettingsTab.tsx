@@ -21,7 +21,7 @@ interface CompletedTask {
   items: unknown
   completed_at: string
   notes: string | null
-  _source?: 'completed_tasks' | 'cycles'
+  _source?: 'completed_tasks' | 'cycles' | 'today_tasks'
 }
 
 const AREA_BADGE: Record<string, string> = {
@@ -94,14 +94,37 @@ export function SettingsTab() {
   const loadArchive = useCallback(async () => {
     setArchiveLoading(true)
     try {
-      // Primary: cycles with status='complete'
+      // Primary: today_tasks archive entries (id='completed-{cycleId}') — this table always exists
+      let todayRows: CompletedTask[] = []
+      try {
+        const tRes  = await fetch('/api/db?table=today_tasks')
+        const tJson = await tRes.json()
+        if (tRes.ok && !tJson.error) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          todayRows = (tJson.data ?? []).filter((r: any) => r.id?.startsWith('completed-')).map((r: any) => ({
+            id:           r.data?.id            ?? r.id.slice('completed-'.length),
+            title:        r.data?.title         ?? '',
+            area:         r.data?.area          ?? 'others',
+            effort:       r.data?.effort        ?? '',
+            sub_area:     r.data?.sub_area      ?? null,
+            items:        r.data?.items         ?? null,
+            completed_at: r.data?.completed_at  ?? new Date().toISOString(),
+            notes:        r.data?.notes         ?? null,
+            _source: 'today_tasks' as const,
+          }))
+        }
+      } catch { /* ignore */ }
+
+      const seen = new Set(todayRows.map(r => r.id))
+
+      // Fallback A: cycles with status='complete' (if column exists in DB)
       let cycleRows: CompletedTask[] = []
       try {
         const cRes  = await fetch('/api/db?table=cycles&eqCol=status&eqVal=complete')
         const cJson = await cRes.json()
         if (cRes.ok && !cJson.error) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const completedCycles = (cJson.data ?? []).filter((c: any) => !c.mode || c.mode === 'work')
+          const completedCycles = (cJson.data ?? []).filter((c: any) => (!c.mode || c.mode === 'work') && !seen.has(c.id))
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           cycleRows = completedCycles.map((c: any) => ({
             id: c.id, title: c.title, area: c.area, effort: c.effort ?? '',
@@ -109,23 +132,23 @@ export function SettingsTab() {
             completed_at: c.last_completed_at ?? c.created_at ?? new Date().toISOString(),
             notes: c.notes ?? null, _source: 'cycles' as const,
           }))
+          cycleRows.forEach(r => seen.add(r.id))
         }
-      } catch { /* ignore */ }
+      } catch { /* status column may not exist */ }
 
-      // Secondary: completed_tasks table (legacy data)
+      // Fallback B: completed_tasks table (legacy)
       let legacyRows: CompletedTask[] = []
       try {
         const res  = await fetch('/api/db?table=completed_tasks')
         const json = await res.json()
         if (res.ok && !json.error) {
-          const cycleIds = new Set(cycleRows.map(r => r.id))
           legacyRows = (json.data ?? [])
-            .filter((r: CompletedTask) => !cycleIds.has(r.id))
+            .filter((r: CompletedTask) => !seen.has(r.id))
             .map((r: CompletedTask) => ({ ...r, _source: 'completed_tasks' as const }))
         }
       } catch { /* table may not exist */ }
 
-      const merged = [...cycleRows, ...legacyRows]
+      const merged = [...todayRows, ...cycleRows, ...legacyRows]
       merged.sort((a, b) => b.completed_at.localeCompare(a.completed_at))
       setArchive(merged)
     } finally {
@@ -137,6 +160,7 @@ export function SettingsTab() {
     setReopening(task.id)
     try {
       const resetItems = resetItemStatuses(task.items)
+      // Re-insert/update cycle in cycles table with items reset to todo
       await fetch('/api/db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -152,7 +176,14 @@ export function SettingsTab() {
           },
         }),
       })
-      if (task._source !== 'cycles') {
+      // Delete the archive entry so it stops appearing in completed list
+      if (task._source === 'today_tasks') {
+        await fetch('/api/db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ table: 'today_tasks', operation: 'delete', matchId: `completed-${task.id}` }),
+        })
+      } else if (task._source === 'completed_tasks') {
         await fetch('/api/db', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -169,19 +200,20 @@ export function SettingsTab() {
     if (!logTitle.trim()) return
     setLogSaving(true)
     try {
-      const id = `manual-${Date.now()}`
+      const taskId = `manual-${Date.now()}`
+      // Write to today_tasks archive (this table always exists; avoids needing a status column or separate table)
       await fetch('/api/db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          table: 'cycles', operation: 'upsert',
+          table: 'today_tasks', operation: 'upsert',
           data: {
-            id, title: logTitle.trim(), area: logArea,
-            effort: 'medium', must: false, urgent: false,
-            status: 'complete', trigger_label: null, sub_area: null,
-            items: null, phases: null, notes: null,
-            last_completed_at: `${logDate}T00:00:00.000Z`,
-            next_due_at: null, mode: 'work',
+            id: `completed-${taskId}`,
+            data: {
+              id: taskId, title: logTitle.trim(), area: logArea,
+              effort: 'medium', sub_area: null, items: null,
+              completed_at: `${logDate}T00:00:00.000Z`, notes: null,
+            },
           },
         }),
       })

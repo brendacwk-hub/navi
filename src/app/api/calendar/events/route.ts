@@ -55,9 +55,13 @@ export async function GET(req: NextRequest) {
     Promise.all(
       calendarIds.map(async calId => {
         try {
+          // Birthday system calendar doesn't support orderBy:startTime — use singleEvents only
+          const isBirthdayId = BIRTHDAY_IDS.includes(calId) || calId.toLowerCase().includes('birthday')
           const { data } = await cal.events.list({
             calendarId: calId, timeMin, timeMax,
-            singleEvents: true, orderBy: 'startTime', maxResults: 250,
+            singleEvents: true,
+            ...(isBirthdayId ? {} : { orderBy: 'startTime' }),
+            maxResults: 250,
           })
           const calList = await cal.calendarList.get({ calendarId: calId }).catch(() => null)
           const googleColor = calList?.data.backgroundColor ?? '#4285f4'

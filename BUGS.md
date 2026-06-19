@@ -388,6 +388,24 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-47 · Archive always empty — both completed_tasks table and status column never existed
+**Symptom:** Settings → Completed Tasks always showed "No completed tasks yet" even after completing cycles via the UI. The "Log task" form also appeared to save but nothing appeared.  
+**Root cause (first layer):** The `completed_tasks` table was never created in Supabase (confirmed by B-42 lesson, which described the fix but the SQL migration was never run). All writes to `completed_tasks` silently failed with 404.  
+**Root cause (second layer):** The B-42 "fix" switched from `completed_tasks` to writing `status='complete'` into the `cycles` table. But the `status` column was also never added to `cycles` via `ALTER TABLE` migration. Every `cycles upsert { status: 'complete' }` was silently ignored by Supabase (unknown column = ignored in JSONB-like behavior or silent error).  
+**Root cause (third layer):** `toggleItem` completion path had a 5-second timer before writing. If the user navigated to Settings within 5 seconds, the DB write hadn't happened yet, so archive was empty regardless.  
+**Fix:** Use `today_tasks` table as the archive store — this table is confirmed to exist (it holds the singleton today-task list). Archive entries are written as `{ id: 'completed-{cycleId}', data: { ...task } }`. Written IMMEDIATELY on completion (not after 5 seconds). Undo deletes the archive entry. `loadFromSupabase` reads ALL today_tasks rows and builds `completedArchiveIds` to filter the active cycle list. `loadArchive` reads all today_tasks and filters for `id.startsWith('completed-')` as the primary source.  
+**Lesson:** Never write to a table or column that hasn't been explicitly confirmed to exist in production Supabase. Always verify schema changes are applied before building features on top of them. For archive features, use a table that is already in use (like today_tasks), not a newly-promised table. Write archive entries IMMEDIATELY — don't delay writes behind undo windows.
+
+---
+
+### B-48 · Birthday events don't appear in Calendar tab despite calendar being selected
+**Symptom:** After selecting the Birthdays calendar in Settings (discovered via events.list() probe), no birthday events appeared on the Calendar tab.  
+**Root cause:** The Google Birthdays system calendar (`#contacts@group.v.calendar.google.com`) is a special calendar whose events are stored as all-day recurring events. When fetching with `orderBy: 'startTime'`, this calendar may fail silently (return empty or 400) because `orderBy: 'startTime'` behaves differently for all-day-only calendars than for mixed timed/all-day calendars. The error was caught silently (`catch { return [] }`), so 0 events were returned with no visible error.  
+**Fix:** Detect birthday calendar IDs (`BIRTHDAY_IDS.includes(calId) || calId.toLowerCase().includes('birthday')`) and omit `orderBy: 'startTime'` for those specifically. `singleEvents: true` is still used (required to expand recurring annual birthday events into current-year instances). The probe in `calendars/route.ts` correctly omits `orderBy`, so aligning the event-fetch to match the probe parameters.  
+**Lesson:** Google system calendars (Birthdays, Contacts) may not support all events.list() parameters that regular calendars support. When a special calendar works in a probe but not in the full fetch, check whether extra parameters (`orderBy`, `timeZone`, etc.) are causing a silent failure. Always inspect what parameters the probe uses vs. the full fetch. Silent `catch { return [] }` hides these failures — add `console.error` to distinguish "no events in range" from "API error".
+
+---
+
 ## How to use this doc
 
 - After every fix session, add a new entry here.

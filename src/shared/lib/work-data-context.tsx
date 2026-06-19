@@ -154,7 +154,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
   const [completedTitles, setCompletedTitles] = useState<string[]>([])
   const sbReady = useRef(false)
   const { showToast } = useToast()
-  const pendingCompletions = useRef<Map<string, { cycle: Cycle; area: WorkArea; timerId: ReturnType<typeof setTimeout> }>>(new Map())
+  const pendingCompletions = useRef<Map<string, { cycle: Cycle; area: WorkArea; timerId: ReturnType<typeof setTimeout>; archiveId: string }>>(new Map())
 
   // ── Load from DB on mount ─────────────────────────────────────────────────
   const loadFromSupabase = useCallback(async () => {
@@ -174,6 +174,16 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
           }
         }
       }
+
+      // Read ALL today_tasks once — gets both singleton (today's tasks) and archive entries (completed-*)
+      // Using today_tasks as archive store avoids needing a separate completed_tasks table or status column
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const allTodayRows = await dbRead('today_tasks') as { id: string; data: any }[]
+      const completedArchiveIds = new Set(
+        allTodayRows
+          .filter(r => r.id.startsWith('completed-'))
+          .map(r => r.id.slice('completed-'.length))
+      )
 
       if (rows.length > 0) {
         const allStatic = [...initFinance, ...initHr]
@@ -217,7 +227,10 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
         const allCycles = applyRecurrenceResets(merged, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
 
         // Completed non-recurring cycles stay in DB with status='complete' — shown in Settings archive
-        const activeCycles = allCycles.filter(c => !(c.status === 'complete' && !isRecurring(c.triggerLabel)))
+        const activeCycles = allCycles.filter(c =>
+          !completedArchiveIds.has(c.id) &&
+          !(c.status === 'complete' && !isRecurring(c.triggerLabel))
+        )
         setFinanceCycles(activeCycles.filter(c => c.area === 'finance'))
         setHrCycles(activeCycles.filter(c => c.area === 'hr'))
         setOpsCycles(activeCycles.filter(c => c.area === 'ops'))
@@ -230,16 +243,23 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
         setHrCycles(initHr)
       }
 
-      // Load completed task titles for QuickAdd suggestions (from cycles with status=complete)
+      // Completed titles: primary from today_tasks archive, fallback from cycles status=complete
+      const archiveTitles = allTodayRows
+        .filter(r => r.id.startsWith('completed-'))
+        .map(r => r.data?.title as string | undefined)
+        .filter(Boolean) as string[]
+      let allCompletedTitles = [...archiveTitles]
       try {
         const completedRows = await dbRead('cycles', { col: 'status', val: 'complete' }) as { title: string }[]
-        setCompletedTitles(completedRows.map(r => r.title).filter(Boolean))
-      } catch { /* ignore */ }
+        const cyclesTitles = completedRows.map(r => r.title).filter(Boolean)
+        if (cyclesTitles.length > 0) allCompletedTitles = [...new Set([...archiveTitles, ...cyclesTitles])]
+      } catch { /* status column may not exist */ }
+      setCompletedTitles(allCompletedTitles)
 
-      const todayRows = await dbRead('today_tasks', { col: 'id', val: 'singleton' })
-      if (todayRows.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setTodayTasks((todayRows[0] as any).data)
+      // Today tasks — use already-read allTodayRows (avoids a second round-trip)
+      const singletonRow = allTodayRows.find(r => r.id === 'singleton')
+      if (singletonRow) {
+        setTodayTasks(singletonRow.data)
       } else {
         dbWrite({ table: 'today_tasks', operation: 'upsert', data: { id: 'singleton', data: initToday } })
       }
@@ -262,6 +282,13 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
           rows = allRows.filter((r: any) => !r.mode || r.mode === 'work')
         }
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const allTodayRows = await dbRead('today_tasks') as { id: string; data: any }[]
+      const completedArchiveIds = new Set(
+        allTodayRows
+          .filter(r => r.id.startsWith('completed-'))
+          .map(r => r.id.slice('completed-'.length))
+      )
       if (rows.length > 0) {
         const allStatic = [...initFinance, ...initHr]
         const staticById = new Map(allStatic.map(c => [c.id, c]))
@@ -272,15 +299,17 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
           return { ...row, triggerLabel: s.triggerLabel, effort: s.effort, must: s.must, title: s.title, subArea: s.subArea, area: s.area }
         })
         const refreshed = applyRecurrenceResets(hydrated, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
-        const activeRefreshed = refreshed.filter(c => !(c.status === 'complete' && !isRecurring(c.triggerLabel)))
+        const activeRefreshed = refreshed.filter(c =>
+          !completedArchiveIds.has(c.id) &&
+          !(c.status === 'complete' && !isRecurring(c.triggerLabel))
+        )
         setFinanceCycles(activeRefreshed.filter(c => c.area === 'finance'))
         setHrCycles(activeRefreshed.filter(c => c.area === 'hr'))
         setOpsCycles(activeRefreshed.filter(c => c.area === 'ops'))
         setOthersCycles(activeRefreshed.filter(c => c.area === 'others'))
       }
-      const todayRows = await dbRead('today_tasks', { col: 'id', val: 'singleton' })
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if (todayRows.length > 0) setTodayTasks((todayRows[0] as any).data)
+      const singletonRow = allTodayRows.find(r => r.id === 'singleton')
+      if (singletonRow) setTodayTasks(singletonRow.data)
     } catch (e) {
       console.error('[refreshData]', e)
     }
@@ -310,10 +339,17 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
   const updateCycle = useCallback((area: WorkArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes' | 'nextDueAt' | 'items'>>) => {
     cycleSetter(area)(prev => {
       const target = prev.find(c => c.id === id)
-      // Mark non-recurring cycles complete in cycles table (archived in Settings)
+      // Mark non-recurring cycles complete — archive immediately in today_tasks
       if (patch.status === 'complete' && target && !isRecurring(target.triggerLabel)) {
-        const completedCycle = { ...target, status: 'complete' as const, lastCompletedAt: new Date().toISOString() }
-        dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(completedCycle) })
+        const completedAt = new Date().toISOString()
+        const archiveId = `completed-${target.id}`
+        dbWrite({
+          table: 'today_tasks', operation: 'upsert',
+          data: { id: archiveId, data: { id: target.id, title: target.title, area: target.area,
+            effort: target.effort ?? '', sub_area: target.subArea ?? null,
+            items: target.items ?? null, completed_at: completedAt, notes: target.notes ?? null } },
+        })
+        dbWrite({ table: 'cycles', operation: 'upsert', data: toRow({ ...target, status: 'complete', lastCompletedAt: completedAt }) })
         setCompletedTitles(ct => [...new Set([...ct, target.title])])
         return prev.filter(c => c.id !== id)
       }
@@ -345,15 +381,24 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
           return toggled.map(c => c.id === cycleId ? withDue : c)
         }
       }
-      // If non-recurring and now fully done → auto-archive with 5s undo window
+      // If non-recurring and now fully done → archive immediately in today_tasks, 5s undo window
       if (!isRecurring(changed.triggerLabel) && allCycleDone(changed)) {
         const completedAt = new Date().toISOString()
+        const archiveId = `completed-${cycleId}`
+        // Write archive entry immediately — today_tasks always exists (unlike completed_tasks or status column)
+        dbWrite({
+          table: 'today_tasks', operation: 'upsert',
+          data: { id: archiveId, data: { id: cycleId, title: changed.title, area: changed.area,
+            effort: changed.effort ?? '', sub_area: changed.subArea ?? null,
+            items: changed.items ?? null, completed_at: completedAt, notes: changed.notes ?? null } },
+        })
+        // Also attempt status='complete' in cycles (silent no-op if column doesn't exist)
+        dbWrite({ table: 'cycles', operation: 'upsert', data: toRow({ ...changed, status: 'complete', lastCompletedAt: completedAt }) })
+        setCompletedTitles(ct => [...new Set([...ct, changed.title])])
         const timerId = setTimeout(() => {
           pendingCompletions.current.delete(cycleId)
-          dbWrite({ table: 'cycles', operation: 'upsert', data: toRow({ ...changed, status: 'complete', lastCompletedAt: completedAt }) })
-          setCompletedTitles(ct => [...new Set([...ct, changed.title])])
         }, 5000)
-        pendingCompletions.current.set(cycleId, { cycle: changed, area, timerId })
+        pendingCompletions.current.set(cycleId, { cycle: changed, area, timerId, archiveId })
         showToast(`"${changed.title}" completed`, {
           duration: 5000,
           action: {
@@ -366,6 +411,8 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
               const restored = patchCycleItem(pending.cycle, itemId, i => ({ ...i, status: 'todo' }))
               cycleSetter(area)(prev => [...prev, restored])
               syncCycle(restored)
+              // Delete archive entry so the cycle reappears on next load
+              dbWrite({ table: 'today_tasks', operation: 'delete', matchId: archiveId })
             },
           },
         })
