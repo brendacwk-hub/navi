@@ -33,10 +33,11 @@ export async function GET(req: NextRequest) {
   }
 
   function shapeCycles(rows: CycleRow[], todayDate: Date) {
-    const todayStr = today
     return rows
       .filter(c => {
-        if (c.next_due_at) return c.next_due_at.startsWith(todayStr)
+        // Future due date: not yet time — skip
+        if (c.next_due_at && c.next_due_at > today) return false
+        // null OR past/today nextDueAt: app would have reset these, check trigger
         return isTriggerDueToday(c.trigger_label ?? undefined, todayDate)
       })
       .map(c => {

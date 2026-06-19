@@ -56,7 +56,7 @@ if (calEvents.length > 0) {
   topRow.addSpacer()
   var dTxt = topRow.addText(dateStr)
   dTxt.font = Font.systemFont(9)
-  dTxt.textColor = new Color("#ffffff", 0.3)
+  dTxt.textColor = new Color("#ffffff", 0.5)
 }
 
 var colW = Math.floor((Device.screenSize().width * 0.86 - 24) / 2)
@@ -103,7 +103,7 @@ function makeCol(parent, data, label, labelColor, bg, inlineDate) {
     if (undone.length > 0) hdr.addSpacer(3)
     var dt = hdr.addText(inlineDate)
     dt.font = Font.systemFont(9)
-    dt.textColor = new Color("#ffffff", 0.28)
+    dt.textColor = new Color("#ffffff", 0.5)
   }
 
   for (var j = 0; j < items.length; j++) {
@@ -136,9 +136,5 @@ var noEvent = calEvents.length === 0
 makeCol(cols, p, "Home", "#f0a8c8", "#0e1628", null)
 makeCol(cols, w, "Work", "#aaaaaa", "#111111", noEvent ? dateStr : null)
 
-if (config.runsInWidget) {
-  Script.setWidget(widget)
-} else {
-  await widget.presentMedium()
-}
+Script.setWidget(widget)
 Script.complete()
