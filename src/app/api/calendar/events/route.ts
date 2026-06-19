@@ -55,13 +55,18 @@ export async function GET(req: NextRequest) {
     Promise.all(
       calendarIds.map(async calId => {
         try {
-          // Birthday system calendar doesn't support orderBy:startTime — use singleEvents only
           const isBirthdayId = BIRTHDAY_IDS.includes(calId) || calId.toLowerCase().includes('birthday')
+          // Birthday calendars: fetch the full year so all birthdays appear regardless of current view range.
+          // The probe (no singleEvents) finds recurring rules; actual fetch needs singleEvents for instances.
+          // Using only the view timeMin/timeMax returns 0 events when no birthdays fall in that month/week.
+          const fetchYear = new Date(timeMin).getUTCFullYear()
+          const fetchMin  = isBirthdayId ? `${fetchYear}-01-01T00:00:00Z` : timeMin
+          const fetchMax  = isBirthdayId ? `${fetchYear + 1}-01-01T00:00:00Z` : timeMax
           const { data } = await cal.events.list({
-            calendarId: calId, timeMin, timeMax,
+            calendarId: calId, timeMin: fetchMin, timeMax: fetchMax,
             singleEvents: true,
             ...(isBirthdayId ? {} : { orderBy: 'startTime' }),
-            maxResults: 250,
+            maxResults: 500,
           })
           const calList = await cal.calendarList.get({ calendarId: calId }).catch(() => null)
           const googleColor = calList?.data.backgroundColor ?? (isBirthdayId ? '#e91e63' : '#4285f4')
@@ -78,11 +83,14 @@ export async function GET(req: NextRequest) {
     // Probe birthday calendar IDs unless one is already explicitly selected
     (async (): Promise<ReturnType<typeof mapEvent>[]> => {
       if (birthdayAlreadySelected) return []
+      const probeYear = new Date(timeMin).getUTCFullYear()
+      const yearMin   = `${probeYear}-01-01T00:00:00Z`
+      const yearMax   = `${probeYear + 1}-01-01T00:00:00Z`
       for (const birthdayId of BIRTHDAY_IDS) {
         try {
           const { data: bData } = await cal.events.list({
-            calendarId: birthdayId, timeMin, timeMax,
-            singleEvents: true, orderBy: 'startTime', maxResults: 250,
+            calendarId: birthdayId, timeMin: yearMin, timeMax: yearMax,
+            singleEvents: true, maxResults: 500,
           })
           const birthdayColor = row?.calendar_colors?.['__birthdays__'] ?? '#e91e63'
           // No exception = calendar accessible; events may be empty if no birthdays in this window

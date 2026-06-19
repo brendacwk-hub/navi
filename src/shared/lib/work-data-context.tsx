@@ -226,10 +226,11 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
         ]
         const allCycles = applyRecurrenceResets(merged, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
 
-        // One-time migration: cycles with status='complete' that predate the today_tasks archive store
-        // create archive entries automatically so they appear in Settings without manual re-completion
+        // One-time migration: cycles that are complete (via status flag OR all items done)
+        // and not yet in the today_tasks archive — create archive entries so they appear in Settings
         const cyclesNeedingArchive = allCycles.filter(c =>
-          c.status === 'complete' && !isRecurring(c.triggerLabel) && !completedArchiveIds.has(c.id)
+          !isRecurring(c.triggerLabel) && !completedArchiveIds.has(c.id) &&
+          (c.status === 'complete' || allCycleDone(c))
         )
         cyclesNeedingArchive.forEach(c => {
           const archiveId = `completed-${c.id}`
@@ -244,7 +245,8 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
 
         const activeCycles = allCycles.filter(c =>
           !completedArchiveIds.has(c.id) &&
-          !(c.status === 'complete' && !isRecurring(c.triggerLabel))
+          !(c.status === 'complete' && !isRecurring(c.triggerLabel)) &&
+          !(!isRecurring(c.triggerLabel) && allCycleDone(c))
         )
         setFinanceCycles(activeCycles.filter(c => c.area === 'finance'))
         setHrCycles(activeCycles.filter(c => c.area === 'hr'))

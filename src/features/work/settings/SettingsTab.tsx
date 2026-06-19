@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { CheckCircle2, Circle, ExternalLink, Loader2, LogOut, Plus, RefreshCw, Bell, BellOff, RotateCcw, X } from 'lucide-react'
+import { CheckCircle2, Circle, ExternalLink, Loader2, LogOut, Plus, RefreshCw, Bell, BellOff, RotateCcw } from 'lucide-react'
 import { usePushNotifications } from '@/shared/lib/use-push-notifications'
 import { usePreferences, type FontScale } from '@/shared/lib/preferences-context'
 
@@ -84,13 +84,6 @@ export function SettingsTab() {
   const [addingCal, setAddingCal]         = useState(false)
   const [calIdError, setCalIdError]       = useState<string | null>(null)
 
-  // Log completed task form
-  const [showLogForm, setShowLogForm]     = useState(false)
-  const [logTitle, setLogTitle]           = useState('')
-  const [logArea, setLogArea]             = useState<'finance' | 'hr' | 'ops' | 'others'>('finance')
-  const [logDate, setLogDate]             = useState(() => new Date().toISOString().slice(0, 10))
-  const [logSaving, setLogSaving]         = useState(false)
-
   const loadArchive = useCallback(async () => {
     setArchiveLoading(true)
     try {
@@ -149,6 +142,37 @@ export function SettingsTab() {
       } catch { /* table may not exist */ }
 
       const merged = [...todayRows, ...cycleRows, ...legacyRows]
+
+      // Fallback C: scan ALL cycles for ones with every item done — handles missing status column
+      if (merged.length === 0) {
+        try {
+          const allRes  = await fetch('/api/db?table=cycles')
+          const allJson = await allRes.json()
+          if (allRes.ok && !allJson.error) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const allCycles = (allJson.data ?? []).filter((c: any) => !c.mode || c.mode === 'work')
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const completedByItems = allCycles.filter((c: any) => {
+              if ((c.trigger_label as string | null)?.startsWith('every ')) return false
+              if (Array.isArray(c.items) && c.items.length > 0)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                return c.items.every((i: any) => i.status === 'done')
+              if (Array.isArray(c.phases) && c.phases.length > 0)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                return c.phases.every((p: any) => Array.isArray(p.items) && p.items.length > 0 && p.items.every((i: any) => i.status === 'done'))
+              return false
+            })
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            merged.push(...completedByItems.map((c: any) => ({
+              id: c.id, title: c.title, area: c.area, effort: c.effort ?? '',
+              sub_area: c.sub_area ?? null, items: c.items ?? null,
+              completed_at: c.last_completed_at ?? c.created_at ?? new Date().toISOString(),
+              notes: c.notes ?? null, _source: 'cycles' as const,
+            })))
+          }
+        } catch { /* ignore */ }
+      }
+
       merged.sort((a, b) => b.completed_at.localeCompare(a.completed_at))
       setArchive(merged)
     } finally {
@@ -193,36 +217,6 @@ export function SettingsTab() {
       setArchive(prev => prev.filter(t => t.id !== task.id))
     } finally {
       setReopening(null)
-    }
-  }
-
-  async function logCompletedTask() {
-    if (!logTitle.trim()) return
-    setLogSaving(true)
-    try {
-      const taskId = `manual-${Date.now()}`
-      // Write to today_tasks archive (this table always exists; avoids needing a status column or separate table)
-      await fetch('/api/db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          table: 'today_tasks', operation: 'upsert',
-          data: {
-            id: `completed-${taskId}`,
-            data: {
-              id: taskId, title: logTitle.trim(), area: logArea,
-              effort: 'medium', sub_area: null, items: null,
-              completed_at: `${logDate}T00:00:00.000Z`, notes: null,
-            },
-          },
-        }),
-      })
-      setLogTitle('')
-      setLogDate(new Date().toISOString().slice(0, 10))
-      setShowLogForm(false)
-      await loadArchive()
-    } finally {
-      setLogSaving(false)
     }
   }
 
@@ -540,13 +534,6 @@ export function SettingsTab() {
             <p className="text-[11px] text-white/35 mt-0.5">Reopen anything finished by mistake</p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowLogForm(v => !v)}
-              className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg border border-white/10 text-white/35 hover:text-navi-blue hover:border-navi-blue/30 transition-all"
-            >
-              <Plus className="w-3 h-3" />
-              Log task
-            </button>
             <button onClick={loadArchive} disabled={archiveLoading} className="text-white/25 hover:text-white/55 transition-colors disabled:opacity-40">
               {archiveLoading
                 ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -554,53 +541,6 @@ export function SettingsTab() {
             </button>
           </div>
         </div>
-
-        {/* Manual log form */}
-        {showLogForm && (
-          <div className="px-5 py-3 border-b border-white/6 bg-white/2">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[11px] text-white/40 font-semibold uppercase tracking-widest">Log completed task</p>
-              <button onClick={() => setShowLogForm(false)} className="text-white/25 hover:text-white/50">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            <div className="space-y-2">
-              <input
-                type="text"
-                value={logTitle}
-                onChange={e => setLogTitle(e.target.value)}
-                placeholder="Task title…"
-                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-white/20 focus:outline-none focus:border-white/25"
-              />
-              <div className="flex gap-2">
-                <select
-                  value={logArea}
-                  onChange={e => setLogArea(e.target.value as typeof logArea)}
-                  className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white focus:outline-none focus:border-white/25"
-                >
-                  <option value="finance">Finance</option>
-                  <option value="hr">HR</option>
-                  <option value="ops">Ops</option>
-                  <option value="others">Others</option>
-                </select>
-                <input
-                  type="date"
-                  value={logDate}
-                  onChange={e => setLogDate(e.target.value)}
-                  className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white focus:outline-none focus:border-white/25"
-                />
-              </div>
-              <button
-                onClick={logCompletedTask}
-                disabled={!logTitle.trim() || logSaving}
-                className="w-full py-2 rounded-lg bg-navi-blue/20 border border-navi-blue/30 text-navi-blue text-sm font-semibold hover:bg-navi-blue/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {logSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                Add to archive
-              </button>
-            </div>
-          </div>
-        )}
 
         <div className="px-5 py-3">
           {archiveLoading ? (
