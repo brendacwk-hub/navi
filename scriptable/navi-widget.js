@@ -1,3 +1,24 @@
+// v8 — self-updating, adaptive layout
+var SCRIPT_URL = "https://raw.githubusercontent.com/brendacwk-hub/navi/main/scriptable/navi-widget.js"
+
+// Auto-update when run manually in the Scriptable app
+if (!config.runsInWidget) {
+  try {
+    var fm = FileManager.iCloud()
+    if (!fm.fileExists(module.filename)) fm = FileManager.local()
+    var req = new Request(SCRIPT_URL)
+    req.timeoutInterval = 6
+    var latest = await req.loadString()
+    if (latest && latest.trim() !== fm.readString(module.filename).trim()) {
+      fm.writeString(module.filename, latest)
+      var n = new Notification()
+      n.title = "Navi Widget updated"
+      n.body = "Tap the widget on your home screen to see the new version."
+      await n.schedule()
+    }
+  } catch(e) {}
+}
+
 var BASE = "https://navi-ruby.vercel.app/api/widget?mode="
 var KEY = "d8ec68eb126880ad1cc2c3765dd0586c59b6bffb"
 
@@ -25,40 +46,9 @@ try {
 } catch(e) {}
 
 var AREA = {
-  finance: "#3b82f6",
-  hr: "#22c55e",
-  ops: "#eab308",
-  others: "#ec4899",
-  housework: "#fb7185",
-  "personal-finance": "#22d3ee",
-  sidoi: "#f9a8d4",
-  tobuy: "#fcd34d"
+  finance: "#3b82f6", hr: "#22c55e", ops: "#eab308", others: "#ec4899",
+  housework: "#fb7185", "personal-finance": "#22d3ee", sidoi: "#f9a8d4", tobuy: "#fcd34d"
 }
-
-var widget = new ListWidget()
-widget.backgroundColor = new Color("#0c0c0c")
-widget.setPadding(5, 10, 6, 10)
-widget.spacing = 3
-
-var dateStr = new Date().toLocaleDateString("en-HK", { weekday: "short", day: "numeric" })
-
-// Date always shows top-right; event text on left when available
-var topRow = widget.addStack()
-topRow.layoutHorizontally()
-topRow.spacing = 4
-if (calEvents.length > 0) {
-  var ev = calEvents[0]
-  var tStr = ev.startDate.toLocaleTimeString("en-HK", { hour: "numeric", minute: "2-digit", hour12: false })
-  var extra = calEvents.length > 1 ? " +" + (calEvents.length - 1) : ""
-  var evTxt = topRow.addText(ev.title + extra + "  " + tStr)
-  evTxt.font = Font.systemFont(9)
-  evTxt.textColor = new Color("#ffffff", 0.55)
-  evTxt.lineLimit = 1
-}
-topRow.addSpacer()
-var dTxt = topRow.addText(dateStr)
-dTxt.font = Font.systemFont(9)
-dTxt.textColor = new Color("#ffffff", 0.55)
 
 function isDone(item) {
   if (item.done === true) return true
@@ -68,14 +58,60 @@ function isDone(item) {
   return false
 }
 
-// Adaptive column widths: Home shrinks to 26% when it has no tasks/cycles
+var homeUndone = (p.habits || []).filter(function(h) { return !h.complete })
 var homeItems = (p.tasks || []).filter(function(t) { return !isDone(t) })
   .concat((p.cycles || []).filter(function(c) { return !isDone(c) }))
-var totalAvail = Math.floor(Device.screenSize().width * 0.86 - 24 - 7)
-var homeW = homeItems.length > 0 ? Math.floor(totalAvail / 2) : Math.floor(totalAvail * 0.26)
-var workW = totalAvail - homeW
+var homeEmpty = homeItems.length === 0
 
-function makeCol(parent, data, label, labelColor, bg, colW) {
+var widget = new ListWidget()
+widget.backgroundColor = new Color("#0c0c0c")
+widget.setPadding(6, 11, 7, 11)
+widget.spacing = 4
+
+var dateStr = new Date().toLocaleDateString("en-HK", { weekday: "short", day: "numeric" })
+
+// Top row: if home is empty, show home habit emojis left + date right
+//          if home has tasks and event exists, show event left + date right
+//          if home has tasks and no event, just date right
+var topRow = widget.addStack()
+topRow.layoutHorizontally()
+topRow.spacing = 5
+
+if (homeEmpty && homeUndone.length > 0) {
+  // Home habits as compact pill on the left
+  for (var hi = 0; hi < homeUndone.length; hi++) {
+    var he = topRow.addText(homeUndone[hi].emoji)
+    he.font = Font.systemFont(12)
+  }
+  topRow.addSpacer(3)
+  var homeTag = topRow.addText("Home")
+  homeTag.font = Font.systemFont(10)
+  homeTag.textColor = new Color("#f0a8c8", 0.6)
+} else if (calEvents.length > 0) {
+  var ev = calEvents[0]
+  var tStr = ev.startDate.toLocaleTimeString("en-HK", { hour: "numeric", minute: "2-digit", hour12: false })
+  var extra = calEvents.length > 1 ? " +" + (calEvents.length - 1) : ""
+  var evTxt = topRow.addText(ev.title + extra + "  " + tStr)
+  evTxt.font = Font.systemFont(10)
+  evTxt.textColor = new Color("#ffffff", 0.55)
+  evTxt.lineLimit = 1
+}
+topRow.addSpacer()
+var dTxt = topRow.addText(dateStr)
+dTxt.font = Font.boldSystemFont(10)
+dTxt.textColor = new Color("#ffffff", 0.65)
+
+// Column layout
+var scrW = Device.screenSize().width
+var colsGap = 7
+var padH = 22  // left+right padding
+var totalW = Math.floor(scrW * 0.88 - padH)
+
+var cols = widget.addStack()
+cols.layoutHorizontally()
+cols.spacing = colsGap
+
+function makeCol(parent, data, label, labelColor, bg, colW, showHabitRow) {
   var habits = data.habits || []
   var undone = habits.filter(function(h) { return !h.complete })
   var tasks = (data.tasks || []).filter(function(t) { return !isDone(t) })
@@ -86,23 +122,25 @@ function makeCol(parent, data, label, labelColor, bg, colW) {
   col.layoutVertically()
   col.size = new Size(colW, 0)
   col.backgroundColor = new Color(bg)
-  col.cornerRadius = 7
-  col.setPadding(5, 7, 5, 7)
-  col.spacing = 2
+  col.cornerRadius = 8
+  col.setPadding(6, 8, 6, 8)
+  col.spacing = 3
 
+  // Header: label + habits (only when showHabitRow is true)
   var hdr = col.addStack()
   hdr.layoutHorizontally()
-  hdr.spacing = 3
+  hdr.spacing = 4
 
   var lbl = hdr.addText(label)
-  lbl.font = Font.boldSystemFont(10)
+  lbl.font = Font.boldSystemFont(11)
   lbl.textColor = new Color(labelColor)
 
-  hdr.addSpacer()
-
-  for (var i = 0; i < undone.length; i++) {
-    var et = hdr.addText(undone[i].emoji)
-    et.font = Font.systemFont(11)
+  if (showHabitRow && undone.length > 0) {
+    hdr.addSpacer()
+    for (var i = 0; i < undone.length; i++) {
+      var et = hdr.addText(undone[i].emoji)
+      et.font = Font.systemFont(12)
+    }
   }
 
   for (var j = 0; j < items.length; j++) {
@@ -111,28 +149,32 @@ function makeCol(parent, data, label, labelColor, bg, colW) {
     var hex = AREA[areaKey] || "#888888"
     var irow = col.addStack()
     irow.layoutHorizontally()
-    irow.backgroundColor = new Color(hex, 0.18)
-    irow.cornerRadius = 4
-    irow.setPadding(3, 5, 3, 5)
+    irow.backgroundColor = new Color(hex, 0.2)
+    irow.cornerRadius = 5
+    irow.setPadding(5, 7, 5, 7)
     var itxt = irow.addText(item.title || item.label || "")
-    itxt.font = Font.systemFont(10)
+    itxt.font = Font.systemFont(12)
     itxt.textColor = new Color(hex)
     itxt.lineLimit = 2
   }
 
-  if (undone.length === 0 && items.length === 0) {
+  if (items.length === 0) {
     var cl = col.addText("All clear")
-    cl.font = Font.systemFont(9)
-    cl.textColor = new Color("#ffffff", 0.22)
+    cl.font = Font.systemFont(11)
+    cl.textColor = new Color("#ffffff", 0.2)
   }
 }
 
-var cols = widget.addStack()
-cols.layoutHorizontally()
-cols.spacing = 7
-
-makeCol(cols, p, "Home", "#f0a8c8", "#0e1628", homeW)
-makeCol(cols, w, "Work", "#ffffff", "#111111", workW)
+if (homeEmpty) {
+  // Home has no tasks: Work takes full width
+  makeCol(cols, w, "Work", "#ffffff", "#111111", totalW, true)
+} else {
+  // Both have content: equal split
+  var hw = Math.floor((totalW - colsGap) / 2)
+  var ww = totalW - hw - colsGap
+  makeCol(cols, p, "Home", "#f0a8c8", "#0e1628", hw, true)
+  makeCol(cols, w, "Work", "#ffffff", "#111111", ww, true)
+}
 
 Script.setWidget(widget)
 Script.complete()
