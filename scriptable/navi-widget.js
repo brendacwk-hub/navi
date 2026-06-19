@@ -42,11 +42,10 @@ widget.spacing = 4
 
 var dateStr = new Date().toLocaleDateString("en-HK", { weekday: "short", day: "numeric" })
 
-var topRow = widget.addStack()
-topRow.layoutHorizontally()
-topRow.spacing = 4
-
 if (calEvents.length > 0) {
+  var topRow = widget.addStack()
+  topRow.layoutHorizontally()
+  topRow.spacing = 4
   var ev = calEvents[0]
   var tStr = ev.startDate.toLocaleTimeString("en-HK", { hour: "numeric", minute: "2-digit", hour12: false })
   var extra = calEvents.length > 1 ? " +" + (calEvents.length - 1) : ""
@@ -54,12 +53,11 @@ if (calEvents.length > 0) {
   evTxt.font = Font.systemFont(10)
   evTxt.textColor = new Color("#ffffff", 0.6)
   evTxt.lineLimit = 1
+  topRow.addSpacer()
+  var dTxt = topRow.addText(dateStr)
+  dTxt.font = Font.systemFont(10)
+  dTxt.textColor = new Color("#ffffff", 0.35)
 }
-
-topRow.addSpacer()
-var dTxt = topRow.addText(dateStr)
-dTxt.font = Font.systemFont(10)
-dTxt.textColor = new Color("#ffffff", 0.35)
 
 var colW = Math.floor((Device.screenSize().width * 0.86 - 28) / 2)
 
@@ -70,12 +68,12 @@ function isDone(item) {
   return false
 }
 
-function makeCol(parent, data, label, labelColor, bg) {
+function makeCol(parent, data, label, labelColor, bg, inlineDate) {
   var habits = data.habits || []
   var undone = habits.filter(function(h) { return !h.complete })
   var tasks = (data.tasks || []).filter(function(t) { return !isDone(t) })
   var cycles = (data.cycles || []).filter(function(c) { return !isDone(c) })
-  var items = tasks.concat(cycles).slice(0, 8)
+  var items = tasks.concat(cycles)
 
   var col = parent.addStack()
   col.layoutVertically()
@@ -98,6 +96,13 @@ function makeCol(parent, data, label, labelColor, bg) {
   for (var i = 0; i < undone.length; i++) {
     var et = hdr.addText(undone[i].emoji)
     et.font = Font.systemFont(12)
+  }
+
+  if (inlineDate) {
+    if (undone.length > 0) hdr.addSpacer(4)
+    var dt = hdr.addText(inlineDate)
+    dt.font = Font.systemFont(9)
+    dt.textColor = new Color("#ffffff", 0.3)
   }
 
   for (var j = 0; j < items.length; j++) {
@@ -125,8 +130,9 @@ var cols = widget.addStack()
 cols.layoutHorizontally()
 cols.spacing = 8
 
-makeCol(cols, p, "Home", "#f0a8c8", "#0e1628")
-makeCol(cols, w, "Work", "#aaaaaa", "#111111")
+var noEvent = calEvents.length === 0
+makeCol(cols, p, "Home", "#f0a8c8", "#0e1628", null)
+makeCol(cols, w, "Work", "#aaaaaa", "#111111", noEvent ? dateStr : null)
 
 Script.setWidget(widget)
 Script.complete()
