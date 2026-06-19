@@ -33,7 +33,11 @@ export async function GET(req: NextRequest) {
   }
 
   const now = new Date()
-  const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  // All time checks use HKT (UTC+8) — Vercel serverless runs in UTC
+  const hktNow = new Date(now.getTime() + 8 * 60 * 60 * 1000)
+  const nh = hktNow.getUTCHours()
+  const nm = hktNow.getUTCMinutes()
+  const hktDay = hktNow.getUTCDay() // 0 = Sunday
 
   // Fetch habit definitions
   const { data: defRows } = await supabase.from('habit_definitions').select('habits').eq('id', 'work-singleton')
@@ -45,7 +49,6 @@ export async function GET(req: NextRequest) {
   for (const h of habits) {
     if (!h.reminderTime) continue
     const [rh, rm] = h.reminderTime.split(':').map(Number)
-    const [nh, nm] = hhmm.split(':').map(Number)
     const diffMin = Math.abs(rh * 60 + rm - (nh * 60 + nm))
     if (diffMin <= 5) {
       await sendToAll(
@@ -58,8 +61,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Morning summary at 09:00
-  const [nh, nm] = hhmm.split(':').map(Number)
+  // Morning summary at 09:00 HKT
   if (nh === 9 && nm <= 5) {
     await sendToAll(
       '☀️ Good morning',
@@ -69,10 +71,9 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  // Diary reminder at 21:00 on Sundays — only if today's entry is empty
-  const hktDay = new Date(now.getTime() + 8 * 60 * 60 * 1000).getUTCDay() // 0 = Sunday
+  // Diary reminder at 21:00 HKT on Sundays — only if today's entry is empty
   if (nh === 21 && nm <= 5 && hktDay === 0) {
-    const todayKey = now.toLocaleDateString('en-CA') // YYYY-MM-DD in local time
+    const todayKey = hktNow.toISOString().slice(0, 10) // YYYY-MM-DD in HKT
     const { data: entry } = await supabase
       .from('diary_entries')
       .select('id, mood, body, prompts')

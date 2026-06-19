@@ -191,20 +191,23 @@ export function DiaryView() {
   async function handleSave() {
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null }
     setSaving(true)
-    await new Promise<void>(resolve => {
-      dbWrite({
-        table: 'diary_entries',
-        operation: 'upsert',
-        data: {
-          id: today,
-          mood,
-          prompts: questions.map((q, i) => ({ question: q, answer: answers[i] ?? '' })),
-          body,
-          created_at: new Date().toISOString(),
-        },
+    try {
+      await fetch('/api/db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table: 'diary_entries',
+          operation: 'upsert',
+          data: {
+            id: today,
+            mood,
+            prompts: questions.map((q, i) => ({ question: q, answer: answers[i] ?? '' })),
+            body,
+            created_at: new Date().toISOString(),
+          },
+        }),
       })
-      setTimeout(resolve, 400)
-    })
+    } catch { /* silent — auto-save is fallback */ }
     const t = new Date()
     setSavedAt(`${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`)
     setSaving(false)
