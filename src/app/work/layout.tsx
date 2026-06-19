@@ -12,7 +12,7 @@ export default function WorkLayout({ children }: { children: React.ReactNode }) 
       <ToastProvider>
         <WorkDataProvider>
           <InboxProvider>
-            <HabitProvider>
+            <HabitProvider mode="work">
               <SearchProvider>
                 <WorkShell>{children}</WorkShell>
               </SearchProvider>

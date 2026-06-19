@@ -9,7 +9,7 @@ export default function PersonalLayout({ children }: { children: React.ReactNode
     <PreferencesProvider>
       <ToastProvider>
         <PersonalDataProvider>
-          <HabitProvider>
+          <HabitProvider mode="personal">
             <PersonalShell>{children}</PersonalShell>
           </HabitProvider>
         </PersonalDataProvider>

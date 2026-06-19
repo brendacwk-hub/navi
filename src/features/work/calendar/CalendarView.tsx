@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { useWorkData } from '@/shared/lib/work-data-context'
-import { useHabits } from '@/shared/lib/habit-context'
+import { useHabits, fetchHabitData, type WorkHabit, type HabitLog } from '@/shared/lib/habit-context'
 import { computeSortDate } from '@/shared/lib/sort-utils'
 import type { Cycle } from '@/shared/types'
 
@@ -525,7 +525,26 @@ export function CalendarView() {
 
   // Get all cycles from WorkData
   const { financeCycles, hrCycles, opsCycles, othersCycles } = useWorkData()
-  const { habits, weekLogs } = useHabits()
+  const { habits: workHabits, weekLogs: workWeekLogs } = useHabits()
+
+  // Fetch personal habits to show on calendar (read-only union)
+  const [personalHabits, setPersonalHabits] = useState<WorkHabit[]>([])
+  const [personalWeekLogs, setPersonalWeekLogs] = useState<Record<string, HabitLog>>({})
+  useEffect(() => {
+    fetchHabitData('personal').then(({ habits, weekLogs }) => {
+      setPersonalHabits(habits)
+      setPersonalWeekLogs(weekLogs)
+    })
+  }, [])
+
+  const allHabits = useMemo(() => [...workHabits, ...personalHabits], [workHabits, personalHabits])
+  const allWeekLogs = useMemo(() => {
+    const merged: Record<string, HabitLog> = { ...workWeekLogs }
+    for (const [date, log] of Object.entries(personalWeekLogs)) {
+      merged[date] = { ...(merged[date] ?? {}), ...log }
+    }
+    return merged
+  }, [workWeekLogs, personalWeekLogs])
 
   // Build cycle → day map
   const cycleMap = new Map<string, DayData>()
@@ -627,12 +646,12 @@ export function CalendarView() {
       {view === 'month' && (
         <MonthView
           date={current} today={today} dayMap={dayMap}
-          habits={habits.map(h => ({ id: h.id, emoji: h.emoji, goal: h.goal }))}
-          weekLogs={weekLogs}
+          habits={allHabits.map(h => ({ id: h.id, emoji: h.emoji, goal: h.goal }))}
+          weekLogs={allWeekLogs}
           onDayClick={(d, data) => {
             const key        = toKey(d)
-            const dayLog     = weekLogs[key] ?? {}
-            const hasHabits  = habits.some(h => (dayLog[h.id] ?? 0) > 0)
+            const dayLog     = allWeekLogs[key] ?? {}
+            const hasHabits  = allHabits.some(h => (dayLog[h.id] ?? 0) > 0)
             const total      = data.events.length + data.tasks.length
             if (total > 0 || hasHabits) setPopover({ date: d, data })
             else { setCurrent(d); setView('day') }
@@ -646,15 +665,15 @@ export function CalendarView() {
         />
       )}
       {view === 'day' && (
-        <DayView date={current} today={today} dayMap={dayMap} habits={habits} weekLogs={weekLogs} />
+        <DayView date={current} today={today} dayMap={dayMap} habits={allHabits} weekLogs={allWeekLogs} />
       )}
 
       {/* Popover */}
       {popover && (
         <DayPopover
           date={popover.date} dayData={popover.data}
-          habits={habits}
-          weekLogs={weekLogs}
+          habits={allHabits}
+          weekLogs={allWeekLogs}
           onClose={() => setPopover(null)}
           onNavigate={d => { setCurrent(d); setView('day') }}
         />
