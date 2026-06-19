@@ -226,28 +226,10 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
         ]
         const allCycles = applyRecurrenceResets(merged, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
 
-        // One-time migration: cycles that are complete (via status flag OR all items done)
-        // and not yet in the today_tasks archive — create archive entries so they appear in Settings
-        const cyclesNeedingArchive = allCycles.filter(c =>
-          !isRecurring(c.triggerLabel) && !completedArchiveIds.has(c.id) &&
-          (c.status === 'complete' || allCycleDone(c))
-        )
-        cyclesNeedingArchive.forEach(c => {
-          const archiveId = `completed-${c.id}`
-          dbWrite({
-            table: 'today_tasks', operation: 'upsert',
-            data: { id: archiveId, data: { id: c.id, title: c.title, area: c.area,
-              effort: c.effort ?? '', sub_area: c.subArea ?? null, items: c.items ?? null,
-              completed_at: c.lastCompletedAt ?? new Date().toISOString(), notes: c.notes ?? null } },
-          })
-          completedArchiveIds.add(c.id)
-        })
-
-        const activeCycles = allCycles.filter(c =>
-          !completedArchiveIds.has(c.id) &&
-          !(c.status === 'complete' && !isRecurring(c.triggerLabel)) &&
-          !(!isRecurring(c.triggerLabel) && allCycleDone(c))
-        )
+        // Show all cycles in work tabs — completed ones are visible so the user
+        // can untick/retick them. The Settings archive detects completion directly
+        // from item state, so no hiding is needed here.
+        const activeCycles = allCycles
         setFinanceCycles(activeCycles.filter(c => c.area === 'finance'))
         setHrCycles(activeCycles.filter(c => c.area === 'hr'))
         setOpsCycles(activeCycles.filter(c => c.area === 'ops'))
@@ -301,11 +283,6 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const allTodayRows = await dbRead('today_tasks') as { id: string; data: any }[]
-      const completedArchiveIds = new Set(
-        allTodayRows
-          .filter(r => r.id.startsWith('completed-'))
-          .map(r => r.id.slice('completed-'.length))
-      )
       if (rows.length > 0) {
         const allStatic = [...initFinance, ...initHr]
         const staticById = new Map(allStatic.map(c => [c.id, c]))
@@ -316,14 +293,10 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
           return { ...row, triggerLabel: s.triggerLabel, effort: s.effort, must: s.must, title: s.title, subArea: s.subArea, area: s.area }
         })
         const refreshed = applyRecurrenceResets(hydrated, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
-        const activeRefreshed = refreshed.filter(c =>
-          !completedArchiveIds.has(c.id) &&
-          !(c.status === 'complete' && !isRecurring(c.triggerLabel))
-        )
-        setFinanceCycles(activeRefreshed.filter(c => c.area === 'finance'))
-        setHrCycles(activeRefreshed.filter(c => c.area === 'hr'))
-        setOpsCycles(activeRefreshed.filter(c => c.area === 'ops'))
-        setOthersCycles(activeRefreshed.filter(c => c.area === 'others'))
+        setFinanceCycles(refreshed.filter(c => c.area === 'finance'))
+        setHrCycles(refreshed.filter(c => c.area === 'hr'))
+        setOpsCycles(refreshed.filter(c => c.area === 'ops'))
+        setOthersCycles(refreshed.filter(c => c.area === 'others'))
       }
       const singletonRow = allTodayRows.find(r => r.id === 'singleton')
       if (singletonRow) setTodayTasks(singletonRow.data)

@@ -56,23 +56,55 @@ export async function GET(req: NextRequest) {
       calendarIds.map(async calId => {
         try {
           const isBirthdayId = BIRTHDAY_IDS.includes(calId) || calId.toLowerCase().includes('birthday')
-          // Birthday system calendar: fetch the full year so birthdays appear regardless of current view range,
-          // and omit singleEvents + orderBy — the probe in calendars/route.ts uses neither, and the Birthdays
-          // system calendar may return empty when singleEvents:true is set (it's a synthetic/read-only calendar).
-          const fetchYear = new Date(timeMin).getUTCFullYear()
-          const fetchMin  = isBirthdayId ? `${fetchYear}-01-01T00:00:00Z` : timeMin
-          const fetchMax  = isBirthdayId ? `${fetchYear + 1}-01-01T00:00:00Z` : timeMax
-          const { data } = await cal.events.list(
-            isBirthdayId
-              ? { calendarId: calId, timeMin: fetchMin, timeMax: fetchMax, maxResults: 500 }
-              : { calendarId: calId, timeMin, timeMax, singleEvents: true, orderBy: 'startTime', maxResults: 500 }
-          )
           const calList = await cal.calendarList.get({ calendarId: calId }).catch(() => null)
           const googleColor = calList?.data.backgroundColor ?? (isBirthdayId ? '#e91e63' : '#4285f4')
           const color   = row?.calendar_colors?.[calId] ?? googleColor
-          // Always name birthday calendars 'Birthdays' regardless of calendarList response
           const summary = isBirthdayId ? 'Birthdays' : (calList?.data.summary ?? calId)
-          return (data.items ?? []).map(e => mapEvent(e, calId, summary, color))
+
+          if (!isBirthdayId) {
+            const { data } = await cal.events.list({
+              calendarId: calId, timeMin, timeMax,
+              singleEvents: true, orderBy: 'startTime', maxResults: 500,
+            })
+            return (data.items ?? []).map(e => mapEvent(e, calId, summary, color))
+          }
+
+          // Birthday system calendar: fetch full year so all birthdays appear regardless of view range.
+          // Try 1: singleEvents=true — expands recurring rules into current-year instances (correct dates).
+          // Try 2: no singleEvents — returns recurring base events (may have original year); adjust year manually.
+          // Both omit orderBy:startTime per B-48 (orderBy causes silent empty response on this calendar).
+          const fetchYear = new Date(timeMin).getUTCFullYear()
+          const fetchMin  = `${fetchYear}-01-01T00:00:00Z`
+          const fetchMax  = `${fetchYear + 1}-01-01T00:00:00Z`
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let bdItems: any[] = []
+          try {
+            const { data: d1 } = await cal.events.list({
+              calendarId: calId, timeMin: fetchMin, timeMax: fetchMax,
+              singleEvents: true, maxResults: 500,
+            })
+            bdItems = d1.items ?? []
+          } catch { /* singleEvents may not be supported on this calendar */ }
+
+          if (bdItems.length === 0) {
+            try {
+              const { data: d2 } = await cal.events.list({
+                calendarId: calId, timeMin: fetchMin, timeMax: fetchMax, maxResults: 500,
+              })
+              // Without singleEvents, start.date may be the original year — force it to fetchYear
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              bdItems = (d2.items ?? []).map((e: any) => {
+                const dateStr = (e.start?.date ?? e.start?.dateTime ?? '').slice(0, 10)
+                const mmdd    = dateStr.slice(5)
+                if (!mmdd) return e
+                return { ...e, start: { date: `${fetchYear}-${mmdd}` }, end: { date: `${fetchYear}-${mmdd}` } }
+              })
+            } catch { /* ignore */ }
+          }
+
+          console.error(`[events] birthday ${calId}: ${bdItems.length} events for ${fetchYear}`)
+          return bdItems.map(e => mapEvent(e, calId, summary, color))
         } catch (err) {
           console.error(`[events] failed to fetch ${calId}:`, err)
           return []
@@ -85,17 +117,31 @@ export async function GET(req: NextRequest) {
       const probeYear = new Date(timeMin).getUTCFullYear()
       const yearMin   = `${probeYear}-01-01T00:00:00Z`
       const yearMax   = `${probeYear + 1}-01-01T00:00:00Z`
+      const birthdayColor = row?.calendar_colors?.['__birthdays__'] ?? '#e91e63'
       for (const birthdayId of BIRTHDAY_IDS) {
         try {
-          const { data: bData } = await cal.events.list({
-            calendarId: birthdayId, timeMin: yearMin, timeMax: yearMax, maxResults: 500,
-          })
-          const birthdayColor = row?.calendar_colors?.['__birthdays__'] ?? '#e91e63'
-          // No exception = calendar accessible; events may be empty if no birthdays in this window
-          return (bData.items ?? []).map(e => mapEvent(e, birthdayId, 'Birthdays', birthdayColor))
-        } catch {
-          // This ID not accessible for this account, try the next
-        }
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let bdItems: any[] = []
+          try {
+            const { data } = await cal.events.list({
+              calendarId: birthdayId, timeMin: yearMin, timeMax: yearMax,
+              singleEvents: true, maxResults: 500,
+            })
+            bdItems = data.items ?? []
+          } catch { /* singleEvents may not be supported on this calendar */ }
+
+          if (bdItems.length === 0) {
+            const { data } = await cal.events.list({
+              calendarId: birthdayId, timeMin: yearMin, timeMax: yearMax, maxResults: 500,
+            })
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            bdItems = (data.items ?? []).map((e: any) => {
+              const mmdd = (e.start?.date ?? '').slice(5)
+              return mmdd ? { ...e, start: { date: `${probeYear}-${mmdd}` }, end: { date: `${probeYear}-${mmdd}` } } : e
+            })
+          }
+          return bdItems.map(e => mapEvent(e, birthdayId, 'Birthdays', birthdayColor))
+        } catch { /* this ID not accessible — try next */ }
       }
       return []
     })(),
