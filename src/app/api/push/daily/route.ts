@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
 
   // Fetch habit definitions
-  const { data: defRows } = await supabase.from('habit_definitions').select('habits').eq('id', 'singleton')
+  const { data: defRows } = await supabase.from('habit_definitions').select('habits').eq('id', 'work-singleton')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const habits: any[] = defRows?.[0]?.habits ?? []
 

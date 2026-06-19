@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   if (mode === 'work') {
     const [todayTasksRes, cyclesRes] = await Promise.all([
       admin.from('today_tasks').select('data').eq('id', 'singleton').single(),
-      admin.from('cycles').select('id,title,area,trigger_label,status,next_due_at,items,must,urgent,effort').neq('status', 'complete'),
+      admin.from('cycles').select('id,title,area,trigger_label,status,next_due_at,items,must,urgent,effort').eq('mode', 'work').neq('status', 'complete'),
     ])
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -78,8 +78,8 @@ export async function GET(req: NextRequest) {
 
   // Personal mode — habits
   const [habitDefRes, habitLogRes] = await Promise.all([
-    admin.from('habit_definitions').select('habits').eq('id', 'singleton').single(),
-    admin.from('habit_logs').select('logs').eq('id', today).single(),
+    admin.from('habit_definitions').select('habits').eq('id', 'personal-singleton').single(),
+    admin.from('habit_logs').select('logs').eq('id', `personal-${today}`).single(),
   ])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

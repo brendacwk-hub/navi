@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Plus, Pencil, Trash2, Minus } from 'lucide-react'
-import { useHabits, type WorkHabit, type HabitFrequency } from '@/shared/lib/habit-context'
+import { useHabits, getWeekDateKeys, getMonthDateKeys, type WorkHabit, type HabitFrequency, type HabitLog } from '@/shared/lib/habit-context'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -12,6 +12,7 @@ function freqLabel(f?: HabitFrequency): string {
   if (!f || f.type === 'daily')            return 'Every day'
   if (f.type === 'weekdays')               return 'Mon–Fri'
   if (f.type === 'times_per_week')         return `${f.times}× / week`
+  if (f.type === 'times_per_month')        return `${f.times}× / month`
   if (f.type === 'days') {
     if (f.days.length === 0) return 'No days'
     return f.days.map(d => DAY_LABELS[d]).join(' ')
@@ -32,7 +33,7 @@ function isDayScheduled(habit: WorkHabit, dayOfWeek: number): boolean {
 
 const EMOJI_PRESETS = ['💧','🧍','🏃','💊','🪞','🪡','💻','🧠','📈','🍎','☕','🎯','📚','🌿','💤']
 
-type FreqType = 'daily' | 'weekdays' | 'days' | 'times_per_week'
+type FreqType = 'daily' | 'weekdays' | 'days' | 'times_per_week' | 'times_per_month'
 
 interface HabitModalProps {
   initial?: WorkHabit
@@ -50,9 +51,10 @@ function HabitModal({ initial, onSave, onDelete, onClose }: HabitModalProps) {
 
   const initFreqType = (): FreqType => {
     const t = initial?.frequency?.type
-    if (!t || t === 'daily') return 'daily'
-    if (t === 'weekdays')    return 'weekdays'
-    if (t === 'days')        return 'days'
+    if (!t || t === 'daily')          return 'daily'
+    if (t === 'weekdays')             return 'weekdays'
+    if (t === 'days')                 return 'days'
+    if (t === 'times_per_month')      return 'times_per_month'
     return 'times_per_week'
   }
   const [freqType, setFreqType]   = useState<FreqType>(initFreqType)
@@ -60,26 +62,29 @@ function HabitModal({ initial, onSave, onDelete, onClose }: HabitModalProps) {
     initial?.frequency?.type === 'days' ? initial.frequency.days : [1, 2, 3, 4, 5]
   )
   const [freqTimes, setFreqTimes] = useState(
-    initial?.frequency?.type === 'times_per_week' ? initial.frequency.times : 3
+    initial?.frequency?.type === 'times_per_week'  ? initial.frequency.times :
+    initial?.frequency?.type === 'times_per_month' ? initial.frequency.times : 3
   )
 
   const toggleDay = (d: number) =>
     setFreqDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d].sort((a, b) => a - b))
 
   function buildFrequency(): HabitFrequency {
-    if (freqType === 'daily')          return { type: 'daily' }
-    if (freqType === 'weekdays')       return { type: 'weekdays' }
-    if (freqType === 'days')           return { type: 'days', days: freqDays }
+    if (freqType === 'daily')           return { type: 'daily' }
+    if (freqType === 'weekdays')        return { type: 'weekdays' }
+    if (freqType === 'days')            return { type: 'days', days: freqDays }
+    if (freqType === 'times_per_month') return { type: 'times_per_month', times: freqTimes }
     return { type: 'times_per_week', times: freqTimes }
   }
 
   const valid = name.trim().length > 0 && goal >= 1 && (freqType !== 'days' || freqDays.length > 0)
 
   const FREQ_OPTIONS: { key: FreqType; label: string }[] = [
-    { key: 'daily',          label: 'Every day' },
-    { key: 'weekdays',       label: 'Weekdays'  },
-    { key: 'days',           label: 'Custom'    },
-    { key: 'times_per_week', label: '×/week'    },
+    { key: 'daily',           label: 'Every day' },
+    { key: 'weekdays',        label: 'Weekdays'  },
+    { key: 'days',            label: 'Custom'    },
+    { key: 'times_per_week',  label: '×/week'    },
+    { key: 'times_per_month', label: '×/month'   },
   ]
 
   return (
@@ -170,19 +175,21 @@ function HabitModal({ initial, onSave, onDelete, onClose }: HabitModalProps) {
             </div>
           )}
 
-          {/* Times per week stepper */}
-          {freqType === 'times_per_week' && (
+          {/* Times per week / per month stepper */}
+          {(freqType === 'times_per_week' || freqType === 'times_per_month') && (
             <div className="flex items-center gap-3 mt-3">
               <button onClick={() => setFreqTimes(t => Math.max(1, t - 1))}
                 className="w-8 h-8 rounded-full border border-white/15 text-white/50 hover:border-white/30 hover:text-white flex items-center justify-center transition-all">
                 <Minus className="w-3.5 h-3.5" />
               </button>
-              <span className="text-white font-semibold w-4 text-center tabular-nums">{freqTimes}</span>
-              <button onClick={() => setFreqTimes(t => Math.min(7, t + 1))}
+              <span className="text-white font-semibold w-6 text-center tabular-nums">{freqTimes}</span>
+              <button onClick={() => setFreqTimes(t => Math.min(freqType === 'times_per_month' ? 31 : 7, t + 1))}
                 className="w-8 h-8 rounded-full border border-white/15 text-white/50 hover:border-white/30 hover:text-white flex items-center justify-center transition-all">
                 <Plus className="w-3.5 h-3.5" />
               </button>
-              <span className="text-xs text-white/35">times per week</span>
+              <span className="text-xs text-white/35">
+                times per {freqType === 'times_per_month' ? 'month' : 'week'}
+              </span>
             </div>
           )}
         </div>
@@ -247,6 +254,8 @@ function HabitModal({ initial, onSave, onDelete, onClose }: HabitModalProps) {
 // ── Streak calculator ─────────────────────────────────────────────────────────
 
 function computeStreak(habit: WorkHabit, weekLogs: Record<string, Record<string, number>>): number {
+  const ft = habit.frequency?.type
+  if (ft === 'times_per_week' || ft === 'times_per_month') return 0
   let streak = 0
   const today = new Date(); today.setHours(0, 0, 0, 0)
   for (let i = 0; i < 90; i++) {
@@ -301,7 +310,8 @@ function WeekStrip({ habits, weekLogs, onLog, onUnlog }: {
         {habits.map(h => {
           const scheduled = isDayScheduled(h, dow)
           const count     = logs[h.id] ?? 0
-          const met       = count >= h.goal
+          const perPeriod = h.frequency?.type === 'times_per_week' || h.frequency?.type === 'times_per_month'
+          const met       = perPeriod ? count > 0 : count >= h.goal
           const size      = range === 7 ? 'w-5 h-5 text-[9px]' : 'w-3.5 h-3.5 text-[8px]'
           return (
             <button
@@ -433,6 +443,21 @@ function HabitCard({ habit, count, streak, onLog, onUnlog, onEdit }: {
   )
 }
 
+// ── Effective count for habits page cards ─────────────────────────────────────
+// times_per_week → sum this week (Mon–Sun); times_per_month → sum this month; else → today
+
+function habitEffectiveCount(habit: WorkHabit, todayLogs: HabitLog, weekLogs: Record<string, HabitLog>): number {
+  const ft = habit.frequency?.type
+  const now = new Date()
+  if (ft === 'times_per_week') {
+    return getWeekDateKeys(now).reduce((s, k) => s + (weekLogs[k]?.[habit.id] ?? 0), 0)
+  }
+  if (ft === 'times_per_month') {
+    return getMonthDateKeys(now).reduce((s, k) => s + (weekLogs[k]?.[habit.id] ?? 0), 0)
+  }
+  return todayLogs[habit.id] ?? 0
+}
+
 // ── Main tab ──────────────────────────────────────────────────────────────────
 
 export function HabitsTab() {
@@ -477,7 +502,7 @@ export function HabitsTab() {
               <HabitCard
                 key={habit.id}
                 habit={habit}
-                count={todayLogs[habit.id] ?? 0}
+                count={habitEffectiveCount(habit, todayLogs, weekLogs)}
                 streak={computeStreak(habit, weekLogs)}
                 onLog={() => logHabit(habit.id)}
                 onUnlog={() => unlogHabit(habit.id)}

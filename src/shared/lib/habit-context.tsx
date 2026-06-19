@@ -5,8 +5,9 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef } f
 export type HabitFrequency =
   | { type: 'daily' }
   | { type: 'weekdays' }
-  | { type: 'days'; days: number[] }        // 0=Sun … 6=Sat
+  | { type: 'days'; days: number[] }          // 0=Sun … 6=Sat
   | { type: 'times_per_week'; times: number }
+  | { type: 'times_per_month'; times: number }
 
 export interface WorkHabit {
   id: string
@@ -86,6 +87,28 @@ export async function fetchHabitData(mode: HabitMode): Promise<{ habits: WorkHab
   } catch {
     return { habits: [], weekLogs: {} }
   }
+}
+
+// Helpers for weekly/monthly aggregation (used by Today strips)
+export function getWeekDateKeys(date: Date): string[] {
+  const day = date.getDay()
+  const monday = new Date(date)
+  monday.setDate(date.getDate() - (day === 0 ? 6 : day - 1))
+  monday.setHours(0, 0, 0, 0)
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })
+}
+
+export function getMonthDateKeys(date: Date): string[] {
+  const year = date.getFullYear()
+  const month = date.getMonth()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  return Array.from({ length: daysInMonth }, (_, i) =>
+    `${year}-${String(month + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`
+  )
 }
 
 function todayKey(): string {

@@ -3,22 +3,62 @@
 import { useMemo } from 'react'
 import { Minus } from 'lucide-react'
 import { usePersonalData } from '@/shared/lib/personal-data-context'
-import { useHabits } from '@/shared/lib/habit-context'
+import { useHabits, getWeekDateKeys, getMonthDateKeys, type WorkHabit, type HabitLog } from '@/shared/lib/habit-context'
 import { isTriggerDueToday, allCycleDone } from '@/shared/lib/sort-utils'
 import { CycleCard } from '@/shared/components/CycleCard'
 import type { Cycle } from '@/shared/types'
 
 const PINK = '#f0a8c8'
 
+// ── Habit helpers ─────────────────────────────────────────────────────────────
+
+function isScheduledToday(habit: WorkHabit, dow: number): boolean {
+  const f = habit.frequency
+  if (!f || f.type === 'daily')            return true
+  if (f.type === 'weekdays')               return dow >= 1 && dow <= 5
+  if (f.type === 'days')                   return f.days.includes(dow)
+  if (f.type === 'times_per_week')         return true  // show every day, track weekly
+  if (f.type === 'times_per_month')        return true  // show every day, track monthly
+  return true
+}
+
+function getHabitDisplay(
+  habit: WorkHabit,
+  todayLogs: HabitLog,
+  weekLogs: Record<string, HabitLog>,
+  today: Date,
+): { count: number; suffix: string } {
+  const f = habit.frequency
+  if (f?.type === 'times_per_week') {
+    const count = getWeekDateKeys(today).reduce((s, k) => s + (weekLogs[k]?.[habit.id] ?? 0), 0)
+    return { count, suffix: 'wk' }
+  }
+  if (f?.type === 'times_per_month') {
+    const count = getMonthDateKeys(today).reduce((s, k) => s + (weekLogs[k]?.[habit.id] ?? 0), 0)
+    return { count, suffix: 'mo' }
+  }
+  return { count: todayLogs[habit.id] ?? 0, suffix: '' }
+}
+
+// ── Personal habit strip for Today ───────────────────────────────────────────
+
 function PersonalHabitStrip() {
-  const { habits, todayLogs, logHabit, unlogHabit } = useHabits()
-  if (habits.length === 0) return null
+  const { habits, todayLogs, weekLogs, logHabit, unlogHabit } = useHabits()
+
+  const today = new Date()
+  const dow   = today.getDay()
+
+  const todayHabits = [...habits]
+    .filter(h => isScheduledToday(h, dow))
+    .sort((a, b) => a.order - b.order)
+
+  if (todayHabits.length === 0) return null
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      {[...habits].sort((a, b) => a.order - b.order).map(habit => {
-        const count = todayLogs[habit.id] ?? 0
-        const done  = count >= habit.goal
+      {todayHabits.map(habit => {
+        const { count, suffix } = getHabitDisplay(habit, todayLogs, weekLogs, today)
+        const done = count >= habit.goal
         return (
           <div
             key={habit.id}
@@ -31,7 +71,7 @@ function PersonalHabitStrip() {
           >
             <span className="text-base leading-none">{habit.emoji}</span>
             <span className="text-[11px] font-medium tabular-nums" style={{ color: done ? '#4ade80' : PINK }}>
-              {count}/{habit.goal}
+              {count}/{habit.goal}{suffix ? ` ${suffix}` : ''}
             </span>
             <button
               onClick={e => { e.stopPropagation(); logHabit(habit.id) }}
@@ -54,6 +94,8 @@ function PersonalHabitStrip() {
     </div>
   )
 }
+
+// ── Main view ─────────────────────────────────────────────────────────────────
 
 export function PersonalTodayView() {
   const { houseworkCycles, personalFinanceCycles, sidoiCycles, tobuyCycles } = usePersonalData()
