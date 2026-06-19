@@ -21,7 +21,6 @@ interface CompletedTask {
   items: unknown
   completed_at: string
   notes: string | null
-  _source?: 'completed_tasks' | 'cycles' | 'today_tasks'
 }
 
 const AREA_BADGE: Record<string, string> = {
@@ -87,9 +86,6 @@ export function SettingsTab() {
   const loadArchive = useCallback(async () => {
     setArchiveLoading(true)
     try {
-      // Read ALL work cycles and detect completed ones directly.
-      // This avoids any dependency on today_tasks writes (which can fail silently)
-      // or a status column that may not exist in Supabase.
       const res  = await fetch('/api/db?table=cycles')
       const json = await res.json()
       if (!res.ok || json.error) { setArchive([]); return }
@@ -104,18 +100,17 @@ export function SettingsTab() {
       const completed: CompletedTask[] = (json.data ?? []).filter((c: any) => {
         if (c.mode && c.mode !== 'work') return false
         if ((c.trigger_label as string | null)?.startsWith('every ')) return false
-        if (c.status === 'complete') return true
-        if (Array.isArray(c.items)  && c.items.length  > 0) return c.items.every(leafDone)
-        if (Array.isArray(c.phases) && c.phases.length > 0)
+        if (Array.isArray(c.items)  && c.items.length  > 0 && c.items.every(leafDone)) return true
+        if (Array.isArray(c.phases) && c.phases.length > 0 &&
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          return c.phases.every((p: any) => Array.isArray(p.items) && p.items.length > 0 && p.items.every(leafDone))
+          c.phases.every((p: any) => Array.isArray(p.items) && p.items.length > 0 && p.items.every(leafDone))) return true
         return false
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       }).map((c: any) => ({
         id: c.id, title: c.title, area: c.area, effort: c.effort ?? '',
         sub_area: c.sub_area ?? null, items: c.items ?? null,
         completed_at: c.last_completed_at ?? c.created_at ?? new Date().toISOString(),
-        notes: c.notes ?? null, _source: 'cycles' as const,
+        notes: c.notes ?? null,
       }))
 
       completed.sort((a, b) => b.completed_at.localeCompare(a.completed_at))
@@ -144,11 +139,6 @@ export function SettingsTab() {
           },
         }),
       })
-      // Clean up any stale archive entries (best-effort)
-      fetch('/api/db', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ table: 'today_tasks', operation: 'delete', matchId: `completed-${task.id}` }),
-      }).catch(() => {})
       setArchive(prev => prev.filter(t => t.id !== task.id))
     } finally {
       setReopening(null)
@@ -341,10 +331,10 @@ export function SettingsTab() {
                 )
               })}
 
-              {/* Manual calendar ID — fallback if Birthdays doesn't appear above */}
+              {/* Manual calendar ID */}
               <div className="pt-1">
                 <p className="text-[11px] text-white/30 mb-2 leading-relaxed">
-                  Don&apos;t see Birthdays? Find the ID in Google Calendar → Settings → click Birthdays → Calendar ID, then paste below:
+                  Can&apos;t find a calendar? Paste its Calendar ID from Google Calendar → Settings → select calendar → Calendar ID:
                 </p>
                 <div className="flex gap-2">
                   <input
@@ -466,15 +456,13 @@ export function SettingsTab() {
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/6">
           <div>
             <h3 className="text-sm font-semibold text-white">Completed Tasks</h3>
-            <p className="text-[11px] text-white/35 mt-0.5">Reopen anything finished by mistake</p>
+            <p className="text-[11px] text-white/35 mt-0.5">Cycles with all items checked off</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={loadArchive} disabled={archiveLoading} className="text-white/25 hover:text-white/55 transition-colors disabled:opacity-40">
-              {archiveLoading
-                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                : <RefreshCw className="w-3.5 h-3.5" />}
-            </button>
-          </div>
+          <button onClick={loadArchive} disabled={archiveLoading} className="text-white/25 hover:text-white/55 transition-colors disabled:opacity-40">
+            {archiveLoading
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <RefreshCw className="w-3.5 h-3.5" />}
+          </button>
         </div>
 
         <div className="px-5 py-3">
@@ -507,12 +495,7 @@ export function SettingsTab() {
               ))}
             </div>
           ) : (
-            <div className="py-2 space-y-1">
-              <p className="text-xs text-white/25">No completed tasks yet.</p>
-              <p className="text-[11px] text-white/18 leading-relaxed">
-                Check off all items in a cycle to archive it automatically, or tap &ldquo;Log task&rdquo; to add historical tasks manually.
-              </p>
-            </div>
+            <p className="text-xs text-white/25 py-2">No completed tasks yet. Check off all items in a cycle for it to appear here.</p>
           )}
         </div>
       </section>

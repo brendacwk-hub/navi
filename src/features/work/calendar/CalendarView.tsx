@@ -38,17 +38,6 @@ const AREA_BORDER: Record<string, string> = {
   others:  'border-l-[3px] border-purple-400  bg-purple-400/8  text-purple-300',
 }
 
-const BIRTHDAY_CAL_IDS = [
-  '#contacts@group.v.calendar.google.com',
-  'contactsbirthdays@contacts.google.com',
-  'addressbook#contacts@group.v.calendar.google.com',
-]
-function isBirthdayEvent(e: GEvent) {
-  const lid = e.calendarId.toLowerCase()
-  return BIRTHDAY_CAL_IDS.includes(e.calendarId) ||
-    lid.includes('birthday') ||
-    e.calendarName?.toLowerCase().includes('birthday')
-}
 
 const WEEK_DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const HOUR_HEIGHT     = 52   // px per hour in time grid
@@ -268,8 +257,7 @@ function MonthView({ date, today, dayMap, habits, weekLogs, onDayClick }: {
           const data     = dayMap.get(key) ?? { key, events: [], tasks: [] }
           const isToday  = isSameDay(d, today)
           const inMonth  = d.getMonth() === thisMonth
-          const birthdays     = data.events.filter(isBirthdayEvent)
-          const regularEvents = data.events.filter(e => !isBirthdayEvent(e))
+          const regularEvents = data.events
           const total    = regularEvents.length + data.tasks.length
           const MAX_SHOW = 2
           const overflow = Math.max(0, total - MAX_SHOW)
@@ -317,13 +305,6 @@ function MonthView({ date, today, dayMap, habits, weekLogs, onDayClick }: {
                 )}
               </div>
 
-              {/* Birthday events — always shown at bottom regardless of other chips */}
-              {birthdays.map(e => (
-                <div key={e.id} className="text-[9px] text-pink-300/90 leading-tight truncate flex items-center gap-0.5 mt-auto">
-                  <span>🎂</span>
-                  <span className="truncate">{e.title.replace(/['']s birthday/i, '').replace(/birthday/i, '').trim() || e.title}</span>
-                </div>
-              ))}
             </div>
           )
         })}
@@ -359,8 +340,7 @@ function WeekView({ date, today, dayMap, onDayClick }: {
         {days.map(d => {
           const key  = toKey(d)
           const data = dayMap.get(key) ?? { key, events: [], tasks: [] }
-          const birthdayEvts   = data.events.filter(isBirthdayEvent)
-          const allDayRegular  = data.events.filter(e => e.allDay && !isBirthdayEvent(e))
+          const allDayRegular  = data.events.filter(e => e.allDay)
           return (
             <div key={key}
               className={`border-l border-white/6 px-1 py-1 min-h-[36px] cursor-pointer hover:bg-white/3 ${
@@ -373,12 +353,6 @@ function WeekView({ date, today, dayMap, onDayClick }: {
               </div>
               {allDayRegular.map(e => <EventChip key={e.id} event={e} compact />)}
               {data.tasks.map(({ cycle, area }) => <TaskChip key={cycle.id} cycle={cycle} area={area} compact />)}
-              {birthdayEvts.map(e => (
-                <div key={e.id} className="text-[9px] text-pink-300/90 leading-tight truncate flex items-center gap-0.5">
-                  <span>🎂</span>
-                  <span className="truncate">{e.title.replace(/['']s birthday/i, '').replace(/birthday/i, '').trim() || e.title}</span>
-                </div>
-              ))}
             </div>
           )
         })}
@@ -443,27 +417,13 @@ function DayView({ date, today, dayMap, habits, weekLogs }: {
   const key      = toKey(date)
   const data     = dayMap.get(key) ?? { key, events: [], tasks: [] }
   const hours    = Array.from({ length: DAY_END_H - DAY_START_H }, (_, i) => DAY_START_H + i)
-  const birthdayEvts = data.events.filter(isBirthdayEvent)
-  const allDay   = data.events.filter(e => e.allDay && !isBirthdayEvent(e))
+  const allDay   = data.events.filter(e => e.allDay)
   const timed    = data.events.filter(e => !e.allDay)
   const dayLog   = weekLogs[key] ?? {}
   const loggedHabits = habits.filter(h => (dayLog[h.id] ?? 0) > 0)
 
   return (
     <div className="flex-1 overflow-auto">
-      {/* Birthdays strip — always at top, distinct pink row */}
-      {birthdayEvts.length > 0 && (
-        <div className="border-b border-pink-400/20 bg-pink-400/5 px-4 py-2">
-          {birthdayEvts.map(e => (
-            <div key={e.id} className="flex items-center gap-2 text-sm text-pink-300">
-              <span>🎂</span>
-              <span>{e.title.replace(/['']s birthday/i, '').replace(/birthday/i, '').trim() || e.title}</span>
-              <span className="text-xs text-pink-400/50">Birthday</span>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* All-day + tasks + habits strip */}
       {(allDay.length > 0 || data.tasks.length > 0 || loggedHabits.length > 0) && (
         <div className="border-b border-white/8 px-4 py-3 space-y-1">

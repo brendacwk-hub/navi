@@ -175,15 +175,8 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // Read ALL today_tasks once — gets both singleton (today's tasks) and archive entries (completed-*)
-      // Using today_tasks as archive store avoids needing a separate completed_tasks table or status column
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const allTodayRows = await dbRead('today_tasks') as { id: string; data: any }[]
-      const completedArchiveIds = new Set(
-        allTodayRows
-          .filter(r => r.id.startsWith('completed-'))
-          .map(r => r.id.slice('completed-'.length))
-      )
 
       if (rows.length > 0) {
         const allStatic = [...initFinance, ...initHr]
