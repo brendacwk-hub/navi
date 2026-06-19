@@ -32,14 +32,6 @@ async function dbRead(table: string, eq?: { col: string; val: string }): Promise
   } catch { return [] }
 }
 
-function dbWrite(op: object) {
-  fetch('/api/db', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(op),
-  }).catch(console.error)
-}
-
 function autoResize(el: HTMLTextAreaElement) {
   el.style.height = 'auto'
   el.style.height = el.scrollHeight + 'px'
@@ -71,41 +63,16 @@ export function DiaryView() {
   const [savedAt, setSavedAt]         = useState<string | null>(null)
   const [saving, setSaving]           = useState(false)
   const [hasEntry, setHasEntry]       = useState(false)
+  const [todayEntry, setTodayEntry]   = useState<DiaryEntry | null>(null)
   const [pastEntries, setPastEntries] = useState<DiaryEntry[]>([])
   const [expanded, setExpanded]       = useState<string | null>(null)
-
-  // Search
   const [searchQuery, setSearchQuery] = useState('')
-
-  // Google Docs export
-  const [exporting, setExporting]   = useState(false)
-  const [exportDocs, setExportDocs] = useState<{ year: number; url: string; entries: number }[]>([])
+  const [exporting, setExporting]     = useState(false)
+  const [exportDocs, setExportDocs]   = useState<{ year: number; url: string; entries: number }[]>([])
   const [exportError, setExportError] = useState('')
 
-  const saveTimer      = useRef<ReturnType<typeof setTimeout> | null>(null)
   const initialized    = useRef(false)
   const promptsFetched = useRef(false)
-
-  // ── Auto-save ──────────────────────────────────────────────────────────────
-  const scheduleSave = useCallback((m: string, qs: string[], as: string[], b: string) => {
-    if (!initialized.current) return
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => {
-      dbWrite({
-        table: 'diary_entries',
-        operation: 'upsert',
-        data: {
-          id: today,
-          mood: m,
-          prompts: qs.map((q, i) => ({ question: q, answer: as[i] ?? '' })),
-          body: b,
-          created_at: new Date().toISOString(),
-        },
-      })
-      const t = new Date()
-      setSavedAt(`${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`)
-    }, 600)
-  }, [today])
 
   // ── Fetch Gemini prompts ───────────────────────────────────────────────────
   const fetchPrompts = useCallback(async () => {
@@ -135,6 +102,7 @@ export function DiaryView() {
         setMood(entry.mood ?? '')
         setBody(entry.body ?? '')
         setHasEntry(true)
+        setTodayEntry(entry)
         if (Array.isArray(entry.prompts) && entry.prompts.length > 0) {
           setQuestions(entry.prompts.map(p => p.question))
           setAnswers(entry.prompts.map(p => p.answer))
@@ -143,7 +111,7 @@ export function DiaryView() {
         } else {
           setMode('freewrite')
         }
-        setPhase('writing')
+        // Stay on home — user taps Edit to open writing phase
       }
 
       const all = await dbRead('diary_entries')
@@ -172,25 +140,27 @@ export function DiaryView() {
     if (m === 'prompt' && !promptsFetched.current) fetchPrompts()
   }
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  // ── Handlers (no auto-save) ────────────────────────────────────────────────
   function handleMood(m: string) {
-    const next = m === mood ? '' : m
-    setMood(next)
-    scheduleSave(next, questions, answers, body)
+    setMood(m === mood ? '' : m)
   }
   function handleAnswer(i: number, val: string) {
     const next = [...answers]; next[i] = val
     setAnswers(next)
-    scheduleSave(mood, questions, next, body)
   }
   function handleBody(val: string) {
     setBody(val)
-    scheduleSave(mood, questions, answers, val)
   }
 
   async function handleSave() {
-    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null }
     setSaving(true)
+    const savedEntry: DiaryEntry = {
+      id: today,
+      mood,
+      prompts: questions.map((q, i) => ({ question: q, answer: answers[i] ?? '' })),
+      body,
+      created_at: new Date().toISOString(),
+    }
     try {
       await fetch('/api/db', {
         method: 'POST',
@@ -198,19 +168,16 @@ export function DiaryView() {
         body: JSON.stringify({
           table: 'diary_entries',
           operation: 'upsert',
-          data: {
-            id: today,
-            mood,
-            prompts: questions.map((q, i) => ({ question: q, answer: answers[i] ?? '' })),
-            body,
-            created_at: new Date().toISOString(),
-          },
+          data: savedEntry,
         }),
       })
-    } catch { /* silent — auto-save is fallback */ }
+    } catch { /* silent */ }
     const t = new Date()
     setSavedAt(`${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`)
     setSaving(false)
+    setHasEntry(true)
+    setTodayEntry(savedEntry)
+    setPhase('home')
   }
 
   function refreshPrompts() {
@@ -249,6 +216,10 @@ export function DiaryView() {
   // PHASE: HOME
   // ═══════════════════════════════════════════════════════════════════════════
   if (phase === 'home') {
+    const todayPreview = todayEntry
+      ? (todayEntry.prompts?.find(p => p.answer)?.answer || todayEntry.body || '').slice(0, 100)
+      : ''
+
     return (
       <div className="flex-1 overflow-y-auto px-5 pt-5 pb-10 space-y-5" style={{ backgroundColor: '#0e1628' }}>
 
@@ -258,8 +229,8 @@ export function DiaryView() {
           <span className="text-xs" style={{ color: `${PINK}80` }}>{dateLabel}</span>
         </div>
 
-        {/* Create button */}
-        {!hasEntry && (
+        {/* Today */}
+        {!hasEntry ? (
           <button onClick={() => setPhase('picking')}
             className="w-full py-4 rounded-2xl text-sm font-semibold transition-all active:scale-95"
             style={{
@@ -269,10 +240,36 @@ export function DiaryView() {
             }}>
             + Write today&apos;s diary
           </button>
+        ) : (
+          <div className="rounded-2xl overflow-hidden"
+            style={{ background: `linear-gradient(135deg, ${PINK}10, ${PINK}06)`, border: `1px solid ${PINK}35` }}>
+            <div className="flex items-center justify-between px-4 py-3">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl">{todayEntry?.mood || '📝'}</span>
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: PINK }}>Today&apos;s entry</p>
+                  {savedAt && <p className="text-[10px]" style={{ color: `${PINK}55` }}>saved at {savedAt}</p>}
+                </div>
+              </div>
+              <button
+                onClick={() => setPhase('writing')}
+                className="text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all active:scale-95"
+                style={{ backgroundColor: `${PINK}20`, border: `1px solid ${PINK}35`, color: PINK }}>
+                Edit
+              </button>
+            </div>
+            {todayPreview && (
+              <div className="px-4 pb-3 -mt-0.5">
+                <p className="text-xs leading-relaxed line-clamp-2" style={{ color: 'rgba(255,255,255,0.32)' }}>
+                  {todayPreview}{todayPreview.length >= 100 ? '…' : ''}
+                </p>
+              </div>
+            )}
+          </div>
         )}
 
-        {/* Search bar */}
-        {pastEntries.length > 0 && (
+        {/* Search bar — visible once any entry exists */}
+        {(hasEntry || pastEntries.length > 0) && (
           <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
             style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
             <span className="text-white/25 text-sm">🔍</span>
@@ -299,7 +296,6 @@ export function DiaryView() {
                   : 'Past entries'}
               </p>
 
-              {/* Export button */}
               <button
                 onClick={handleExport}
                 disabled={exporting}
@@ -313,7 +309,6 @@ export function DiaryView() {
               </button>
             </div>
 
-            {/* Export results */}
             {exportDocs.length > 0 && (
               <div className="mb-3 rounded-xl overflow-hidden" style={{ border: `1px solid ${PINK}30`, backgroundColor: `${PINK}08` }}>
                 {exportDocs.map(d => (
@@ -334,7 +329,7 @@ export function DiaryView() {
               {filteredPast.length > 0
                 ? filteredPast.map(e => <EntryCard key={e.id} entry={e} searchQuery={searchQuery} expanded={expanded} setExpanded={setExpanded} />)
                 : searchQuery.trim() && (
-                  <p className="text-sm text-white/25 text-center py-6">No entries match "{searchQuery}"</p>
+                  <p className="text-sm text-white/25 text-center py-6">No entries match &quot;{searchQuery}&quot;</p>
                 )}
             </div>
           </section>
@@ -385,15 +380,12 @@ export function DiaryView() {
           <button onClick={() => setPhase('home')} className="text-white/35 text-sm hover:text-white/60 transition-colors">←</button>
           <h2 className="text-lg font-semibold text-white">Diary</h2>
         </div>
-        <div className="flex items-center gap-2">
-          {savedAt && <span className="text-[10px] text-white/20">Saved {savedAt}</span>}
-          <span className="text-[10px] px-2 py-0.5 rounded-full"
-            style={mode === 'prompt'
-              ? { backgroundColor: `${PINK}15`, color: PINK }
-              : { backgroundColor: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)' }}>
-            {mode === 'prompt' ? '✨ Prompt' : '📝 Free write'}
-          </span>
-        </div>
+        <span className="text-[10px] px-2 py-0.5 rounded-full"
+          style={mode === 'prompt'
+            ? { backgroundColor: `${PINK}15`, color: PINK }
+            : { backgroundColor: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)' }}>
+          {mode === 'prompt' ? '✨ Prompt' : '📝 Free write'}
+        </span>
       </div>
 
       <span className="text-xs" style={{ color: `${PINK}70` }}>{dateLabel}</span>
@@ -417,16 +409,19 @@ export function DiaryView() {
       {/* Prompt mode */}
       {mode === 'prompt' && (
         <section className="space-y-4">
-          {/* Refresh prompts button */}
-          {!loadingPrompts && (
-            <div className="flex justify-end -mb-1">
-              <button onClick={refreshPrompts} disabled={loadingPrompts}
-                className="text-[11px] font-medium flex items-center gap-1 transition-colors active:scale-95"
-                style={{ color: `${PINK}70` }}>
-                ↻ New questions
-              </button>
-            </div>
-          )}
+          {/* Refresh button — always visible in prompt mode */}
+          <div className="flex justify-end -mb-1">
+            <button onClick={refreshPrompts} disabled={loadingPrompts}
+              className="text-[11px] font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-40"
+              style={{
+                backgroundColor: `${PINK}15`,
+                border: `1px solid ${PINK}30`,
+                color: PINK,
+              }}>
+              ↻ New questions
+            </button>
+          </div>
+
           {loadingPrompts ? (
             <>
               <div className="h-4 rounded-md animate-pulse w-3/4" style={{ backgroundColor: `${PINK}18` }} />
@@ -446,6 +441,7 @@ export function DiaryView() {
                 onBlur={e  => (e.target.style.borderColor = 'rgba(255,255,255,0.08)')} />
             </div>
           ))}
+
           {!loadingPrompts && questions.length > 0 && (
             <div>
               <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest mb-2">Anything else</p>
@@ -482,18 +478,8 @@ export function DiaryView() {
           border: `1px solid ${PINK}50`,
           color: PINK,
         }}>
-        {saving ? 'Saving…' : savedAt ? `✓ Saved at ${savedAt}` : 'Save diary'}
+        {saving ? 'Saving…' : 'Save diary'}
       </button>
-
-      {/* Past entries (in writing view too) */}
-      {pastEntries.length > 0 && (
-        <section>
-          <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest mb-3">Past entries</p>
-          <div className="space-y-2">
-            {pastEntries.map(e => <EntryCard key={e.id} entry={e} searchQuery="" expanded={expanded} setExpanded={setExpanded} />)}
-          </div>
-        </section>
-      )}
     </div>
   )
 }
