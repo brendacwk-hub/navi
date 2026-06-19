@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import { Header } from './Header'
 import { PersonalSidebar } from './PersonalSidebar'
+import { PersonalQuickAddButton } from './PersonalQuickAddButton'
 
 export function PersonalShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -35,6 +36,7 @@ export function PersonalShell({ children }: { children: React.ReactNode }) {
           <div className="flex-1 overflow-hidden flex">
             {children}
           </div>
+          <PersonalQuickAddButton />
         </main>
       </div>
     </div>

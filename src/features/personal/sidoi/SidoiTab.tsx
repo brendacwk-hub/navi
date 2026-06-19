@@ -15,7 +15,6 @@ export function SidoiTab() {
     <PersonalTabLayout
       area="sidoi"
       cycles={sidoiCycles as Cycle[]}
-      defaultSubArea={activeSub ?? undefined}
       subAreaConfig={{
         subAreas: SIDOI_SUB_AREAS,
         activeSub,

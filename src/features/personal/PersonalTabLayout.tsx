@@ -1,13 +1,11 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Plus } from 'lucide-react'
 import { CycleCard } from '@/shared/components/CycleCard'
 import { usePersonalData } from '@/shared/lib/personal-data-context'
 import { type CycleFilter, cycleHasMatchingItems } from '@/shared/lib/filter-utils'
 import { sortCycles, extractFlatItems, formatSortDate } from '@/shared/lib/sort-utils'
 import type { Cycle, PersonalArea } from '@/shared/types'
-import { PersonalQuickAdd } from './PersonalQuickAdd'
 
 const CHIP_FILTERS: CycleFilter[] = ['All', 'Latest', '⚠️ Urgent', 'Light', 'Medium', 'Heavy']
 
@@ -35,13 +33,11 @@ interface Props {
   area: PersonalArea
   cycles: Cycle[]
   subAreaConfig?: SubAreaConfig
-  defaultSubArea?: string
 }
 
-export function PersonalTabLayout({ area, cycles, subAreaConfig, defaultSubArea }: Props) {
+export function PersonalTabLayout({ area, cycles, subAreaConfig }: Props) {
   const { toggleItem } = usePersonalData()
   const [chipFilter, setChipFilter] = useState<CycleFilter>('All')
-  const [adding, setAdding] = useState(false)
 
   const color = AREA_COLOR[area]
   const label = AREA_LABEL[area]
@@ -73,25 +69,15 @@ export function PersonalTabLayout({ area, cycles, subAreaConfig, defaultSubArea 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="px-6 pt-5 pb-3 flex items-end justify-between flex-shrink-0">
-        <div>
-          <h2 className="text-lg font-semibold text-white">{label}</h2>
-          <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
-            {chipFilter === 'Latest'
-              ? `${flatItems.length} tasks in deadline order`
-              : sortedFiltered.length < cycles.length
-                ? `${sortedFiltered.length} of ${cycles.length} cycles`
-                : `${cycles.length} ${cycles.length === 1 ? 'cycle' : 'cycles'}`}
-          </p>
-        </div>
-        <button
-          onClick={() => setAdding(true)}
-          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border transition-all flex-shrink-0"
-          style={{ borderColor: `${color}4d`, color, backgroundColor: `${color}1a` }}
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Add
-        </button>
+      <div className="px-6 pt-5 pb-3 flex-shrink-0">
+        <h2 className="text-lg font-semibold text-white">{label}</h2>
+        <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
+          {chipFilter === 'Latest'
+            ? `${flatItems.length} tasks in deadline order`
+            : sortedFiltered.length < cycles.length
+              ? `${sortedFiltered.length} of ${cycles.length} cycles`
+              : `${cycles.length} ${cycles.length === 1 ? 'cycle' : 'cycles'}`}
+        </p>
       </div>
 
       {/* Sub-area tab bar (Sidoi only) */}
@@ -195,13 +181,6 @@ export function PersonalTabLayout({ area, cycles, subAreaConfig, defaultSubArea 
         )}
       </div>
 
-      {adding && (
-        <PersonalQuickAdd
-          area={area}
-          defaultSubArea={activeSub ?? defaultSubArea}
-          onClose={() => setAdding(false)}
-        />
-      )}
     </div>
   )
 }
