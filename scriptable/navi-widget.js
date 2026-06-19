@@ -62,9 +62,10 @@ if (calEvents.length > 0) {
 var colW = Math.floor((Device.screenSize().width * 0.86 - 24) / 2)
 
 function isDone(item) {
+  if (item.done === true) return true
   if (item.status === "done" || item.status === "complete") return true
   if (item.progress === 100) return true
-  if (item.total > 0 && item.done === item.total) return true
+  if (typeof item.total === "number" && item.total > 0 && item.done === item.total) return true
   return false
 }
 
@@ -107,13 +108,14 @@ function makeCol(parent, data, label, labelColor, bg, inlineDate) {
 
   for (var j = 0; j < items.length; j++) {
     var item = items[j]
-    var hex = AREA[(item.area || "").toLowerCase()] || "#888888"
+    var areaKey = (item.area || "").toLowerCase()
+    var hex = AREA[areaKey] || "#888888"
     var irow = col.addStack()
     irow.layoutHorizontally()
     irow.backgroundColor = new Color(hex, 0.18)
     irow.cornerRadius = 4
     irow.setPadding(3, 5, 3, 5)
-    var itxt = irow.addText(item.title)
+    var itxt = irow.addText(item.title || item.label || "")
     itxt.font = Font.systemFont(9)
     itxt.textColor = new Color(hex)
     itxt.lineLimit = 1
@@ -134,5 +136,9 @@ var noEvent = calEvents.length === 0
 makeCol(cols, p, "Home", "#f0a8c8", "#0e1628", null)
 makeCol(cols, w, "Work", "#aaaaaa", "#111111", noEvent ? dateStr : null)
 
-Script.setWidget(widget)
+if (config.runsInWidget) {
+  Script.setWidget(widget)
+} else {
+  await widget.presentMedium()
+}
 Script.complete()

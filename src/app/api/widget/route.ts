@@ -33,9 +33,10 @@ export async function GET(req: NextRequest) {
   }
 
   function shapeCycles(rows: CycleRow[], todayDate: Date) {
+    const todayStr = today
     return rows
       .filter(c => {
-        if (c.next_due_at) return false
+        if (c.next_due_at) return c.next_due_at.startsWith(todayStr)
         return isTriggerDueToday(c.trigger_label ?? undefined, todayDate)
       })
       .map(c => {
