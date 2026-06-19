@@ -58,16 +58,41 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Morning summary: if 09:00, send due-today count
+  // Morning summary at 09:00
   const [nh, nm] = hhmm.split(':').map(Number)
   if (nh === 9 && nm <= 5) {
-    // Count today's tasks — simplified: just send a "Good morning" push
     await sendToAll(
       '☀️ Good morning',
       'Your Navi daily summary is ready. Tap to see what\'s due today.',
       '/work',
       'daily-summary',
     )
+  }
+
+  // Diary reminder at 21:00 — only if today's entry is empty
+  if (nh === 21 && nm <= 5) {
+    const todayKey = now.toLocaleDateString('en-CA') // YYYY-MM-DD in local time
+    const { data: entry } = await supabase
+      .from('diary_entries')
+      .select('id, mood, body, prompts')
+      .eq('id', todayKey)
+      .single()
+
+    const hasContent = entry && (
+      entry.mood ||
+      entry.body?.trim() ||
+      (Array.isArray(entry.prompts) && entry.prompts.some((p: { answer?: string }) => p.answer?.trim()))
+    )
+
+    if (!hasContent) {
+      await sendToAll(
+        '📓 Diary',
+        'How was your day? A few lines before the day closes.',
+        '/personal/diary',
+        'diary-reminder',
+      )
+      fired.push('diary')
+    }
   }
 
   return NextResponse.json({ ok: true, fired })
