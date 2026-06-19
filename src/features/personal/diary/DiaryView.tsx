@@ -221,56 +221,57 @@ export function DiaryView() {
       : ''
 
     return (
-      <div className="flex-1 overflow-y-auto px-5 pt-5 pb-10 space-y-5" style={{ backgroundColor: '#0e1628' }}>
+      <div className="flex-1 flex flex-col overflow-hidden" style={{ backgroundColor: '#0e1628' }}>
 
-        {/* Header */}
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold text-white">Diary</h2>
-          <span className="text-xs" style={{ color: `${PINK}80` }}>{dateLabel}</span>
+        {/* Non-scrolling top: header + today card */}
+        <div className="px-5 pt-5 pb-0 flex-shrink-0 space-y-4">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-lg font-semibold text-white">Diary</h2>
+            <span className="text-xs" style={{ color: `${PINK}80` }}>{dateLabel}</span>
+          </div>
+
+          {!hasEntry ? (
+            <button onClick={() => setPhase('picking')}
+              className="w-full py-4 rounded-2xl text-sm font-semibold transition-all active:scale-95"
+              style={{
+                background: `linear-gradient(135deg, ${PINK}18, ${PINK}08)`,
+                border: `1px solid ${PINK}40`,
+                color: PINK,
+              }}>
+              + Write today&apos;s diary
+            </button>
+          ) : (
+            <div className="rounded-2xl overflow-hidden"
+              style={{ background: `linear-gradient(135deg, ${PINK}10, ${PINK}06)`, border: `1px solid ${PINK}35` }}>
+              <div className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl">{todayEntry?.mood || '📝'}</span>
+                  <div>
+                    <p className="text-xs font-semibold" style={{ color: PINK }}>Today&apos;s entry</p>
+                    {savedAt && <p className="text-[10px]" style={{ color: `${PINK}55` }}>saved at {savedAt}</p>}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setPhase('writing')}
+                  className="text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all active:scale-95"
+                  style={{ backgroundColor: `${PINK}20`, border: `1px solid ${PINK}35`, color: PINK }}>
+                  Edit
+                </button>
+              </div>
+              {todayPreview && (
+                <div className="px-4 pb-3 -mt-0.5">
+                  <p className="text-xs leading-relaxed line-clamp-2" style={{ color: 'rgba(255,255,255,0.32)' }}>
+                    {todayPreview}{todayPreview.length >= 100 ? '…' : ''}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Today */}
-        {!hasEntry ? (
-          <button onClick={() => setPhase('picking')}
-            className="w-full py-4 rounded-2xl text-sm font-semibold transition-all active:scale-95"
-            style={{
-              background: `linear-gradient(135deg, ${PINK}18, ${PINK}08)`,
-              border: `1px solid ${PINK}40`,
-              color: PINK,
-            }}>
-            + Write today&apos;s diary
-          </button>
-        ) : (
-          <div className="rounded-2xl overflow-hidden"
-            style={{ background: `linear-gradient(135deg, ${PINK}10, ${PINK}06)`, border: `1px solid ${PINK}35` }}>
-            <div className="flex items-center justify-between px-4 py-3">
-              <div className="flex items-center gap-2.5">
-                <span className="text-xl">{todayEntry?.mood || '📝'}</span>
-                <div>
-                  <p className="text-xs font-semibold" style={{ color: PINK }}>Today&apos;s entry</p>
-                  {savedAt && <p className="text-[10px]" style={{ color: `${PINK}55` }}>saved at {savedAt}</p>}
-                </div>
-              </div>
-              <button
-                onClick={() => setPhase('writing')}
-                className="text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all active:scale-95"
-                style={{ backgroundColor: `${PINK}20`, border: `1px solid ${PINK}35`, color: PINK }}>
-                Edit
-              </button>
-            </div>
-            {todayPreview && (
-              <div className="px-4 pb-3 -mt-0.5">
-                <p className="text-xs leading-relaxed line-clamp-2" style={{ color: 'rgba(255,255,255,0.32)' }}>
-                  {todayPreview}{todayPreview.length >= 100 ? '…' : ''}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Search bar — visible once any entry exists */}
-        {(hasEntry || pastEntries.length > 0) && (
-          <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
+        {/* Search + Sync bar — always pinned, never scrolls away */}
+        <div className="px-5 py-3 flex items-center gap-2 flex-shrink-0">
+          <div className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl"
             style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
             <span className="text-white/25 text-sm">🔍</span>
             <input
@@ -284,56 +285,54 @@ export function DiaryView() {
               <button onClick={() => setSearchQuery('')} className="text-white/25 text-xs hover:text-white/50 transition-colors">✕</button>
             )}
           </div>
-        )}
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="flex-shrink-0 text-[11px] font-semibold px-3 py-2.5 rounded-xl transition-all active:scale-95 disabled:opacity-40"
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              color: 'rgba(255,255,255,0.45)',
+            }}>
+            {exporting ? '⏳' : '↑ Sync'}
+          </button>
+        </div>
 
-        {/* Past entries */}
-        {pastEntries.length > 0 && (
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest">
+        {/* Scrollable past entries */}
+        <div className="flex-1 overflow-y-auto px-5 pb-10">
+          {exportDocs.length > 0 && (
+            <div className="mb-3 rounded-xl overflow-hidden" style={{ border: `1px solid ${PINK}30`, backgroundColor: `${PINK}08` }}>
+              {exportDocs.map(d => (
+                <a key={d.year} href={d.url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-between px-4 py-3 border-b last:border-b-0 hover:bg-white/4 transition-colors"
+                  style={{ borderColor: `${PINK}20` }}>
+                  <span className="text-sm font-medium" style={{ color: PINK }}>{d.year} Diary</span>
+                  <span className="text-xs text-white/30">{d.entries} entries →</span>
+                </a>
+              ))}
+            </div>
+          )}
+          {exportError && (
+            <p className="text-xs mb-3" style={{ color: '#fca5a5' }}>{exportError}</p>
+          )}
+
+          {pastEntries.length > 0 && (
+            <section>
+              <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest mb-3">
                 {searchQuery.trim()
                   ? `${filteredPast.length} result${filteredPast.length !== 1 ? 's' : ''}`
                   : 'Past entries'}
               </p>
-
-              <button
-                onClick={handleExport}
-                disabled={exporting}
-                className="text-[10px] font-semibold px-2.5 py-1 rounded-lg transition-all active:scale-95 disabled:opacity-40"
-                style={{
-                  backgroundColor: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  color: 'rgba(255,255,255,0.4)',
-                }}>
-                {exporting ? '⏳' : '↑ Google Docs'}
-              </button>
-            </div>
-
-            {exportDocs.length > 0 && (
-              <div className="mb-3 rounded-xl overflow-hidden" style={{ border: `1px solid ${PINK}30`, backgroundColor: `${PINK}08` }}>
-                {exportDocs.map(d => (
-                  <a key={d.year} href={d.url} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center justify-between px-4 py-3 border-b last:border-b-0 hover:bg-white/4 transition-colors"
-                    style={{ borderColor: `${PINK}20` }}>
-                    <span className="text-sm font-medium" style={{ color: PINK }}>{d.year} Diary</span>
-                    <span className="text-xs text-white/30">{d.entries} entries  →</span>
-                  </a>
-                ))}
+              <div className="space-y-2">
+                {filteredPast.length > 0
+                  ? filteredPast.map(e => <EntryCard key={e.id} entry={e} searchQuery={searchQuery} expanded={expanded} setExpanded={setExpanded} />)
+                  : searchQuery.trim() && (
+                    <p className="text-sm text-white/25 text-center py-6">No entries match &quot;{searchQuery}&quot;</p>
+                  )}
               </div>
-            )}
-            {exportError && (
-              <p className="text-xs mb-3" style={{ color: '#fca5a5' }}>{exportError}</p>
-            )}
-
-            <div className="space-y-2">
-              {filteredPast.length > 0
-                ? filteredPast.map(e => <EntryCard key={e.id} entry={e} searchQuery={searchQuery} expanded={expanded} setExpanded={setExpanded} />)
-                : searchQuery.trim() && (
-                  <p className="text-sm text-white/25 text-center py-6">No entries match &quot;{searchQuery}&quot;</p>
-                )}
-            </div>
-          </section>
-        )}
+            </section>
+          )}
+        </div>
       </div>
     )
   }
