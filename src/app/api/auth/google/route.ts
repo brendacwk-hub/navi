@@ -8,6 +8,8 @@ export function GET() {
     prompt: 'consent',
     scope: [
       'https://www.googleapis.com/auth/calendar',
+      'https://www.googleapis.com/auth/documents',
+      'https://www.googleapis.com/auth/drive.file',
       'https://www.googleapis.com/auth/userinfo.email',
     ],
   })

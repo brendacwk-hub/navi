@@ -70,9 +70,18 @@ export function DiaryView() {
   const [exporting, setExporting]     = useState(false)
   const [exportDocs, setExportDocs]   = useState<{ year: number; url: string; entries: number }[]>([])
   const [exportError, setExportError] = useState('')
+  const [googleStatus, setGoogleStatus] = useState<'checking' | 'disconnected' | 'connected'>('checking')
 
   const initialized    = useRef(false)
   const promptsFetched = useRef(false)
+
+  // ── Google Docs connection status ─────────────────────────────────────────
+  useEffect(() => {
+    fetch('/api/diary/gdocs/status')
+      .then(r => r.json())
+      .then(j => setGoogleStatus(j.connected ? 'connected' : 'disconnected'))
+      .catch(() => setGoogleStatus('disconnected'))
+  }, [])
 
   // ── Fetch Gemini prompts ───────────────────────────────────────────────────
   const fetchPrompts = useCallback(async () => {
@@ -187,22 +196,23 @@ export function DiaryView() {
     fetchPrompts()
   }
 
-  // ── Google Docs export ────────────────────────────────────────────────────
+  // ── Google Docs sync ─────────────────────────────────────────────────────
   async function handleExport() {
     setExporting(true)
     setExportError('')
     setExportDocs([])
     try {
-      const apiKey = process.env.NEXT_PUBLIC_NAVI_API_KEY ?? ''
-      const res  = await fetch(`/api/diary/gdocs${apiKey ? `?apiKey=${apiKey}` : ''}`, { method: 'POST' })
+      const res  = await fetch('/api/diary/gdocs', { method: 'POST' })
       const json = await res.json()
       if (json.docs) {
         setExportDocs(json.docs)
+      } else if (json.error === 'not_connected' || json.error === 'needs_reauth' || res.status === 401) {
+        setGoogleStatus('disconnected')
       } else {
-        setExportError(json.error ?? 'Export failed')
+        setExportError(json.error ?? 'Sync failed')
       }
     } catch {
-      setExportError('Could not reach export API')
+      setExportError('Could not reach sync API')
     }
     setExporting(false)
   }
@@ -221,10 +231,10 @@ export function DiaryView() {
       : ''
 
     return (
-      <div className="flex-1 flex flex-col overflow-hidden" style={{ backgroundColor: '#0e1628' }}>
+      <div className="flex-1 overflow-y-auto" style={{ backgroundColor: '#0e1628' }}>
 
-        {/* Non-scrolling top: header + today card */}
-        <div className="px-5 pt-5 pb-0 flex-shrink-0 space-y-4">
+        {/* Header + today card — scroll away naturally */}
+        <div className="px-5 pt-5 pb-0 space-y-4">
           <div className="flex items-baseline justify-between">
             <h2 className="text-lg font-semibold text-white">Diary</h2>
             <span className="text-xs" style={{ color: `${PINK}80` }}>{dateLabel}</span>
@@ -269,10 +279,13 @@ export function DiaryView() {
           )}
         </div>
 
-        {/* Search + Sync bar — always pinned, never scrolls away */}
-        <div className="px-5 py-3 flex items-center gap-2 flex-shrink-0">
+        {/* Search + Sync bar — sticky inside the scroll container */}
+        <div
+          className="px-5 py-3 flex items-center gap-2"
+          style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: '#0e1628' }}
+        >
           <div className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl"
-            style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            style={{ backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }}>
             <span className="text-white/25 text-sm">🔍</span>
             <input
               type="text"
@@ -282,29 +295,39 @@ export function DiaryView() {
               className="flex-1 bg-transparent text-sm text-white/80 placeholder-white/25 outline-none"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="text-white/25 text-xs hover:text-white/50 transition-colors">✕</button>
+              <button onClick={() => setSearchQuery('')} className="text-white/25 text-xs">✕</button>
             )}
           </div>
-          <button
-            onClick={handleExport}
-            disabled={exporting}
-            className="flex-shrink-0 text-[11px] font-semibold px-3 py-2.5 rounded-xl transition-all active:scale-95 disabled:opacity-40"
-            style={{
-              backgroundColor: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              color: 'rgba(255,255,255,0.45)',
-            }}>
-            {exporting ? '⏳' : '↑ Sync'}
-          </button>
+
+          {/* Google Docs sync / connect button */}
+          {googleStatus === 'disconnected' ? (
+            <a href="/api/auth/google"
+              className="flex-shrink-0 text-[11px] font-semibold px-3 py-2.5 rounded-xl transition-all active:scale-95 text-center"
+              style={{ backgroundColor: `${PINK}18`, border: `1px solid ${PINK}40`, color: PINK }}>
+              Connect
+            </a>
+          ) : (
+            <button
+              onClick={handleExport}
+              disabled={exporting || googleStatus === 'checking'}
+              className="flex-shrink-0 text-[11px] font-semibold px-3 py-2.5 rounded-xl transition-all active:scale-95 disabled:opacity-40"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                color: 'rgba(255,255,255,0.45)',
+              }}>
+              {exporting ? '⏳' : googleStatus === 'checking' ? '…' : '↑ Sync'}
+            </button>
+          )}
         </div>
 
-        {/* Scrollable past entries */}
-        <div className="flex-1 overflow-y-auto px-5 pb-10">
+        {/* Past entries + export results */}
+        <div className="px-5 pb-10">
           {exportDocs.length > 0 && (
-            <div className="mb-3 rounded-xl overflow-hidden" style={{ border: `1px solid ${PINK}30`, backgroundColor: `${PINK}08` }}>
+            <div className="mb-4 rounded-xl overflow-hidden" style={{ border: `1px solid ${PINK}30`, backgroundColor: `${PINK}08` }}>
               {exportDocs.map(d => (
                 <a key={d.year} href={d.url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center justify-between px-4 py-3 border-b last:border-b-0 hover:bg-white/4 transition-colors"
+                  className="flex items-center justify-between px-4 py-3 border-b last:border-b-0"
                   style={{ borderColor: `${PINK}20` }}>
                   <span className="text-sm font-medium" style={{ color: PINK }}>{d.year} Diary</span>
                   <span className="text-xs text-white/30">{d.entries} entries →</span>
