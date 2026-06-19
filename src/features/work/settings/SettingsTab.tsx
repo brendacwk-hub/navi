@@ -288,9 +288,12 @@ export function SettingsTab() {
                     >
                       <span className="w-3 h-3 rounded-full flex-shrink-0 ring-1 ring-white/20"
                         style={{ backgroundColor: displayColor }} />
-                      <span className={`flex-1 text-sm ${selected ? 'text-white' : 'text-white/55'}`}>
-                        {cal.summary}
-                        {cal.primary && <span className="ml-2 text-[10px] text-white/25">primary</span>}
+                      <span className={`flex-1 min-w-0 ${selected ? 'text-white' : 'text-white/55'}`}>
+                        <span className="text-sm block truncate">
+                          {cal.summary}
+                          {cal.primary && <span className="ml-2 text-[10px] text-white/25">primary</span>}
+                        </span>
+                        <span className="text-[9px] text-white/18 block truncate font-mono">{cal.id}</span>
                       </span>
                       {selected
                         ? <CheckCircle2 className="w-4 h-4 text-navi-blue flex-shrink-0" />
@@ -319,6 +322,20 @@ export function SettingsTab() {
                   </div>
                 )
               })}
+
+              {(() => {
+                const hasBirthdays = calendars.some(cal => {
+                  const id = (cal.id ?? '').toLowerCase()
+                  const name = (cal.summary ?? '').toLowerCase()
+                  return name.includes('birthday') || id.includes('birthday') ||
+                    (id.includes('contacts') && id.includes('calendar'))
+                })
+                return !hasBirthdays && (
+                  <p className="text-[11px] text-white/35 leading-relaxed px-1">
+                    Don&apos;t see Birthdays? Open Google Calendar → Settings → Other calendars, enable Birthdays, then click Refresh below.
+                  </p>
+                )
+              })()}
 
               <button onClick={loadStatus}
                 className="flex items-center gap-1.5 text-[11px] text-white/25 hover:text-white/50 transition-colors mt-1">
@@ -421,8 +438,10 @@ export function SettingsTab() {
             <h3 className="text-sm font-semibold text-white">Completed Tasks</h3>
             <p className="text-[11px] text-white/35 mt-0.5">Reopen anything finished by mistake</p>
           </div>
-          <button onClick={loadArchive} className="text-white/25 hover:text-white/55 transition-colors">
-            <RefreshCw className="w-3.5 h-3.5" />
+          <button onClick={loadArchive} disabled={archiveLoading} className="text-white/25 hover:text-white/55 transition-colors disabled:opacity-40">
+            {archiveLoading
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <RefreshCw className="w-3.5 h-3.5" />}
           </button>
         </div>
         <div className="px-5 py-3">
@@ -457,7 +476,10 @@ export function SettingsTab() {
               </div>
             </>
           ) : (
-            <p className="text-xs text-white/25 py-2">No completed tasks yet — finish all items in any cycle and it will appear here.</p>
+            <div className="py-2 space-y-1">
+              <p className="text-xs text-white/25">No completed tasks yet.</p>
+              <p className="text-[11px] text-white/18 leading-relaxed">Check off all items in any Finance / HR / Ops / Others cycle — it will appear here automatically.</p>
+            </div>
           )}
         </div>
       </section>

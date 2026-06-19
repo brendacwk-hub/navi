@@ -6,6 +6,7 @@ import { getAuthClient, getStoredAuth, saveAuth } from '@/shared/lib/google-auth
 const BIRTHDAYS_IDS = [
   '#contacts@group.v.calendar.google.com',
   'contactsbirthdays@contacts.google.com',
+  'addressbook#contacts@group.v.calendar.google.com',
 ]
 
 function isBirthdaysCalendar(c: { id?: string | null; summary?: string | null }) {
