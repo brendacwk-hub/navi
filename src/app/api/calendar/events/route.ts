@@ -56,18 +56,17 @@ export async function GET(req: NextRequest) {
       calendarIds.map(async calId => {
         try {
           const isBirthdayId = BIRTHDAY_IDS.includes(calId) || calId.toLowerCase().includes('birthday')
-          // Birthday calendars: fetch the full year so all birthdays appear regardless of current view range.
-          // The probe (no singleEvents) finds recurring rules; actual fetch needs singleEvents for instances.
-          // Using only the view timeMin/timeMax returns 0 events when no birthdays fall in that month/week.
+          // Birthday system calendar: fetch the full year so birthdays appear regardless of current view range,
+          // and omit singleEvents + orderBy — the probe in calendars/route.ts uses neither, and the Birthdays
+          // system calendar may return empty when singleEvents:true is set (it's a synthetic/read-only calendar).
           const fetchYear = new Date(timeMin).getUTCFullYear()
           const fetchMin  = isBirthdayId ? `${fetchYear}-01-01T00:00:00Z` : timeMin
           const fetchMax  = isBirthdayId ? `${fetchYear + 1}-01-01T00:00:00Z` : timeMax
-          const { data } = await cal.events.list({
-            calendarId: calId, timeMin: fetchMin, timeMax: fetchMax,
-            singleEvents: true,
-            ...(isBirthdayId ? {} : { orderBy: 'startTime' }),
-            maxResults: 500,
-          })
+          const { data } = await cal.events.list(
+            isBirthdayId
+              ? { calendarId: calId, timeMin: fetchMin, timeMax: fetchMax, maxResults: 500 }
+              : { calendarId: calId, timeMin, timeMax, singleEvents: true, orderBy: 'startTime', maxResults: 500 }
+          )
           const calList = await cal.calendarList.get({ calendarId: calId }).catch(() => null)
           const googleColor = calList?.data.backgroundColor ?? (isBirthdayId ? '#e91e63' : '#4285f4')
           const color   = row?.calendar_colors?.[calId] ?? googleColor
@@ -89,8 +88,7 @@ export async function GET(req: NextRequest) {
       for (const birthdayId of BIRTHDAY_IDS) {
         try {
           const { data: bData } = await cal.events.list({
-            calendarId: birthdayId, timeMin: yearMin, timeMax: yearMax,
-            singleEvents: true, maxResults: 500,
+            calendarId: birthdayId, timeMin: yearMin, timeMax: yearMax, maxResults: 500,
           })
           const birthdayColor = row?.calendar_colors?.['__birthdays__'] ?? '#e91e63'
           // No exception = calendar accessible; events may be empty if no birthdays in this window
