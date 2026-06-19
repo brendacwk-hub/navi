@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Home, Wallet, ShoppingBag, BookOpen, CalendarDays, BarChart3, SlidersHorizontal, Scissors } from 'lucide-react'
+import { LayoutDashboard, Home, Wallet, ShoppingBag, BookOpen, CalendarDays, BarChart3, SlidersHorizontal, Scissors, Activity } from 'lucide-react'
 
 const areaLinks = [
   { label: 'Housework', href: '/personal/housework', icon: Home,       color: 'text-[#fb7185]', bg: 'bg-[#fb7185]/15' },
@@ -12,6 +12,7 @@ const areaLinks = [
 ]
 
 const extraLinks = [
+  { label: 'Habits',    href: '/personal/habits',     icon: Activity    },
   { label: 'Diary',     href: '/personal/diary',      icon: BookOpen    },
   { label: 'Calendar',  href: '/personal/calendar',   icon: CalendarDays },
   { label: 'Analytics', href: '/personal/analytics',  icon: BarChart3   },

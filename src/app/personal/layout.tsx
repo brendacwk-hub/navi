@@ -1,6 +1,7 @@
 import { ToastProvider } from '@/shared/lib/toast-context'
 import { PersonalDataProvider } from '@/shared/lib/personal-data-context'
 import { PreferencesProvider } from '@/shared/lib/preferences-context'
+import { HabitProvider } from '@/shared/lib/habit-context'
 import { PersonalShell } from '@/shared/components/PersonalShell'
 
 export default function PersonalLayout({ children }: { children: React.ReactNode }) {
@@ -8,7 +9,9 @@ export default function PersonalLayout({ children }: { children: React.ReactNode
     <PreferencesProvider>
       <ToastProvider>
         <PersonalDataProvider>
-          <PersonalShell>{children}</PersonalShell>
+          <HabitProvider>
+            <PersonalShell>{children}</PersonalShell>
+          </HabitProvider>
         </PersonalDataProvider>
       </ToastProvider>
     </PreferencesProvider>
