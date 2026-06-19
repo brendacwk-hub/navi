@@ -39,13 +39,9 @@ function ModeBadge() {
 
   const switchMode = () => {
     if (isPersonal) {
-      const last = localStorage.getItem('lastWork') ?? '/work'
-      if (!isSharedPath) localStorage.setItem('lastPersonal', pathname)
-      router.push(last)
+      router.push('/work')
     } else {
-      const last = localStorage.getItem('lastPersonal') ?? '/personal/today'
-      if (!isSharedPath) localStorage.setItem('lastWork', pathname)
-      router.push(last)
+      router.push('/personal/today')
     }
   }
 

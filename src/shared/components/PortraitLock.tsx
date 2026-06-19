@@ -1,18 +1,20 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 
 export function PortraitLock() {
+  const pathname    = usePathname()
+  const isWidget    = pathname.startsWith('/widget')
   const [isLandscape, setIsLandscape] = useState(false)
 
   useEffect(() => {
-    // Prevent pinch-to-zoom on touch devices
+    if (isWidget) return  // widget page is designed for landscape/wide mode
+
     const preventTouchZoom = (e: TouchEvent) => {
       if (e.touches.length > 1) e.preventDefault()
     }
-    // Prevent gesture-based zoom in Safari
     const preventGesture = (e: Event) => { e.preventDefault() }
-    // Prevent Ctrl+scroll zoom on desktop
     const preventWheelZoom = (e: WheelEvent) => {
       if (e.ctrlKey) e.preventDefault()
     }
@@ -24,7 +26,6 @@ export function PortraitLock() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(screen.orientation as any)?.lock?.('portrait').catch(() => {})
 
-    // Only lock on touch devices (mobile) — desktop browsers can be any shape
     const mq = window.matchMedia('(orientation: landscape) and (pointer: coarse) and (max-width: 1024px)')
     const handler = (e: MediaQueryListEvent | MediaQueryList) => setIsLandscape(e.matches)
     handler(mq)
@@ -36,9 +37,9 @@ export function PortraitLock() {
       document.removeEventListener('gesturechange', preventGesture)
       document.removeEventListener('wheel', preventWheelZoom)
     }
-  }, [])
+  }, [isWidget])
 
-  if (!isLandscape) return null
+  if (!isLandscape || isWidget) return null
 
   return (
     <div className="fixed inset-0 z-[9999] bg-[#0c0c0c] flex flex-col items-center justify-center gap-4">
