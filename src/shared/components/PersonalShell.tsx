@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { Header } from './Header'
 import { PersonalSidebar } from './PersonalSidebar'
 import { PersonalQuickAddButton } from './PersonalQuickAddButton'
+import { AppErrorBoundary } from './AppErrorBoundary'
 
 export function PersonalShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -34,7 +35,7 @@ export function PersonalShell({ children }: { children: React.ReactNode }) {
 
         <main className="h-full overflow-hidden flex relative">
           <div className="flex-1 overflow-hidden flex">
-            {children}
+            <AppErrorBoundary>{children}</AppErrorBoundary>
           </div>
           <PersonalQuickAddButton />
         </main>

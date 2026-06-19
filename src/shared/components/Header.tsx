@@ -117,7 +117,7 @@ export function Header({ onMenuClick, onMenuHover }: HeaderProps) {
 
   return (
     <header
-      className="h-14 flex-shrink-0 flex items-center gap-3 px-4 border-b border-white/6 sticky top-0 z-[60] transition-colors"
+      className="h-14 flex-shrink-0 flex items-center gap-3 px-4 border-b border-white/6 relative z-[60] transition-colors"
       style={{ backgroundColor: isPersonal ? '#0e1628' : '#171717' }}
     >
       <button

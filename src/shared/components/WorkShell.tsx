@@ -5,6 +5,7 @@ import { RefreshCw } from 'lucide-react'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { QuickAddButton } from './QuickAddButton'
+import { AppErrorBoundary } from './AppErrorBoundary'
 import { useWorkData } from '@/shared/lib/work-data-context'
 
 const PULL_THRESHOLD = 72
@@ -145,7 +146,7 @@ export function WorkShell({ children }: { children: React.ReactNode }) {
             className="flex-1 overflow-hidden flex"
             style={{ transform: pullDist > 4 ? `translateY(${pullDist}px)` : undefined, transition: pullDist === 0 ? 'transform 0.2s ease' : undefined }}
           >
-            {children}
+            <AppErrorBoundary>{children}</AppErrorBoundary>
           </div>
           <QuickAddButton />
         </main>
