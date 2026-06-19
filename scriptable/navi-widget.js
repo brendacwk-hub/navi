@@ -79,25 +79,25 @@ topRow.spacing = 5
 
 if (homeEmpty && homeUndone.length > 0) {
   var homeTag = topRow.addText("Home")
-  homeTag.font = Font.systemFont(10)
+  homeTag.font = Font.systemFont(11)
   homeTag.textColor = new Color("#f0a8c8", 0.6)
   topRow.addSpacer(3)
   for (var hi = 0; hi < homeUndone.length; hi++) {
     var he = topRow.addText(homeUndone[hi].emoji)
-    he.font = Font.systemFont(12)
+    he.font = Font.systemFont(13)
   }
 } else if (calEvents.length > 0) {
   var ev = calEvents[0]
   var tStr = ev.startDate.toLocaleTimeString("en-HK", { hour: "numeric", minute: "2-digit", hour12: false })
   var extra = calEvents.length > 1 ? " +" + (calEvents.length - 1) : ""
   var evTxt = topRow.addText(ev.title + extra + "  " + tStr)
-  evTxt.font = Font.systemFont(10)
+  evTxt.font = Font.systemFont(11)
   evTxt.textColor = new Color("#ffffff", 0.55)
   evTxt.lineLimit = 1
 }
 topRow.addSpacer()
 var dTxt = topRow.addText(dateStr)
-dTxt.font = Font.boldSystemFont(10)
+dTxt.font = Font.boldSystemFont(11)
 dTxt.textColor = new Color("#ffffff", 0.65)
 
 // Column layout
@@ -131,14 +131,14 @@ function makeCol(parent, data, label, labelColor, bg, colW, showHabitRow) {
   hdr.spacing = 4
 
   var lbl = hdr.addText(label)
-  lbl.font = Font.boldSystemFont(11)
+  lbl.font = Font.boldSystemFont(12)
   lbl.textColor = new Color(labelColor)
 
   if (showHabitRow && undone.length > 0) {
     hdr.addSpacer()
     for (var i = 0; i < undone.length; i++) {
       var et = hdr.addText(undone[i].emoji)
-      et.font = Font.systemFont(12)
+      et.font = Font.systemFont(13)
     }
   }
 
@@ -152,14 +152,14 @@ function makeCol(parent, data, label, labelColor, bg, colW, showHabitRow) {
     irow.cornerRadius = 5
     irow.setPadding(5, 7, 5, 7)
     var itxt = irow.addText(item.title || item.label || "")
-    itxt.font = Font.systemFont(12)
+    itxt.font = Font.systemFont(13)
     itxt.textColor = new Color(hex)
     itxt.lineLimit = 2
   }
 
   if (items.length === 0) {
     var cl = col.addText("All clear")
-    cl.font = Font.systemFont(11)
+    cl.font = Font.systemFont(12)
     cl.textColor = new Color("#ffffff", 0.2)
   }
 }
