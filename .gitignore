@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Google service account keys
+*.json
+!package.json
+!package-lock.json
+!tsconfig*.json
+!next.config.*.json
+!public/manifest.json

@@ -45,6 +45,18 @@ function autoResize(el: HTMLTextAreaElement) {
   el.style.height = el.scrollHeight + 'px'
 }
 
+function matchesQuery(entry: DiaryEntry, q: string) {
+  const lq = q.toLowerCase()
+  if (entry.body?.toLowerCase().includes(lq)) return true
+  if (entry.id.includes(lq)) return true
+  if (new Date(entry.id + 'T12:00:00')
+    .toLocaleDateString('en-HK', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    .toLowerCase().includes(lq)) return true
+  return (entry.prompts ?? []).some(
+    p => p.answer?.toLowerCase().includes(lq) || p.question?.toLowerCase().includes(lq)
+  )
+}
+
 export function DiaryView() {
   const today     = todayKey()
   const dateLabel = new Date().toLocaleDateString('en-HK', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -60,6 +72,14 @@ export function DiaryView() {
   const [hasEntry, setHasEntry]       = useState(false)
   const [pastEntries, setPastEntries] = useState<DiaryEntry[]>([])
   const [expanded, setExpanded]       = useState<string | null>(null)
+
+  // Search
+  const [searchQuery, setSearchQuery] = useState('')
+
+  // Google Docs export
+  const [exporting, setExporting]   = useState(false)
+  const [exportDocs, setExportDocs] = useState<{ year: number; url: string; entries: number }[]>([])
+  const [exportError, setExportError] = useState('')
 
   const saveTimer      = useRef<ReturnType<typeof setTimeout> | null>(null)
   const initialized    = useRef(false)
@@ -98,14 +118,13 @@ export function DiaryView() {
         setQuestions(json.prompts)
         setAnswers(json.prompts.map(() => ''))
       }
-    } catch { /* use fallback */ }
+    } catch { /* fallback */ }
     setLoadingPrompts(false)
   }, [today])
 
-  // ── Load today + past entries on mount ────────────────────────────────────
+  // ── Load today + past entries ──────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false
-
     async function init() {
       const rows = await dbRead('diary_entries', { col: 'id', val: today })
       if (cancelled) return
@@ -115,7 +134,6 @@ export function DiaryView() {
         setMood(entry.mood ?? '')
         setBody(entry.body ?? '')
         setHasEntry(true)
-
         if (Array.isArray(entry.prompts) && entry.prompts.length > 0) {
           setQuestions(entry.prompts.map(p => p.question))
           setAnswers(entry.prompts.map(p => p.answer))
@@ -124,7 +142,6 @@ export function DiaryView() {
         } else {
           setMode('freewrite')
         }
-        // Jump straight to writing if there's already an entry
         setPhase('writing')
       }
 
@@ -138,18 +155,20 @@ export function DiaryView() {
         initialized.current = true
       }
     }
-
     init()
     return () => { cancelled = true }
   }, [today])
 
-  // ── Choose mode from picker ───────────────────────────────────────────────
-  function choosMode(m: Mode) {
+  // ── Filtered past entries ─────────────────────────────────────────────────
+  const filteredPast = searchQuery.trim()
+    ? pastEntries.filter(e => matchesQuery(e, searchQuery))
+    : pastEntries
+
+  // ── Choose mode ───────────────────────────────────────────────────────────
+  function chooseMode(m: Mode) {
     setMode(m)
     setPhase('writing')
-    if (m === 'prompt' && !promptsFetched.current) {
-      fetchPrompts()
-    }
+    if (m === 'prompt' && !promptsFetched.current) fetchPrompts()
   }
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -158,16 +177,34 @@ export function DiaryView() {
     setMood(next)
     scheduleSave(next, questions, answers, body)
   }
-
   function handleAnswer(i: number, val: string) {
     const next = [...answers]; next[i] = val
     setAnswers(next)
     scheduleSave(mood, questions, next, body)
   }
-
   function handleBody(val: string) {
     setBody(val)
     scheduleSave(mood, questions, answers, val)
+  }
+
+  // ── Google Docs export ────────────────────────────────────────────────────
+  async function handleExport() {
+    setExporting(true)
+    setExportError('')
+    setExportDocs([])
+    try {
+      const apiKey = process.env.NEXT_PUBLIC_NAVI_API_KEY ?? ''
+      const res  = await fetch(`/api/diary/gdocs${apiKey ? `?apiKey=${apiKey}` : ''}`, { method: 'POST' })
+      const json = await res.json()
+      if (json.docs) {
+        setExportDocs(json.docs)
+      } else {
+        setExportError(json.error ?? 'Export failed')
+      }
+    } catch {
+      setExportError('Could not reach export API')
+    }
+    setExporting(false)
   }
 
   const taStyle: React.CSSProperties = {
@@ -181,31 +218,92 @@ export function DiaryView() {
   if (phase === 'home') {
     return (
       <div className="flex-1 overflow-y-auto px-5 pt-5 pb-10 space-y-5" style={{ backgroundColor: '#0e1628' }}>
+
+        {/* Header */}
         <div className="flex items-baseline justify-between">
           <h2 className="text-lg font-semibold text-white">Diary</h2>
           <span className="text-xs" style={{ color: `${PINK}80` }}>{dateLabel}</span>
         </div>
 
-        {/* Create diary button */}
+        {/* Create button */}
         {!hasEntry && (
-          <button
-            onClick={() => setPhase('picking')}
+          <button onClick={() => setPhase('picking')}
             className="w-full py-4 rounded-2xl text-sm font-semibold transition-all active:scale-95"
             style={{
               background: `linear-gradient(135deg, ${PINK}18, ${PINK}08)`,
               border: `1px solid ${PINK}40`,
               color: PINK,
-            }}
-          >
+            }}>
             + Write today&apos;s diary
           </button>
+        )}
+
+        {/* Search bar */}
+        {pastEntries.length > 0 && (
+          <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
+            style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <span className="text-white/25 text-sm">🔍</span>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search entries…"
+              className="flex-1 bg-transparent text-sm text-white/80 placeholder-white/25 outline-none"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="text-white/25 text-xs hover:text-white/50 transition-colors">✕</button>
+            )}
+          </div>
         )}
 
         {/* Past entries */}
         {pastEntries.length > 0 && (
           <section>
-            <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest mb-3">Past entries</p>
-            <div className="space-y-2">{pastEntries.map(entry => <EntryCard key={entry.id} entry={entry} expanded={expanded} setExpanded={setExpanded} />)}</div>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest">
+                {searchQuery.trim()
+                  ? `${filteredPast.length} result${filteredPast.length !== 1 ? 's' : ''}`
+                  : 'Past entries'}
+              </p>
+
+              {/* Export button */}
+              <button
+                onClick={handleExport}
+                disabled={exporting}
+                className="text-[10px] font-semibold px-2.5 py-1 rounded-lg transition-all active:scale-95 disabled:opacity-40"
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  color: 'rgba(255,255,255,0.4)',
+                }}>
+                {exporting ? '⏳' : '↑ Google Docs'}
+              </button>
+            </div>
+
+            {/* Export results */}
+            {exportDocs.length > 0 && (
+              <div className="mb-3 rounded-xl overflow-hidden" style={{ border: `1px solid ${PINK}30`, backgroundColor: `${PINK}08` }}>
+                {exportDocs.map(d => (
+                  <a key={d.year} href={d.url} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center justify-between px-4 py-3 border-b last:border-b-0 hover:bg-white/4 transition-colors"
+                    style={{ borderColor: `${PINK}20` }}>
+                    <span className="text-sm font-medium" style={{ color: PINK }}>{d.year} Diary</span>
+                    <span className="text-xs text-white/30">{d.entries} entries  →</span>
+                  </a>
+                ))}
+              </div>
+            )}
+            {exportError && (
+              <p className="text-xs mb-3" style={{ color: '#fca5a5' }}>{exportError}</p>
+            )}
+
+            <div className="space-y-2">
+              {filteredPast.length > 0
+                ? filteredPast.map(e => <EntryCard key={e.id} entry={e} searchQuery={searchQuery} expanded={expanded} setExpanded={setExpanded} />)
+                : searchQuery.trim() && (
+                  <p className="text-sm text-white/25 text-center py-6">No entries match "{searchQuery}"</p>
+                )}
+            </div>
           </section>
         )}
       </div>
@@ -222,32 +320,20 @@ export function DiaryView() {
           <button onClick={() => setPhase('home')} className="text-white/35 text-sm hover:text-white/60 transition-colors">← Back</button>
           <h2 className="text-lg font-semibold text-white">How do you want to write?</h2>
         </div>
-
         <div className="space-y-3 pt-2">
-          {/* Free write option */}
-          <button
-            onClick={() => choosMode('freewrite')}
+          <button onClick={() => chooseMode('freewrite')}
             className="w-full text-left rounded-2xl p-5 transition-all active:scale-[0.98]"
-            style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}
-          >
+            style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
             <div className="text-3xl mb-3">📝</div>
             <div className="text-base font-semibold text-white mb-1">Free write</div>
-            <div className="text-sm text-white/40 leading-relaxed">
-              Just a blank page. Write whatever is on your mind — no structure, no prompts.
-            </div>
+            <div className="text-sm text-white/40 leading-relaxed">Just a blank page. Write whatever is on your mind — no structure, no prompts.</div>
           </button>
-
-          {/* Prompt option */}
-          <button
-            onClick={() => choosMode('prompt')}
+          <button onClick={() => chooseMode('prompt')}
             className="w-full text-left rounded-2xl p-5 transition-all active:scale-[0.98]"
-            style={{ background: `linear-gradient(135deg, ${PINK}12, ${PINK}06)`, border: `1px solid ${PINK}35` }}
-          >
+            style={{ background: `linear-gradient(135deg, ${PINK}12, ${PINK}06)`, border: `1px solid ${PINK}35` }}>
             <div className="text-3xl mb-3">✨</div>
             <div className="text-base font-semibold mb-1" style={{ color: PINK }}>Prompt</div>
-            <div className="text-sm text-white/40 leading-relaxed">
-              Gemini generates 2 personal questions to guide your reflection.
-            </div>
+            <div className="text-sm text-white/40 leading-relaxed">Gemini generates 2 personal questions to guide your reflection.</div>
           </button>
         </div>
       </div>
@@ -268,9 +354,10 @@ export function DiaryView() {
         </div>
         <div className="flex items-center gap-2">
           {savedAt && <span className="text-[10px] text-white/20">Saved {savedAt}</span>}
-          <span className="text-[10px] text-white/30 px-2 py-0.5 rounded-full"
-            style={{ backgroundColor: mode === 'prompt' ? `${PINK}15` : 'rgba(255,255,255,0.05)',
-                     color: mode === 'prompt' ? PINK : 'rgba(255,255,255,0.3)' }}>
+          <span className="text-[10px] px-2 py-0.5 rounded-full"
+            style={mode === 'prompt'
+              ? { backgroundColor: `${PINK}15`, color: PINK }
+              : { backgroundColor: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)' }}>
             {mode === 'prompt' ? '✨ Prompt' : '📝 Free write'}
           </span>
         </div>
@@ -344,24 +431,41 @@ export function DiaryView() {
         </section>
       )}
 
-      {/* Past entries */}
+      {/* Past entries (in writing view too) */}
       {pastEntries.length > 0 && (
         <section>
           <p className="text-[10px] font-bold text-white/25 uppercase tracking-widest mb-3">Past entries</p>
-          <div className="space-y-2">{pastEntries.map(entry => <EntryCard key={entry.id} entry={entry} expanded={expanded} setExpanded={setExpanded} />)}</div>
+          <div className="space-y-2">
+            {pastEntries.map(e => <EntryCard key={e.id} entry={e} searchQuery="" expanded={expanded} setExpanded={setExpanded} />)}
+          </div>
         </section>
       )}
     </div>
   )
 }
 
-// ── Past entry card ───────────────────────────────────────────────────────────
-function EntryCard({ entry, expanded, setExpanded }: {
+// ── Past entry card ────────────────────────────────────────────────────────
+function highlight(text: string, query: string) {
+  if (!query.trim()) return <>{text}</>
+  const idx = text.toLowerCase().indexOf(query.toLowerCase())
+  if (idx === -1) return <>{text}</>
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark style={{ backgroundColor: `${PINK}45`, color: '#fff', borderRadius: '2px', padding: '0 1px' }}>
+        {text.slice(idx, idx + query.length)}
+      </mark>
+      {text.slice(idx + query.length)}
+    </>
+  )
+}
+
+function EntryCard({ entry, searchQuery, expanded, setExpanded }: {
   entry: DiaryEntry
+  searchQuery: string
   expanded: string | null
   setExpanded: (id: string | null) => void
 }) {
-  const PINK = '#f0a8c8'
   const isOpen = expanded === entry.id
   const d      = new Date(entry.id + 'T12:00:00')
   const label  = d.toLocaleDateString('en-HK', { weekday: 'short', day: 'numeric', month: 'short' })
@@ -376,7 +480,9 @@ function EntryCard({ entry, expanded, setExpanded }: {
         <span className="text-lg flex-shrink-0">{entry.mood || '📝'}</span>
         <span className="text-xs text-white/45 flex-shrink-0">{label}</span>
         {!isOpen && preview && (
-          <span className="text-xs text-white/28 truncate flex-1 min-w-0">{preview}</span>
+          <span className="text-xs text-white/28 truncate flex-1 min-w-0">
+            {highlight(preview, searchQuery)}
+          </span>
         )}
         <span className="text-white/20 text-[10px] ml-auto flex-shrink-0">{isOpen ? '▲' : '▼'}</span>
       </button>
@@ -384,14 +490,20 @@ function EntryCard({ entry, expanded, setExpanded }: {
         <div className="px-4 pb-4 pt-2 space-y-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           {entry.prompts?.map((p, i) => p.answer ? (
             <div key={i}>
-              <p className="text-[11px] font-medium mb-1 leading-snug" style={{ color: `${PINK}90` }}>{p.question}</p>
-              <p className="text-xs text-white/60 leading-relaxed whitespace-pre-wrap">{p.answer}</p>
+              <p className="text-[11px] font-medium mb-1 leading-snug" style={{ color: `${PINK}90` }}>
+                {highlight(p.question, searchQuery)}
+              </p>
+              <p className="text-xs text-white/60 leading-relaxed whitespace-pre-wrap">
+                {highlight(p.answer, searchQuery)}
+              </p>
             </div>
           ) : null)}
           {entry.body ? (
             <div>
               <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-1">Free write</p>
-              <p className="text-xs text-white/60 leading-relaxed whitespace-pre-wrap">{entry.body}</p>
+              <p className="text-xs text-white/60 leading-relaxed whitespace-pre-wrap">
+                {highlight(entry.body, searchQuery)}
+              </p>
             </div>
           ) : null}
         </div>
