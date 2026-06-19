@@ -10,6 +10,18 @@ async function get(mode) {
 var p = await get("personal")
 var w = await get("work")
 
+var dayStart = new Date()
+dayStart.setHours(0, 0, 0, 0)
+var dayEnd = new Date()
+dayEnd.setHours(23, 59, 59, 999)
+var calEvents = []
+try {
+  var raw = await CalendarEvent.between(dayStart, dayEnd, [])
+  calEvents = raw
+    .filter(function(e) { return !e.isAllDay })
+    .sort(function(a, b) { return a.startDate.getTime() - b.startDate.getTime() })
+} catch(e) {}
+
 var AREA = {
   finance: "#3b82f6",
   hr: "#22c55e",
@@ -23,19 +35,29 @@ var AREA = {
 
 var widget = new ListWidget()
 widget.backgroundColor = new Color("#0c0c0c")
-widget.setPadding(14, 12, 10, 12)
+widget.setPadding(12, 12, 10, 12)
 widget.spacing = 6
 
-var top = widget.addStack()
-top.layoutHorizontally()
-top.spacing = 4
-var ti = top.addText("Navi")
-ti.font = Font.boldSystemFont(13)
-ti.textColor = Color.white()
-top.addSpacer()
-var di = top.addText(new Date().toLocaleDateString("en-HK", { weekday: "short", day: "numeric" }))
-di.font = Font.systemFont(10)
-di.textColor = new Color("#ffffff", 0.35)
+var dateStr = new Date().toLocaleDateString("en-HK", { weekday: "short", day: "numeric" })
+
+var topRow = widget.addStack()
+topRow.layoutHorizontally()
+topRow.spacing = 4
+
+if (calEvents.length > 0) {
+  var ev = calEvents[0]
+  var tStr = ev.startDate.toLocaleTimeString("en-HK", { hour: "numeric", minute: "2-digit", hour12: false })
+  var extra = calEvents.length > 1 ? " +" + (calEvents.length - 1) : ""
+  var evTxt = topRow.addText(ev.title + extra + "  " + tStr)
+  evTxt.font = Font.systemFont(10)
+  evTxt.textColor = new Color("#ffffff", 0.6)
+  evTxt.lineLimit = 1
+}
+
+topRow.addSpacer()
+var dTxt = topRow.addText(dateStr)
+dTxt.font = Font.systemFont(10)
+dTxt.textColor = new Color("#ffffff", 0.35)
 
 var colW = Math.floor((Device.screenSize().width * 0.86 - 28) / 2)
 
@@ -51,7 +73,7 @@ function makeCol(parent, data, label, labelColor, bg) {
   var undone = habits.filter(function(h) { return !h.complete })
   var tasks = (data.tasks || []).filter(function(t) { return !isDone(t) })
   var cycles = (data.cycles || []).filter(function(c) { return !isDone(c) })
-  var items = tasks.concat(cycles).slice(0, 6)
+  var items = tasks.concat(cycles).slice(0, 7)
 
   var col = parent.addStack()
   col.layoutVertically()
@@ -61,18 +83,19 @@ function makeCol(parent, data, label, labelColor, bg) {
   col.setPadding(7, 8, 7, 8)
   col.spacing = 4
 
-  var lbl = col.addText(label)
+  var hdr = col.addStack()
+  hdr.layoutHorizontally()
+  hdr.spacing = 3
+
+  var lbl = hdr.addText(label)
   lbl.font = Font.boldSystemFont(11)
   lbl.textColor = new Color(labelColor)
 
-  if (undone.length > 0) {
-    var erow = col.addStack()
-    erow.layoutHorizontally()
-    erow.spacing = 5
-    for (var i = 0; i < undone.length; i++) {
-      var et = erow.addText(undone[i].emoji)
-      et.font = Font.systemFont(15)
-    }
+  hdr.addSpacer()
+
+  for (var i = 0; i < undone.length; i++) {
+    var et = hdr.addText(undone[i].emoji)
+    et.font = Font.systemFont(12)
   }
 
   for (var j = 0; j < items.length; j++) {
