@@ -34,3 +34,20 @@ html, body {
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
+
+/* Portrait-only lock for touch devices.
+   Rotates the entire page back to portrait when the device is held landscape.
+   Works in both PWA mode and Safari browser mode.
+   pointer: coarse = touch screens only, leaves desktop browsers unaffected. */
+@media screen and (orientation: landscape) and (pointer: coarse) {
+  html {
+    transform: rotate(-90deg);
+    transform-origin: left top;
+    width: 100svh;
+    height: 100svw;
+    position: fixed;
+    top: 100%;
+    left: 0;
+    overflow: hidden;
+  }
+}
