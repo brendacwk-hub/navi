@@ -78,15 +78,14 @@ topRow.layoutHorizontally()
 topRow.spacing = 5
 
 if (homeEmpty && homeUndone.length > 0) {
-  // Home habits as compact pill on the left
+  var homeTag = topRow.addText("Home")
+  homeTag.font = Font.systemFont(10)
+  homeTag.textColor = new Color("#f0a8c8", 0.6)
+  topRow.addSpacer(3)
   for (var hi = 0; hi < homeUndone.length; hi++) {
     var he = topRow.addText(homeUndone[hi].emoji)
     he.font = Font.systemFont(12)
   }
-  topRow.addSpacer(3)
-  var homeTag = topRow.addText("Home")
-  homeTag.font = Font.systemFont(10)
-  homeTag.textColor = new Color("#f0a8c8", 0.6)
 } else if (calEvents.length > 0) {
   var ev = calEvents[0]
   var tStr = ev.startDate.toLocaleTimeString("en-HK", { hour: "numeric", minute: "2-digit", hour12: false })
