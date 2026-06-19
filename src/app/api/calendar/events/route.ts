@@ -64,9 +64,10 @@ export async function GET(req: NextRequest) {
             maxResults: 250,
           })
           const calList = await cal.calendarList.get({ calendarId: calId }).catch(() => null)
-          const googleColor = calList?.data.backgroundColor ?? '#4285f4'
+          const googleColor = calList?.data.backgroundColor ?? (isBirthdayId ? '#e91e63' : '#4285f4')
           const color   = row?.calendar_colors?.[calId] ?? googleColor
-          const summary = calList?.data.summary ?? calId
+          // Always name birthday calendars 'Birthdays' regardless of calendarList response
+          const summary = isBirthdayId ? 'Birthdays' : (calList?.data.summary ?? calId)
           return (data.items ?? []).map(e => mapEvent(e, calId, summary, color))
         } catch (err) {
           console.error(`[events] failed to fetch ${calId}:`, err)

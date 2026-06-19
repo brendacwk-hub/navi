@@ -226,7 +226,22 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
         ]
         const allCycles = applyRecurrenceResets(merged, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
 
-        // Completed non-recurring cycles stay in DB with status='complete' — shown in Settings archive
+        // One-time migration: cycles with status='complete' that predate the today_tasks archive store
+        // create archive entries automatically so they appear in Settings without manual re-completion
+        const cyclesNeedingArchive = allCycles.filter(c =>
+          c.status === 'complete' && !isRecurring(c.triggerLabel) && !completedArchiveIds.has(c.id)
+        )
+        cyclesNeedingArchive.forEach(c => {
+          const archiveId = `completed-${c.id}`
+          dbWrite({
+            table: 'today_tasks', operation: 'upsert',
+            data: { id: archiveId, data: { id: c.id, title: c.title, area: c.area,
+              effort: c.effort ?? '', sub_area: c.subArea ?? null, items: c.items ?? null,
+              completed_at: c.lastCompletedAt ?? new Date().toISOString(), notes: c.notes ?? null } },
+          })
+          completedArchiveIds.add(c.id)
+        })
+
         const activeCycles = allCycles.filter(c =>
           !completedArchiveIds.has(c.id) &&
           !(c.status === 'complete' && !isRecurring(c.triggerLabel))
