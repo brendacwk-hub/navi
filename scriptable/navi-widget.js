@@ -37,8 +37,8 @@ var AREA = {
 
 var widget = new ListWidget()
 widget.backgroundColor = new Color("#0c0c0c")
-widget.setPadding(12, 12, 10, 12)
-widget.spacing = 6
+widget.setPadding(6, 12, 8, 12)
+widget.spacing = 4
 
 var dateStr = new Date().toLocaleDateString("en-HK", { weekday: "short", day: "numeric" })
 
@@ -75,15 +75,15 @@ function makeCol(parent, data, label, labelColor, bg) {
   var undone = habits.filter(function(h) { return !h.complete })
   var tasks = (data.tasks || []).filter(function(t) { return !isDone(t) })
   var cycles = (data.cycles || []).filter(function(c) { return !isDone(c) })
-  var items = tasks.concat(cycles).slice(0, 7)
+  var items = tasks.concat(cycles).slice(0, 8)
 
   var col = parent.addStack()
   col.layoutVertically()
   col.size = new Size(colW, 0)
   col.backgroundColor = new Color(bg)
   col.cornerRadius = 8
-  col.setPadding(7, 8, 7, 8)
-  col.spacing = 4
+  col.setPadding(6, 8, 6, 8)
+  col.spacing = 3
 
   var hdr = col.addStack()
   hdr.layoutHorizontally()
