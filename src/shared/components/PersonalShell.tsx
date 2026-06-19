@@ -1,18 +1,95 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
+import { RefreshCw } from 'lucide-react'
+import { usePathname } from 'next/navigation'
 import { Header } from './Header'
 import { PersonalSidebar } from './PersonalSidebar'
 import { PersonalQuickAddButton } from './PersonalQuickAddButton'
 import { AppErrorBoundary } from './AppErrorBoundary'
+import { usePersonalData } from '@/shared/lib/personal-data-context'
+
+const PINK = '#f0a8c8'
+const PULL_THRESHOLD = 72
 
 export function PersonalShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pathname = usePathname()
 
-  const openSidebar  = () => { if (closeTimer.current) clearTimeout(closeTimer.current); setSidebarOpen(true) }
+  // No pull-to-refresh on Settings or Calendar
+  const pullDisabled = pathname.includes('/settings') || pathname.includes('/calendar')
+
+  // ── Pull-to-refresh ──────────────────────────────────────────────────────
+  const { refreshData } = usePersonalData()
+  const [pullDist, setPullDist]     = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
+  const mainRef       = useRef<HTMLDivElement>(null)
+  const touchStartY   = useRef(0)
+  const isPulling     = useRef(false)
+  const refreshingRef = useRef(false)
+
+  useEffect(() => { refreshingRef.current = refreshing }, [refreshing])
+
+  const findScrollEl = (target: EventTarget | null): HTMLElement | null => {
+    let el = target as HTMLElement | null
+    while (el && el !== mainRef.current) {
+      if (el.scrollHeight > el.clientHeight + 1) return el
+      el = el.parentElement
+    }
+    return null
+  }
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    if (pullDisabled) return
+    const scrollEl = findScrollEl(e.target)
+    const atTop = !scrollEl || scrollEl.scrollTop <= 0
+    if (atTop) {
+      touchStartY.current = e.touches[0].clientY
+      isPulling.current = true
+    } else {
+      isPulling.current = false
+    }
+  }, [pullDisabled]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const el = mainRef.current
+    if (!el) return
+    const handleMove = (e: TouchEvent) => {
+      if (!isPulling.current || refreshingRef.current) return
+      const dist = e.touches[0].clientY - touchStartY.current
+      if (dist > 8) {
+        e.preventDefault()
+        setPullDist(Math.min(dist, PULL_THRESHOLD * 1.5))
+      } else if (dist < 0) {
+        isPulling.current = false
+        setPullDist(0)
+      }
+    }
+    el.addEventListener('touchmove', handleMove, { passive: false })
+    return () => el.removeEventListener('touchmove', handleMove)
+  }, [])
+
+  const onTouchEnd = useCallback(async () => {
+    if (!isPulling.current) return
+    isPulling.current = false
+    const dist = pullDist
+    if (dist >= PULL_THRESHOLD) {
+      setRefreshing(true)
+      setPullDist(PULL_THRESHOLD)
+      await refreshData()
+      setTimeout(() => { setRefreshing(false); setPullDist(0) }, 400)
+    } else {
+      setPullDist(0)
+    }
+  }, [pullDist, refreshData])
+
+  // ── Sidebar ──────────────────────────────────────────────────────────────
+  const openSidebar   = () => { if (closeTimer.current) clearTimeout(closeTimer.current); setSidebarOpen(true) }
   const scheduledClose = () => { closeTimer.current = setTimeout(() => setSidebarOpen(false), 180) }
-  const cancelClose  = () => { if (closeTimer.current) clearTimeout(closeTimer.current) }
+  const cancelClose   = () => { if (closeTimer.current) clearTimeout(closeTimer.current) }
+
+  const pullProgress = Math.min(pullDist / PULL_THRESHOLD, 1)
 
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: '#0e1628' }}>
@@ -33,8 +110,38 @@ export function PersonalShell({ children }: { children: React.ReactNode }) {
           <PersonalSidebar onNavigate={() => setSidebarOpen(false)} />
         </div>
 
-        <main className="h-full overflow-hidden flex relative">
-          <div className="flex-1 overflow-hidden flex">
+        <main
+          ref={mainRef}
+          className="h-full overflow-hidden flex relative"
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+        >
+          {/* Pull indicator */}
+          {pullDist > 4 && (
+            <div
+              className="absolute top-0 left-0 right-0 z-20 flex items-center justify-center pointer-events-none"
+              style={{ height: `${pullDist}px`, opacity: pullProgress }}
+            >
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center ${refreshing ? 'animate-spin' : ''}`}
+                style={{
+                  backgroundColor: `${PINK}20`,
+                  border: `1px solid ${PINK}40`,
+                  transform: refreshing ? undefined : `rotate(${pullProgress * 180}deg)`,
+                }}
+              >
+                <RefreshCw className="w-3.5 h-3.5" style={{ color: PINK }} />
+              </div>
+            </div>
+          )}
+
+          <div
+            className="flex-1 overflow-hidden flex"
+            style={{
+              transform: pullDist > 4 ? `translateY(${pullDist}px)` : undefined,
+              transition: pullDist === 0 ? 'transform 0.2s ease' : undefined,
+            }}
+          >
             <AppErrorBoundary>{children}</AppErrorBoundary>
           </div>
           <PersonalQuickAddButton />
