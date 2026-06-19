@@ -16,7 +16,9 @@ var dayEnd = new Date()
 dayEnd.setHours(23, 59, 59, 999)
 var calEvents = []
 try {
-  var raw = await CalendarEvent.between(dayStart, dayEnd, [])
+  var allCals = await Calendar.forEvents()
+  var myCals = allCals.filter(function(c) { return c.title === "brendacwk@gmail.com" })
+  var raw = await CalendarEvent.between(dayStart, dayEnd, myCals.length > 0 ? myCals : [])
   calEvents = raw
     .filter(function(e) { return !e.isAllDay })
     .sort(function(a, b) { return a.startDate.getTime() - b.startDate.getTime() })
@@ -123,7 +125,7 @@ var cols = widget.addStack()
 cols.layoutHorizontally()
 cols.spacing = 8
 
-makeCol(cols, p, "Personal", "#f0a8c8", "#0e1628")
+makeCol(cols, p, "Home", "#f0a8c8", "#0e1628")
 makeCol(cols, w, "Work", "#aaaaaa", "#111111")
 
 Script.setWidget(widget)
