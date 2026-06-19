@@ -31,7 +31,7 @@ function isDayScheduled(habit: WorkHabit, dayOfWeek: number): boolean {
 
 // ── Add / Edit modal ──────────────────────────────────────────────────────────
 
-const EMOJI_PRESETS = ['💧','🧍','🏃','💊','🪞','🪡','💻','🧠','📈','🍎','☕','🎯','📚','🌿','💤']
+const EMOJI_PRESETS = ['💧','🧍','🏃','💊','🪞','🪡','💻','🧠','📈','🍎','☕','🎯','📚','🌿','💤','🐢','🚿','🫧']
 
 type FreqType = 'daily' | 'weekdays' | 'days' | 'times_per_week' | 'times_per_month'
 
