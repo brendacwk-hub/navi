@@ -10,7 +10,7 @@ const admin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 )
 
-export default async function PersonalAnalyticsPage() {
+export default async function WorkAnalyticsPage() {
   const [cyclesRes, workHabitDefs, personalHabitDefs, habitLogsRes, diaryRes] = await Promise.all([
     admin.from('cycles')
       .select('id,title,area,mode,trigger_label,created_at,last_completed_at,effort')

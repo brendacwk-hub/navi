@@ -34,9 +34,7 @@ const otherLinks = [
   { label: 'Calendar', href: '/work/calendar', icon: CalendarDays },
 ]
 
-const comingSoonLinks = [
-  { label: 'Analytics', icon: BarChart3 },
-]
+const comingSoonLinks: { label: string; icon: React.ComponentType<{ className?: string }> }[] = []
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
@@ -184,16 +182,19 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           )
         })}
 
-        {/* Coming soon */}
-        <div className="pt-3" />
-        {comingSoonLinks.map(({ label, icon: Icon }) => (
-          <div key={label} title={`${label} — coming soon`}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-white/20 cursor-default select-none">
-            <Icon className="w-4 h-4 flex-shrink-0 text-white/15" />
-            <span className="flex-1">{label}</span>
-            <span className="text-[9px] text-white/20 font-normal">soon</span>
-          </div>
-        ))}
+        {/* Analytics */}
+        {(() => {
+          const active = pathname === '/work/analytics'
+          return (
+            <Link href="/work/analytics" onClick={onNavigate} title="Analytics"
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                active ? 'bg-navi-blue/15 text-white' : 'text-white/50 hover:text-white/80 hover:bg-white/5'
+              }`}>
+              <BarChart3 className={`w-4 h-4 flex-shrink-0 ${active ? 'text-navi-blue' : 'text-white/30'}`} />
+              <span className="flex-1">Analytics</span>
+            </Link>
+          )
+        })()}
       </nav>
 
       {/* Footer */}
