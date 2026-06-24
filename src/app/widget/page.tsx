@@ -62,7 +62,7 @@ function CycleRow({ cycle, accent }: { cycle: any; accent: string }) {
             {cycle.must ? '●' : '◐'}
           </span>
         )}
-        <span style={{ flex: 1, fontSize: 10.5, color: 'rgba(255,255,255,0.75)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span style={{ flex: 1, fontSize: 10, color: 'rgba(255,255,255,0.75)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {cycle.title}
         </span>
         {total > 0 && (
@@ -94,7 +94,7 @@ function TaskRow({ task }: { task: any }) {
           {task.must ? '●' : '◐'}
         </span>
       )}
-      <span style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.75)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.75)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {task.title}
       </span>
     </div>
@@ -181,13 +181,13 @@ export default async function WidgetPage() {
           background: '#0e1628',
           borderRight: '1px solid rgba(255,255,255,0.06)',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-            <span style={{ fontSize: 11 }}>🏠</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: PINK }}>Home</span>
-            <div style={{ display: 'flex', gap: 3, marginLeft: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8, flexWrap: 'nowrap', overflow: 'hidden' }}>
+            <span style={{ fontSize: 11, flexShrink: 0 }}>🏠</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: PINK, flexShrink: 0 }}>Home</span>
+            <div style={{ display: 'flex', gap: 3, marginLeft: 2, flexShrink: 0 }}>
               {personalHabitsSorted.slice(0, 3).map(h => {
                 const complete = (personalLogs[h.id] ?? 0) >= h.goal
-                return <span key={h.id} style={{ fontSize: 12, opacity: complete ? 1 : 0.35 }}>{h.emoji}</span>
+                return <span key={h.id} style={{ fontSize: 11, opacity: complete ? 1 : 0.35 }}>{h.emoji}</span>
               })}
             </div>
           </div>
@@ -200,7 +200,7 @@ export default async function WidgetPage() {
             <>
               <SectionTitle>Due Today</SectionTitle>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                {personalDueTodayCycles.map((c: { id: string }) => (
+                {personalDueTodayCycles.slice(0, 4).map((c: { id: string }) => (
                   <CycleRow key={c.id} cycle={c} accent={PINK} />
                 ))}
               </div>
@@ -210,13 +210,13 @@ export default async function WidgetPage() {
 
         {/* Work */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '10px 10px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-            <span style={{ fontSize: 11 }}>💼</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Work</span>
-            <div style={{ display: 'flex', gap: 3, marginLeft: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8, flexWrap: 'nowrap', overflow: 'hidden' }}>
+            <span style={{ fontSize: 11, flexShrink: 0 }}>💼</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)', flexShrink: 0 }}>Work</span>
+            <div style={{ display: 'flex', gap: 3, marginLeft: 2, flexShrink: 0 }}>
               {workHabitsSorted.slice(0, 3).map(h => {
                 const complete = (workLogs[h.id] ?? 0) >= h.goal
-                return <span key={h.id} style={{ fontSize: 12, opacity: complete ? 1 : 0.35 }}>{h.emoji}</span>
+                return <span key={h.id} style={{ fontSize: 11, opacity: complete ? 1 : 0.35 }}>{h.emoji}</span>
               })}
             </div>
           </div>
@@ -225,19 +225,23 @@ export default async function WidgetPage() {
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginTop: 24 }}>Nothing today ✓</p>
           )}
 
-          {(workTasks.length > 0 || workDueTodayCycles.length > 0) && (
-            <>
-              <SectionTitle>Due Today</SectionTitle>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                {workTasks.map((t: { id: string }) => (
-                  <TaskRow key={t.id} task={t} />
-                ))}
-                {workDueTodayCycles.map((c: { id: string }) => (
-                  <CycleRow key={c.id} cycle={c} accent={BLUE} />
-                ))}
-              </div>
-            </>
-          )}
+          {(workTasks.length > 0 || workDueTodayCycles.length > 0) && (() => {
+            const cappedTasks  = workTasks.slice(0, 4)
+            const cappedCycles = workDueTodayCycles.slice(0, Math.max(0, 4 - cappedTasks.length))
+            return (
+              <>
+                <SectionTitle>Due Today</SectionTitle>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  {cappedTasks.map((t: { id: string }) => (
+                    <TaskRow key={t.id} task={t} />
+                  ))}
+                  {cappedCycles.map((c: { id: string }) => (
+                    <CycleRow key={c.id} cycle={c} accent={BLUE} />
+                  ))}
+                </div>
+              </>
+            )
+          })()}
         </div>
 
       </div>
