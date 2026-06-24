@@ -183,7 +183,7 @@ export default async function WidgetPage() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
             <span style={{ fontSize: 11 }}>🏠</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: PINK }}>Personal</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: PINK }}>Home</span>
             <div style={{ display: 'flex', gap: 3, marginLeft: 4 }}>
               {personalHabitsSorted.slice(0, 3).map(h => {
                 const complete = (personalLogs[h.id] ?? 0) >= h.goal
