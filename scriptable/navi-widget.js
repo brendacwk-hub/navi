@@ -82,8 +82,9 @@ if (homeEmpty && homeUndone.length > 0) {
   homeTag.font = Font.systemFont(11)
   homeTag.textColor = new Color("#f0a8c8", 0.6)
   topRow.addSpacer(3)
-  for (var hi = 0; hi < homeUndone.length; hi++) {
-    var he = topRow.addText(homeUndone[hi].emoji)
+  var topHabits = homeUndone.slice(0, 3)
+  for (var hi = 0; hi < topHabits.length; hi++) {
+    var he = topRow.addText(topHabits[hi].emoji)
     he.font = Font.systemFont(13)
   }
 } else if (calEvents.length > 0) {
@@ -136,14 +137,16 @@ function makeCol(parent, data, label, labelColor, bg, colW, showHabitRow) {
 
   if (showHabitRow && undone.length > 0) {
     hdr.addSpacer()
-    for (var i = 0; i < undone.length; i++) {
-      var et = hdr.addText(undone[i].emoji)
+    var habitSlice = undone.slice(0, 3)
+    for (var i = 0; i < habitSlice.length; i++) {
+      var et = hdr.addText(habitSlice[i].emoji)
       et.font = Font.systemFont(13)
     }
   }
 
-  for (var j = 0; j < items.length; j++) {
-    var item = items[j]
+  var cappedItems = items.slice(0, 4)
+  for (var j = 0; j < cappedItems.length; j++) {
+    var item = cappedItems[j]
     var areaKey = (item.area || "").toLowerCase()
     var hex = AREA[areaKey] || "#888888"
     var irow = col.addStack()
@@ -152,7 +155,7 @@ function makeCol(parent, data, label, labelColor, bg, colW, showHabitRow) {
     irow.cornerRadius = 5
     irow.setPadding(5, 7, 5, 7)
     var itxt = irow.addText(item.title || item.label || "")
-    itxt.font = Font.systemFont(13)
+    itxt.font = Font.systemFont(12)
     itxt.textColor = new Color(hex)
     itxt.lineLimit = 2
   }
