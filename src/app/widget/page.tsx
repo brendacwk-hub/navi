@@ -36,22 +36,6 @@ function filterDueTodayCycles(cycles: any[], today: Date) {
 
 // ── Sub-components (all server-rendered) ───────────────────────────────────────
 
-function HabitEmoji({ emoji, done, goal }: { emoji: string; done: number; goal: number }) {
-  const complete = done >= goal
-  return (
-    <div style={{
-      display: 'inline-flex', alignItems: 'center', gap: 4,
-      padding: '3px 7px', borderRadius: 20,
-      background: complete ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.05)',
-      border: `1px solid ${complete ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.08)'}`,
-    }}>
-      <span style={{ fontSize: 13 }}>{emoji}</span>
-      <span style={{ fontSize: 9, fontWeight: 600, color: complete ? '#4ade80' : 'rgba(255,255,255,0.35)' }}>
-        {done}/{goal}
-      </span>
-    </div>
-  )
-}
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -200,26 +184,16 @@ export default async function WidgetPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
             <span style={{ fontSize: 11 }}>🏠</span>
             <span style={{ fontSize: 11, fontWeight: 700, color: PINK }}>Personal</span>
+            <div style={{ display: 'flex', gap: 3, marginLeft: 4 }}>
+              {personalHabitsSorted.slice(0, 3).map(h => {
+                const complete = (personalLogs[h.id] ?? 0) >= h.goal
+                return <span key={h.id} style={{ fontSize: 12, opacity: complete ? 1 : 0.35 }}>{h.emoji}</span>
+              })}
+            </div>
           </div>
 
           {!hasPersonalContent && (
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginTop: 24 }}>Nothing today 🌿</p>
-          )}
-
-          {personalHabitsSorted.length > 0 && (
-            <>
-              <SectionTitle>Habits</SectionTitle>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {personalHabitsSorted.slice(0, 3).map(h => (
-                  <HabitEmoji
-                    key={h.id}
-                    emoji={h.emoji}
-                    done={personalLogs[h.id] ?? 0}
-                    goal={h.goal}
-                  />
-                ))}
-              </div>
-            </>
           )}
 
           {personalDueTodayCycles.length > 0 && (
@@ -239,26 +213,16 @@ export default async function WidgetPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
             <span style={{ fontSize: 11 }}>💼</span>
             <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Work</span>
+            <div style={{ display: 'flex', gap: 3, marginLeft: 4 }}>
+              {workHabitsSorted.slice(0, 3).map(h => {
+                const complete = (workLogs[h.id] ?? 0) >= h.goal
+                return <span key={h.id} style={{ fontSize: 12, opacity: complete ? 1 : 0.35 }}>{h.emoji}</span>
+              })}
+            </div>
           </div>
 
           {!hasWorkContent && (
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginTop: 24 }}>Nothing today ✓</p>
-          )}
-
-          {workHabitsSorted.length > 0 && (
-            <>
-              <SectionTitle>Habits</SectionTitle>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {workHabitsSorted.slice(0, 3).map(h => (
-                  <HabitEmoji
-                    key={h.id}
-                    emoji={h.emoji}
-                    done={workLogs[h.id] ?? 0}
-                    goal={h.goal}
-                  />
-                ))}
-              </div>
-            </>
           )}
 
           {(workTasks.length > 0 || workDueTodayCycles.length > 0) && (
