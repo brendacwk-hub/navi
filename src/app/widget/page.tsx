@@ -36,18 +36,17 @@ function filterDueTodayCycles(cycles: any[], today: Date) {
 
 // ── Sub-components (all server-rendered) ───────────────────────────────────────
 
-function HabitRow({ emoji, name, done, goal }: { emoji: string; name: string; done: number; goal: number }) {
+function HabitEmoji({ emoji, done, goal }: { emoji: string; done: number; goal: number }) {
   const complete = done >= goal
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 8,
-      padding: '6px 10px', borderRadius: 10,
-      background: complete ? 'rgba(34,197,94,0.08)' : 'rgba(255,255,255,0.04)',
-      border: `1px solid ${complete ? 'rgba(34,197,94,0.25)' : 'rgba(255,255,255,0.07)'}`,
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      padding: '3px 7px', borderRadius: 20,
+      background: complete ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.05)',
+      border: `1px solid ${complete ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.08)'}`,
     }}>
-      <span style={{ fontSize: 14 }}>{emoji}</span>
-      <span style={{ flex: 1, fontSize: 11, color: 'rgba(255,255,255,0.65)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</span>
-      <span style={{ fontSize: 11, fontWeight: 600, color: complete ? '#4ade80' : 'rgba(255,255,255,0.35)', letterSpacing: '0.02em' }}>
+      <span style={{ fontSize: 13 }}>{emoji}</span>
+      <span style={{ fontSize: 9, fontWeight: 600, color: complete ? '#4ade80' : 'rgba(255,255,255,0.35)' }}>
         {done}/{goal}
       </span>
     </div>
@@ -79,11 +78,11 @@ function CycleRow({ cycle, accent }: { cycle: any; accent: string }) {
             {cycle.must ? '●' : '◐'}
           </span>
         )}
-        <span style={{ flex: 1, fontSize: 11, color: 'rgba(255,255,255,0.75)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span style={{ flex: 1, fontSize: 10.5, color: 'rgba(255,255,255,0.75)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {cycle.title}
         </span>
         {total > 0 && (
-          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.3)', whiteSpace: 'nowrap' }}>
             {done}/{total}
           </span>
         )}
@@ -111,7 +110,7 @@ function TaskRow({ task }: { task: any }) {
           {task.must ? '●' : '◐'}
         </span>
       )}
-      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <span style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.75)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {task.title}
       </span>
     </div>
@@ -210,12 +209,11 @@ export default async function WidgetPage() {
           {personalHabitsSorted.length > 0 && (
             <>
               <SectionTitle>Habits</SectionTitle>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                {personalHabitsSorted.map(h => (
-                  <HabitRow
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {personalHabitsSorted.slice(0, 3).map(h => (
+                  <HabitEmoji
                     key={h.id}
                     emoji={h.emoji}
-                    name={h.name}
                     done={personalLogs[h.id] ?? 0}
                     goal={h.goal}
                   />
@@ -250,12 +248,11 @@ export default async function WidgetPage() {
           {workHabitsSorted.length > 0 && (
             <>
               <SectionTitle>Habits</SectionTitle>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                {workHabitsSorted.map(h => (
-                  <HabitRow
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {workHabitsSorted.slice(0, 3).map(h => (
+                  <HabitEmoji
                     key={h.id}
                     emoji={h.emoji}
-                    name={h.name}
                     done={workLogs[h.id] ?? 0}
                     goal={h.goal}
                   />
