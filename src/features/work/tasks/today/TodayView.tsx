@@ -466,14 +466,22 @@ export function TodayView() {
         if (c.status === 'complete') return false
         if (allCycleDone(c)) return false
 
-        // Primary: cycle-level trigger wins — if due today or overdue, always show
-        if (isTriggerDueToday(trigger, todayDate)) return true
-
-        // Secondary (additive): surface cycles with no trigger but an item due today or overdue
         const allItems = c.items
           ? c.items.flatMap(i => [i, ...(i.subItems ?? [])])
           : (c.phases ?? []).flatMap(p => p.items.flatMap(i => [i, ...(i.subItems ?? [])]))
-        return allItems.some(i => i.status !== 'done' && !!i.due && i.due <= todayStr)
+        const hasItems      = allItems.length > 0
+        const allHaveDue    = hasItems && allItems.every(i => !!i.due)
+        const noneHaveDue   = !hasItems || allItems.every(i => !i.due)
+
+        // All sub-tasks have due dates → ignore header trigger, sub-task dates govern entirely
+        if (allHaveDue) return allItems.some(i => i.status !== 'done' && i.due! <= todayStr)
+
+        // No sub-tasks have due dates → header trigger governs
+        if (noneHaveDue) return isTriggerDueToday(trigger, todayDate)
+
+        // Mixed: header OR any sub-task due today (additive)
+        return isTriggerDueToday(trigger, todayDate) ||
+          allItems.some(i => i.status !== 'done' && !!i.due && i.due <= todayStr)
       })
       .filter(c => !query.trim() || fuzzyMatch(c.title, query))
       .sort((a, b) => {

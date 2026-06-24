@@ -132,7 +132,11 @@ export function ChecklistItem({ item, depth = 0, onToggle, onNoteChange, onLabel
                   {isRecurrString(item.due)
                     ? fmtRecurrDisplay(item.due)
                     : /^\d{4}-\d{2}-\d{2}$/.test(item.due)
-                      ? new Date(item.due + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+                      ? (() => {
+                          const d = new Date(item.due + 'T00:00:00')
+                          const tod = new Date(); tod.setHours(0, 0, 0, 0)
+                          return d.getTime() === tod.getTime() ? 'Due Today' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+                        })()
                       : item.due}
                 </span>
               )}

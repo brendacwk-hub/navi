@@ -122,11 +122,17 @@ export function PersonalTodayView() {
           const nextDue = new Date(c.nextDueAt + 'T00:00:00')
           if (nextDue > todayDate) return false
         }
-        if (isTriggerDueToday(c.triggerLabel, todayDate)) return true
         const allItems = c.items
           ? c.items.flatMap(i => [i, ...(i.subItems ?? [])])
           : (c.phases ?? []).flatMap(p => p.items.flatMap(i => [i, ...(i.subItems ?? [])]))
-        return allItems.some(i => i.status !== 'done' && !!i.due && i.due <= todayStr)
+        const hasItems    = allItems.length > 0
+        const allHaveDue  = hasItems && allItems.every(i => !!i.due)
+        const noneHaveDue = !hasItems || allItems.every(i => !i.due)
+
+        if (allHaveDue)  return allItems.some(i => i.status !== 'done' && i.due! <= todayStr)
+        if (noneHaveDue) return isTriggerDueToday(c.triggerLabel, todayDate)
+        return isTriggerDueToday(c.triggerLabel, todayDate) ||
+          allItems.some(i => i.status !== 'done' && !!i.due && i.due <= todayStr)
       })
       .sort((a, b) => {
         const score = (c: Cycle) => (c.must ? 2 : 0) + ((c.urgent ?? false) ? 1 : 0)

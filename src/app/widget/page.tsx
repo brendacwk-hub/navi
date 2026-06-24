@@ -10,12 +10,8 @@ const admin = createClient(
 )
 
 function todayKey() {
-  const d = new Date()
-  return [
-    d.getFullYear(),
-    String(d.getMonth() + 1).padStart(2, '0'),
-    String(d.getDate()).padStart(2, '0'),
-  ].join('-')
+  // Vercel runs UTC; offset to HKT (UTC+8)
+  return new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10)
 }
 
 function formatDate() {

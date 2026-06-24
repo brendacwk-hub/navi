@@ -40,8 +40,10 @@ function fmtTrigger(label: string | undefined): { display: string; overdue: bool
   if (/^\d{4}-\d{2}-\d{2}$/.test(label)) {
     const d = new Date(label + 'T00:00:00')
     const today = new Date(); today.setHours(0, 0, 0, 0)
+    if (d.getTime() === today.getTime()) return { display: 'Due Today', overdue: false }
     if (d < today) {
       const days = Math.round((today.getTime() - d.getTime()) / 86400000)
+      if (days === 0) return { display: 'Due Today', overdue: false }
       return { display: `Overdue · ${days}d`, overdue: true }
     }
     return { display: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), overdue: false }
