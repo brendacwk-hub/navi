@@ -132,7 +132,7 @@ function makeCol(parent, data, label, labelColor, bg, colW, showHabitRow) {
   hdr.spacing = 4
 
   var lbl = hdr.addText(label)
-  lbl.font = Font.boldSystemFont(11)
+  lbl.font = Font.boldSystemFont(10)
   lbl.textColor = new Color(labelColor)
 
   if (showHabitRow && undone.length > 0) {
