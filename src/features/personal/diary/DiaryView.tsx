@@ -181,6 +181,12 @@ export function DiaryView() {
         }),
       })
     } catch { /* silent */ }
+
+    // Fire-and-forget Google Doc sync — only when Google is connected
+    if (googleStatus === 'connected') {
+      fetch('/api/diary/gdocs', { method: 'POST' }).catch(() => {})
+    }
+
     const t = new Date()
     setSavedAt(`${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`)
     setSaving(false)
