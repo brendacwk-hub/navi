@@ -243,7 +243,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
             if (!s) return row
             return {
               ...row,
-              triggerLabel: s.triggerLabel,
+              triggerLabel: s.triggerLabel || row.triggerLabel,
               effort:       s.effort,
               must:         s.must,
               title:        s.title,
@@ -268,9 +268,11 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
       } else {
         // First ever load — seed the DB with initial data and show cycles immediately
         const initCycles = [...initFinance, ...initHr]
-        dbWrite({ table: 'cycles', operation: 'upsert', data: initCycles.map(toRow) })
-        setFinanceCycles(initFinance)
-        setHrCycles(initHr)
+        const nowSeed = new Date()
+        const activatedSeed = initCycles.map(c => applyPhaseActivation(c, nowSeed))
+        dbWrite({ table: 'cycles', operation: 'upsert', data: activatedSeed.map(toRow) })
+        setFinanceCycles(activatedSeed.filter(c => c.area === 'finance'))
+        setHrCycles(activatedSeed.filter(c => c.area === 'hr'))
       }
 
       // Completed titles: primary from today_tasks archive, fallback from cycles status=complete
@@ -321,7 +323,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
           const row = fromRow(r)
           const s = staticById.get(row.id)
           if (!s) return row
-          return { ...row, triggerLabel: s.triggerLabel, effort: s.effort, must: s.must, title: s.title, subArea: s.subArea, area: s.area }
+          return { ...row, triggerLabel: s.triggerLabel || row.triggerLabel, effort: s.effort, must: s.must, title: s.title, subArea: s.subArea, area: s.area }
         })
         const resetRefreshed = applyRecurrenceResets(hydrated, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
         const now2 = new Date()

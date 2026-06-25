@@ -479,11 +479,20 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-57 · User-set due dates on active one-off cycles wiped on every reload
+
+**Symptom:** `bcom-admin-duties` (due 2026-06-30) and `ai-accounting-system` (due 2026-07-02) never appeared in Today on their due dates. The DB had the correct `trigger_label` values written by the user via the UI, but the cycles never showed up.
+**Root cause:** The static-to-DB merge in `WorkDataContext` (`loadFromSupabase` and `refreshData`) unconditionally overwrote `triggerLabel` from the static cycle definition. Both cycles have `triggerLabel: ''` in their static definitions (they're one-off active projects, not recurring). Every reload replaced the user's manually-set due date with `''`, making `isTriggerDueToday` always return false.
+**Fix:** Changed both merge sites in `work-data-context.tsx` from `triggerLabel: s.triggerLabel` to `triggerLabel: s.triggerLabel || row.triggerLabel`. Static wins when it has a value (preserving recurring schedule integrity); DB value is kept when static is empty (preserving user-set one-off due dates).
+**Lesson:** Static override is correct for recurring cycles (code is source of truth). But one-off active cycles have empty static triggers — the user must be able to set their own due date and have it persist. Never unconditionally override with a potentially-empty value from static data.
+
+---
+
 ## How to use this doc
 
 **MANDATORY RULE:** Every bug fixed must be logged here. This is a build record, not optional cleanup.
 
 - Add a new entry immediately after each fix, while context is fresh.
 - Each entry must include: **symptom**, **root cause**, **fix**, **lesson**.
-- Number sequentially (next is B-55).
+- Number sequentially (next is B-58).
 - Before building a new feature that touches an area — re-read relevant entries to avoid repeating past mistakes.
