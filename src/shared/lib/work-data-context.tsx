@@ -241,9 +241,15 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
             const row = fromRow(r)
             const s = staticById.get(row.id)
             if (!s) return row
+            // Static wins when non-empty (recurring schedule). For one-off active cycles
+            // (static trigger is empty), only keep the DB value if it's a plain ISO date
+            // (user-set due date). Any stale keyword like 'Today' or 'every day' gets wiped.
+            const dbTrigger = row.triggerLabel ?? ''
+            const finalTrigger = s.triggerLabel ||
+              (/^\d{4}-\d{2}-\d{2}$/.test(dbTrigger) ? dbTrigger : '')
             return {
               ...row,
-              triggerLabel: s.triggerLabel || row.triggerLabel,
+              triggerLabel: finalTrigger,
               effort:       s.effort,
               must:         s.must,
               title:        s.title,
@@ -323,7 +329,9 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
           const row = fromRow(r)
           const s = staticById.get(row.id)
           if (!s) return row
-          return { ...row, triggerLabel: s.triggerLabel || row.triggerLabel, effort: s.effort, must: s.must, title: s.title, subArea: s.subArea, area: s.area }
+          const dbTrigR = row.triggerLabel ?? ''
+          const finalTrigR = s.triggerLabel || (/^\d{4}-\d{2}-\d{2}$/.test(dbTrigR) ? dbTrigR : '')
+          return { ...row, triggerLabel: finalTrigR, effort: s.effort, must: s.must, title: s.title, subArea: s.subArea, area: s.area }
         })
         const resetRefreshed = applyRecurrenceResets(hydrated, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
         const now2 = new Date()
