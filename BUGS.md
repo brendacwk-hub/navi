@@ -461,6 +461,24 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-55 · Payroll phases never auto-activated — all phases shown collapsed in Today
+
+**Symptom:** Payroll appeared in the Today tab on its trigger dates but all 3 phases showed as collapsed headers with no items visible. The user had to manually tap each phase to expand it, making the cycle look empty/broken.
+**Root cause:** Each `CyclePhase` has a `status` field (`upcoming | active | locked`). `PhaseSection` only auto-opens (`useState(true)`) when `phase.status === 'active'`. But nothing ever transitioned phases from `'upcoming'` to `'active'` — the DB had all 3 phases as `'upcoming'` since initial seeding. The phases each have their own `triggerLabel` (`Starts 20th of month`, `Last 5 days of month`, `1st work day of next month`) but `WorkDataContext` never read those to activate phases.
+**Fix:** Added `applyPhaseActivation(cycle, today)` in `work-data-context.tsx`. Runs after `applyRecurrenceResets` on every load and refresh. For each phase with `status === 'upcoming'`, checks its `triggerLabel`: "Starts Nth" → activates if `dom >= N`; "Last N days" → activates if in last-5-days window; "1st work day" → activates only on the exact day (via `isTriggerDueToday`). Writes updated phases to DB. `resetCycle()` already reverts phases to `'upcoming'` on next cycle start so the reset path is unaffected.
+**Lesson:** Phases need their own trigger-based lifecycle. Just having a `triggerLabel` on a phase means nothing unless something actually reads it and transitions the status. Anytime a data model has a status field, there must be code that transitions it based on conditions.
+
+---
+
+### B-56 · Must recurring cycles disappeared after trigger day with unfinished items
+
+**Symptom:** `budgets-monthly` appeared on June 20 (trigger day), user ticked 6/7 items. On June 21 the cycle disappeared from Today even though item `bm4` ("Allocate funds + mark records") was still unfinished. Payroll similarly vanished June 21-24 (trigger was June 20, item due dates not until June 25).
+**Root cause:** `cyclesToday` filter used `isTriggerDueToday(trigger, today)` — exact date match only. On June 21, "Every 20th of month" returns `dom === 20` → false. Items with no due dates can't trigger the fallback due-date check either. So the cycle was hidden despite incomplete items. There was no "stay visible until done" logic.
+**Fix:** Added `hasTriggerFiredThisPeriod(trigger, today)` to `sort-utils.ts`. Returns true if the trigger has already fired at some point in the current period (e.g. dom >= 20 for "Every 20th", or within last-5-days window). In `TodayView.tsx` `cyclesToday` filter, cycles with `must: true` AND `isRecurring` AND `!nextDueAt` use this sticky check — they remain visible until all items done (at which point `nextDueAt` is set and the cycle hides naturally).
+**Lesson:** Monthly trigger dates fire once per month. Any cycle with work that takes multiple days needs "sticky" visibility after the trigger day. `isTriggerDueToday` alone is insufficient for multi-day Must tasks — pair it with a period-aware "has fired this period" check. Non-Must cycles intentionally don't get this treatment (they're optional; appearing on the exact trigger day is correct).
+
+---
+
 ## How to use this doc
 
 **MANDATORY RULE:** Every bug fixed must be logged here. This is a build record, not optional cleanup.
