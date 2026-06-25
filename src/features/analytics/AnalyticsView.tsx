@@ -172,7 +172,7 @@ function StatCard({ label, value, sub, accent = '#3b82f6', trend, noData }: {
 
 function MetricCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+    <div className="rounded-xl p-4 overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
       <p className="text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: 'rgba(255,255,255,0.35)' }}>{title}</p>
       {children}
     </div>
@@ -196,9 +196,9 @@ function BarChart({ data, barHeight = 80, showValues = false }: {
           <div
             className="w-full rounded-sm transition-all"
             style={{
-              height: `${Math.max((d.value / max) * barHeight, d.value > 0 ? 3 : 2)}px`,
-              backgroundColor: d.value > 0 ? (d.color ?? '#3b82f6') : 'rgba(255,255,255,0.06)',
-              opacity: d.dim ? 0.4 : 1,
+              height: `${Math.max((d.value / max) * barHeight, 4)}px`,
+              backgroundColor: d.value > 0 ? (d.color ?? '#3b82f6') : 'rgba(255,255,255,0.10)',
+              opacity: d.dim ? 0.4 : d.value === 0 ? 0.35 : 1,
             }}
           />
           <span className="text-[9px] leading-none truncate w-full text-center" style={{ color: 'rgba(255,255,255,0.3)' }}>{d.label}</span>
@@ -676,8 +676,8 @@ export function AnalyticsView({ data }: { data: AnalyticsData }) {
   const gridKeys = allKeys.filter(k => !featuredKeys.includes(k))
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="px-5 pt-5 pb-10 space-y-5 max-w-3xl mx-auto">
+    <div className="flex-1 overflow-y-auto overflow-x-hidden" style={{ touchAction: 'pan-y' }}>
+      <div className="px-5 pt-5 pb-10 space-y-5 max-w-3xl mx-auto w-full">
 
         {/* Header */}
         <div>
@@ -712,8 +712,8 @@ export function AnalyticsView({ data }: { data: AnalyticsData }) {
           ))}
         </div>
 
-        {/* Featured metrics (2-col, based on focus) */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* Featured metrics (stacked on mobile, 2-col on wider screens) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {featuredKeys.map(k => renderFeaturedCard(k))}
         </div>
 
