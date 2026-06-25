@@ -18,6 +18,17 @@ function isBirthdaysCalendar(c: { id?: string | null; summary?: string | null })
     (id.includes('contacts') && id.includes('calendar'))
 }
 
+function isFamilyCalendar(c: { id?: string | null; summary?: string | null }) {
+  const id   = (c.id   ?? '').toLowerCase()
+  const name = (c.summary ?? '').toLowerCase()
+  return (id.startsWith('family') && id.includes('@group.calendar.google.com')) ||
+    name === 'family'
+}
+
+function isHiddenSystemCalendar(c: { id?: string | null; summary?: string | null }) {
+  return isBirthdaysCalendar(c) || isFamilyCalendar(c)
+}
+
 interface CalItem {
   id?: string | null
   summary?: string | null
@@ -45,38 +56,7 @@ export async function GET() {
   const { data } = await cal.calendarList.list({ maxResults: 250, showHidden: true })
 
   const items: CalItem[] = data.items ?? []
-  let mapped = items.map(toCalItem)
-
-  // If Birthdays not in the subscription list, probe it via events.list() —
-  // Google's Birthdays calendar is a system calendar that may not appear in calendarList
-  // but IS accessible via the events API for accounts where it's enabled
-  if (!mapped.some(c => isBirthdaysCalendar({ id: c.id, summary: c.summary }))) {
-    const probeYear = new Date().getFullYear()
-    const probeMin  = `${probeYear}-01-01T00:00:00Z`
-    const probeMax  = `${probeYear + 1}-01-01T00:00:00Z`
-
-    for (const birthdayId of BIRTHDAYS_IDS) {
-      try {
-        await cal.events.list({
-          calendarId: birthdayId,
-          timeMin: probeMin,
-          timeMax: probeMax,
-          maxResults: 1,
-        })
-        // No exception = calendar is accessible — add it as a selectable option
-        mapped = [...mapped, {
-          id: birthdayId,
-          summary: 'Birthdays',
-          description: null,
-          color: '#e91e63',
-          primary: false,
-        }]
-        break
-      } catch (err) {
-        console.error(`[calendars] birthday probe failed for ${birthdayId}:`, (err as Error).message ?? err)
-      }
-    }
-  }
+  const mapped = items.map(toCalItem).filter(c => !isHiddenSystemCalendar(c))
 
   return NextResponse.json({ calendars: mapped })
 }
