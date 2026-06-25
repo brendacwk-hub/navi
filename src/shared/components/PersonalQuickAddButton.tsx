@@ -265,9 +265,9 @@ export function PersonalQuickAddButton() {
                       <div className="flex flex-wrap gap-2 items-center">
                         {(['Today', 'Tomorrow', 'In 2 Days'] as const).map(d => (
                           <button key={d}
-                            onClick={() => { setDueLabel(prev => prev === d ? '' : d); setRecurrLabel(''); setActivePanel(null) }}
+                            onClick={() => { setDueLabel(prev => prev === resolveLabel(d) ? '' : resolveLabel(d)); setRecurrLabel(''); setActivePanel(null) }}
                             className={`text-xs px-3 py-1.5 rounded-lg border transition-all ${
-                              !recurrLabel && dueLabel === d
+                              !recurrLabel && dueLabel === resolveLabel(d)
                                 ? 'bg-[#f0a8c8]/20 border-[#f0a8c8]/40 text-[#f0a8c8] font-semibold'
                                 : 'border-white/10 text-white/50 hover:border-white/25 hover:text-white/70'
                             }`}

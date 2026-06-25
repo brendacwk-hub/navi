@@ -60,7 +60,7 @@ export function QuickAddButton() {
   const [notes, setNotes]             = useState('')
   const [notesOpen, setNotesOpen]     = useState(false)
   const [subs, setSubs]               = useState<string[]>([''])
-  const [dueLabel,   setDueLabel]   = useState<string>(isToday ? 'Today' : '')
+  const [dueLabel,   setDueLabel]   = useState<string>(isToday ? resolveLabel('Today') : '')
   const [recurrLabel, setRecurrLabel] = useState('')
   const [saved, setSaved]             = useState(false)
   const [inboxSent, setInboxSent]     = useState(false)
@@ -131,7 +131,7 @@ export function QuickAddButton() {
     setMust(false); setUrgent(false); setEffort('medium')
     setArea(pathnameArea(pathname)); setSubArea('')
     setNotes(''); setNotesOpen(false)
-    setDueLabel(isToday ? 'Today' : '')
+    setDueLabel(isToday ? resolveLabel('Today') : '')
     setRecurrLabel('')
     setActivePanel(null)
   }
@@ -349,9 +349,9 @@ export function QuickAddButton() {
                       <div className="flex flex-wrap gap-2 items-center">
                         {(['Today', 'Tomorrow', 'In 2 Days'] as const).map(d => (
                           <button key={d}
-                            onClick={() => { setDueLabel(prev => prev === d ? '' : d); setRecurrLabel(''); setActivePanel(null) }}
+                            onClick={() => { setDueLabel(prev => prev === resolveLabel(d) ? '' : resolveLabel(d)); setRecurrLabel(''); setActivePanel(null) }}
                             className={`text-xs px-3 py-1.5 rounded-lg border transition-all ${
-                              !recurrLabel && dueLabel === d
+                              !recurrLabel && dueLabel === resolveLabel(d)
                                 ? 'bg-navi-blue/20 border-navi-blue/40 text-navi-blue font-semibold'
                                 : 'border-white/10 text-white/50 hover:border-white/25 hover:text-white/70'
                             }`}

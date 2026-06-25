@@ -292,9 +292,9 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
               {/* Due date — one-time */}
               <div className="flex gap-1.5 flex-wrap items-center">
                 {(['Today', 'Tomorrow', 'In 2 Days'] as const).map(d => (
-                  <button key={d} onMouseDown={ev => ev.preventDefault()} onClick={() => { setEditDue(d); setEditRecurr('') }}
+                  <button key={d} onMouseDown={ev => ev.preventDefault()} onClick={() => { setEditDue(resolveLabel(d)); setEditRecurr('') }}
                     className={`text-[10px] px-2 py-0.5 rounded border transition-all ${
-                      !editRecurr && editDue === d ? 'bg-navi-blue/20 text-navi-blue border-navi-blue/40' : 'border-white/15 text-white/30 hover:border-white/30 hover:text-white/55'
+                      !editRecurr && editDue === resolveLabel(d) ? 'bg-navi-blue/20 text-navi-blue border-navi-blue/40' : 'border-white/15 text-white/30 hover:border-white/30 hover:text-white/55'
                     }`}>
                     {d}
                   </button>
