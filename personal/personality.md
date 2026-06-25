@@ -59,10 +59,10 @@ Drained by: long disorganised lists, chaos, being pushed without structure.
 ## Goals
 
 **Right now:**
-- Navi Personal mode built and in daily use
+- Navi Personal mode live and in daily use ✅
+- Diary habit building (daily entry with mood + prompts) ✅ feature built, habit in progress
 - Sidoi crochet business growing (more consistent orders)
-- Building a weekly review habit (prompted every Monday)
-- Building a journalling/diary habit (what we're building now)
+- Building a weekly review habit (prompted every Monday) ✅ feature built
 
 **Ongoing:**
 - Monthly Finance chain runs without surprises
@@ -108,7 +108,7 @@ Challenges: finding consistent making time, pricing work fairly.
 **Stash app:** Personal content bookmarking system (separate app, FastAPI + Supabase). Saves links, images, articles, PDFs. Uses Gemini Flash + Claude Haiku for AI categorisation. Has iOS Shortcut + Telegram bot.
 Learning lives in Stash, not in Navi.
 
-**Navi:** This app. Work mode live. Personal mode being built.
+**Navi:** This app. Work mode and Personal mode both live. Analytics page live. Daily diary with AI prompts live.
 
 ---
 

@@ -406,6 +406,25 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-49 · Due date presets stored plain strings instead of ISO dates — input and highlight broken
+
+**Symptom:** Tapping Today / Tomorrow / In 2 Days in QuickAdd, CycleCard, PersonalQuickAdd, or TemplatesView visually highlighted the button but the `<input type="date">` beside it stayed blank. The task did save with the correct date (because `resolveLabel()` was called at save time), but the input and the selected-button highlight were desynced. Users could not see what date had been picked.
+**Root cause:** Preset click handlers stored the raw label string (`"Today"`, `"Tomorrow"`) in state. The date input has a regex guard `^\d{4}-\d{2}-\d{2}$` — plain label strings fail it, so the input always rendered empty. The active-highlight check (`dueLabel === d`) worked on first tap but broke as soon as the user re-opened an edited cycle (which had an ISO date, not the label string). ChecklistItem already did it right — it called `resolveLabel(preset)` before saving.
+**Fix:** All four touchpoints now call `resolveLabel(d)` at click time, not at save time. Toggle check updated to `prev === resolveLabel(d)`. TemplatesView input condition simplified (no longer needs to exclude preset strings since state is always ISO). QuickAddButton init and reset also updated from `'Today'` to `resolveLabel('Today')`.
+**Files:** `QuickAddButton.tsx`, `CycleCard.tsx`, `PersonalQuickAddButton.tsx`, `TemplatesView.tsx`
+**Lesson:** Always store resolved ISO dates in state, never label strings. `resolveLabel()` must be called at the moment the user picks a value — not deferred to save time. The input and the state must always agree on format.
+
+---
+
+### B-50 · Analytics page horizontally pannable in Safari — content clipped on left
+
+**Symptom:** The analytics page could be panned left/right in Safari on iPhone. When panned slightly right, the left edge of every card was clipped off ("TION RATE", "KS DONE" etc. instead of "COMPLETION RATE"). The 2-column featured card grid was too cramped on mobile widths.
+**Root cause:** An overflow-causing element (likely the heatmap or SVG chart) made the page wider than the viewport. Safari then treated the page as horizontally scrollable. The outer wrapper had `overflow-y-auto` but no horizontal containment. No `touch-action` restriction was set, so both axes were pannable.
+**Fix:** Outer wrapper got `overflow-x-hidden` + `touch-action: pan-y` (vertical scroll only). `MetricCard` got `overflow-hidden` so no child chart can bleed outside its card boundary. Featured card grid changed from `grid-cols-2` to `grid-cols-1 sm:grid-cols-2` so cards stack full-width on iPhone. Zero-value bars in BarChart raised from 2px to 4px floor with faint opacity so empty weeks are visible as stubs.
+**Lesson:** On Safari iOS, any element wider than the viewport makes the whole page horizontally pannable — even if the overflow is invisible. Always pair `overflow-x-hidden` with `touch-action: pan-y` on page wrappers for app-like views. Test horizontal overflow on actual iPhone, not just desktop browser DevTools.
+
+---
+
 ## How to use this doc
 
 - After every fix session, add a new entry here.
