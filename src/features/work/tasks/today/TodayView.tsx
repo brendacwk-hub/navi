@@ -10,7 +10,7 @@ import { useToast } from '@/shared/lib/toast-context'
 import { useHabits } from '@/shared/lib/habit-context'
 import { useWeeklyReview } from '@/shared/lib/use-weekly-review'
 import { fuzzyMatch } from '@/shared/lib/search-utils'
-import { isTriggerDueToday, allCycleDone, isRecurring, computeSortDate } from '@/shared/lib/sort-utils'
+import { isTriggerDueToday, hasTriggerFiredThisPeriod, allCycleDone, isRecurring, computeSortDate } from '@/shared/lib/sort-utils'
 import { CycleCard } from '@/shared/components/CycleCard'
 import { WeeklyReview } from '@/shared/components/WeeklyReview'
 import { WeeklyFocusStrip } from '@/shared/components/WeeklyFocusStrip'
@@ -476,12 +476,17 @@ export function TodayView() {
         // All sub-tasks have due dates → ignore header trigger, sub-task dates govern entirely
         if (allHaveDue) return allItems.some(i => i.status !== 'done' && i.due! <= todayStr)
 
+        // "sticky" helper: Must recurring cycle whose trigger already fired this period
+        const isStickyActive = c.must && isRecurring(trigger) && !c.nextDueAt &&
+          hasTriggerFiredThisPeriod(trigger, todayDate)
+
         // No sub-tasks have due dates → header trigger governs
-        if (noneHaveDue) return isTriggerDueToday(trigger, todayDate)
+        if (noneHaveDue) return isTriggerDueToday(trigger, todayDate) || isStickyActive
 
         // Mixed: header OR any sub-task due today (additive)
         return isTriggerDueToday(trigger, todayDate) ||
-          allItems.some(i => i.status !== 'done' && !!i.due && i.due <= todayStr)
+          allItems.some(i => i.status !== 'done' && !!i.due && i.due <= todayStr) ||
+          isStickyActive
       })
       .filter(c => !query.trim() || fuzzyMatch(c.title, query))
       .sort((a, b) => {

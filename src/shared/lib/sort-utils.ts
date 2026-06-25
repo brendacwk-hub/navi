@@ -299,6 +299,43 @@ export function isTriggerDueToday(triggerLabel: string | undefined, today: Date)
   return false
 }
 
+// Returns true if the trigger has already fired at some point in the current period
+// (this month for monthly, this week for weekly). Used to keep Must recurring cycles
+// visible after the exact trigger day while items are still unfinished.
+export function hasTriggerFiredThisPeriod(triggerLabel: string | undefined, today: Date): boolean {
+  if (!isRecurring(triggerLabel)) return false
+  const label = (triggerLabel ?? '').toLowerCase()
+  const dom   = today.getDate()
+  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+
+  // New recurrence patterns fire on exact days — no "sticky" period
+  if (parseRecurrFields(triggerLabel ?? '')) return false
+
+  // Phase trigger — use Phase 1 ordinal as the start-of-period marker
+  const phaseMatch = label.match(/phase\s*1\D+?(\d{1,2})/)
+  if (phaseMatch) return dom >= parseInt(phaseMatch[1])
+
+  // Monthly ordinal — "Every 20th", "Starts 20th", "Every 2nd of month"
+  const ordinalMatch = (triggerLabel ?? '').match(/\b(\d{1,2})(?:st|nd|rd|th)\b/)
+  if (ordinalMatch) {
+    const trigDay = parseInt(ordinalMatch[1])
+    if (trigDay >= 1 && trigDay <= 28) return dom >= trigDay
+  }
+
+  // "Last 5 days of month"
+  if (label.includes('last') && (label.includes('day') || label.includes('5'))) {
+    return dom >= lastDay - 4
+  }
+
+  // "Every Monday" etc. — show from that weekday through end of week
+  const weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+  for (let i = 1; i < weekdays.length; i++) {  // skip sunday (i=0)
+    if (label.includes(weekdays[i])) return today.getDay() >= i
+  }
+
+  return false
+}
+
 // Returns the next YYYY-MM-DD date AFTER today for a recurring trigger.
 // Used by "Skip this occurrence" — sets nextDueAt so the cycle resurfaces next time.
 export function computeSkipDate(triggerLabel: string | undefined): string | null {

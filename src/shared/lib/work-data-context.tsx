@@ -6,7 +6,7 @@ import { hrCycles as initHr } from '@/features/work/tasks/hr/data'
 import { todayTaskData as initToday } from '@/features/work/tasks/today/data'
 import type { Cycle, ChecklistItem, WorkArea } from '@/shared/types'
 import type { TodayTaskData, TodaySubItem } from '@/features/work/tasks/today/data'
-import { isRecurring, computeNextDue, allCycleDone, resetCycle } from '@/shared/lib/sort-utils'
+import { isRecurring, computeNextDue, allCycleDone, resetCycle, isTriggerDueToday } from '@/shared/lib/sort-utils'
 import { useToast } from '@/shared/lib/toast-context'
 
 // ── Server route helpers — bypass RLS using service role key ──────────────────
@@ -74,6 +74,42 @@ function applyRecurrenceResets(cycles: Cycle[], onReset: (c: Cycle) => void): Cy
     }
     return c
   })
+}
+
+// Activate phases whose trigger date has arrived.
+// Phases upgrade upcoming → active; active phases are never downgraded here.
+// resetCycle() handles reverting them back to upcoming on the next cycle start.
+function applyPhaseActivation(cycle: Cycle, today: Date): Cycle {
+  if (!cycle.phases || cycle.phases.length === 0) return cycle
+  const dom     = today.getDate()
+  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+
+  let changed = false
+  const updatedPhases = cycle.phases.map(phase => {
+    if (phase.status !== 'upcoming') return phase  // already active — never downgrade here
+
+    const pLabel = (phase.triggerLabel ?? '').toLowerCase()
+    let shouldActivate = false
+
+    // "Starts Nth of month"
+    const startsMatch = phase.triggerLabel?.match(/starts?\s*(\d{1,2})(?:st|nd|rd|th)/i)
+    if (startsMatch) shouldActivate = dom >= parseInt(startsMatch[1])
+
+    // "Last N days of month"
+    if (!shouldActivate && pLabel.includes('last') && (pLabel.includes('day') || pLabel.includes('5'))) {
+      shouldActivate = dom >= lastDay - 4
+    }
+
+    // "1st work day of next month" — only activates on that exact day
+    if (!shouldActivate && (pLabel.includes('1st') || pLabel.includes('first')) && pLabel.includes('work')) {
+      shouldActivate = isTriggerDueToday(phase.triggerLabel, today)
+    }
+
+    if (shouldActivate) { changed = true; return { ...phase, status: 'active' as const } }
+    return phase
+  })
+
+  return changed ? { ...cycle, phases: updatedPhases } : cycle
 }
 
 // ── Item patchers ─────────────────────────────────────────────────────────────
@@ -217,16 +253,18 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
           }),
           ...toInsert,
         ]
-        const allCycles = applyRecurrenceResets(merged, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
+        const resetCycles = applyRecurrenceResets(merged, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
+        const now = new Date()
+        const allCycles = resetCycles.map(c => {
+          const activated = applyPhaseActivation(c, now)
+          if (activated !== c) dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(activated) })
+          return activated
+        })
 
-        // Show all cycles in work tabs — completed ones are visible so the user
-        // can untick/retick them. The Settings archive detects completion directly
-        // from item state, so no hiding is needed here.
-        const activeCycles = allCycles
-        setFinanceCycles(activeCycles.filter(c => c.area === 'finance'))
-        setHrCycles(activeCycles.filter(c => c.area === 'hr'))
-        setOpsCycles(activeCycles.filter(c => c.area === 'ops'))
-        setOthersCycles(activeCycles.filter(c => c.area === 'others'))
+        setFinanceCycles(allCycles.filter(c => c.area === 'finance'))
+        setHrCycles(allCycles.filter(c => c.area === 'hr'))
+        setOpsCycles(allCycles.filter(c => c.area === 'ops'))
+        setOthersCycles(allCycles.filter(c => c.area === 'others'))
       } else {
         // First ever load — seed the DB with initial data and show cycles immediately
         const initCycles = [...initFinance, ...initHr]
@@ -285,7 +323,13 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
           if (!s) return row
           return { ...row, triggerLabel: s.triggerLabel, effort: s.effort, must: s.must, title: s.title, subArea: s.subArea, area: s.area }
         })
-        const refreshed = applyRecurrenceResets(hydrated, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
+        const resetRefreshed = applyRecurrenceResets(hydrated, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
+        const now2 = new Date()
+        const refreshed = resetRefreshed.map(c => {
+          const activated = applyPhaseActivation(c, now2)
+          if (activated !== c) dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(activated) })
+          return activated
+        })
         setFinanceCycles(refreshed.filter(c => c.area === 'finance'))
         setHrCycles(refreshed.filter(c => c.area === 'hr'))
         setOpsCycles(refreshed.filter(c => c.area === 'ops'))
