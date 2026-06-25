@@ -106,18 +106,22 @@ export function PersonalSidebar({ onNavigate }: { onNavigate?: () => void }) {
         })()}
 
         {/* Ideas — expandable */}
-        <button
-          onClick={() => setIdeasExpanded(e => !e)}
+        <div
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold transition-all"
           style={ideasActive ? { backgroundColor: `${PINK}20`, color: '#fff' } : { color: 'rgba(255,255,255,0.5)' }}
         >
-          <Lightbulb className="w-4 h-4 flex-shrink-0" style={{ color: ideasActive ? PINK : 'rgba(255,255,255,0.3)' }} />
-          <span className="flex-1 text-left">Ideas</span>
-          <ChevronDown
-            className={`w-3.5 h-3.5 transition-transform duration-200 ${ideasExpanded ? 'rotate-180' : ''}`}
-            style={{ color: ideasActive ? `${PINK}80` : 'rgba(255,255,255,0.2)' }}
-          />
-        </button>
+          <Link href="/personal/ideas" onClick={() => { setIdeasExpanded(true); onNavigate?.() }}
+            className="flex items-center gap-3 flex-1 min-w-0">
+            <Lightbulb className="w-4 h-4 flex-shrink-0" style={{ color: ideasActive ? PINK : 'rgba(255,255,255,0.3)' }} />
+            <span>Ideas</span>
+          </Link>
+          <button onClick={() => setIdeasExpanded(e => !e)} className="p-0.5">
+            <ChevronDown
+              className={`w-3.5 h-3.5 transition-transform duration-200 ${ideasExpanded ? 'rotate-180' : ''}`}
+              style={{ color: ideasActive ? `${PINK}80` : 'rgba(255,255,255,0.2)' }}
+            />
+          </button>
+        </div>
 
         {ideasExpanded && (
           <div className="ml-4 space-y-0.5 pb-0.5">
