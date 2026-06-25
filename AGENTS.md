@@ -4,6 +4,24 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+# MANDATORY: Bug log rule
+
+**Every bug fix must be recorded in `BUGS.md` before the session ends. No exceptions.**
+
+Format:
+```
+### B-{next number} · {short title}
+**Symptom:** what the user saw
+**Root cause:** why it happened
+**Fix:** what was changed and where
+**Lesson:** what to never repeat
+```
+
+Number sequentially from the last entry. The current highest is B-54.
+Before building any feature that touches an existing area, re-read the relevant BUGS.md entries first.
+
+---
+
 # Due date / recurrence UI — consistency rule
 
 **Every place where users set a due date or schedule must have identical options:**
