@@ -479,6 +479,15 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-58 · "New questions" button still overlapping question area; API generated only 2 prompts including a generic "Anything else" Q2
+
+**Symptom:** (1) The "New questions" button sat inside the scrolling section immediately above Q1, too close to the first question even after the previous `-mb-1` → `mb-1` fix. (2) API generated only 2 questions; Q2 was often "Anything else on your mind today?" — either from the Gemini fallback path or because Gemini lacked day context. User wanted 3 distinct prompted questions (Q1–Q3) plus a separate hardcoded "anything else" field as Q4.
+**Root cause:** Button placement was inside `section.space-y-4` rather than the header, so it always rendered adjacent to Q1. API prompt asked for `exactly 2` questions; fallback hardcoded `'Anything else on your mind today?'` as Q2; Gemini prompt gave no explicit rule against generic questions.
+**Fix:** (1) Moved "New questions" button into the page header (right side), replacing the `✨ Prompt` mode badge — cleaner and always visible regardless of scroll. (2) Updated API prompt to request `exactly 3` questions, added explicit rule "Never generate 'Anything else on your mind?' or any catch-all question". Updated fallback to rotate 3 answers from `BASE_QUESTIONS` using `+1`/`+2` offsets. Updated `slice(0, 3)` and `maxOutputTokens: 400`. Added 3rd loading skeleton row in DiaryView.
+**Lesson:** Fallback values must follow the same quality rules as the live path — never hardcode generic phrases like "Anything else on your mind?" that would be rejected in the main path. Action buttons belong in persistent header chrome, not embedded in scrollable content.
+
+---
+
 ### B-57 · User-set due dates on active one-off cycles wiped on every reload
 
 **Symptom:** `bcom-admin-duties` (due 2026-06-30) and `ai-accounting-system` (due 2026-07-02) never appeared in Today on their due dates. The DB had the correct `trigger_label` values written by the user via the UI, but the cycles never showed up.

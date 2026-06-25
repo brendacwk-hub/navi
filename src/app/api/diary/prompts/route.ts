@@ -171,20 +171,22 @@ export async function GET(req: Request) {
   const prompt = `You are a warm, encouraging diary assistant for Brenda.
 
 ${personality ? `About Brenda:\n${personality}\n` : ''}${diarySection ? `\n${diarySection}\n` : ''}${todaySection ? `\nWhat Brenda did on ${date} (${dayName}):\n${todaySection}\n` : ''}
-Generate exactly 2 short diary prompt questions for tonight's entry (${dayName}, ${date}).${seed > 0 ? ` This is refresh #${seed} — do NOT repeat any question from the base list that was already shown today.` : ''}
+Generate exactly 3 short diary prompt questions for tonight's entry (${dayName}, ${date}).${seed > 0 ? ` Refresh #${seed} — do NOT repeat any question already shown today.` : ''}
 
 RULES:
 - Question 1 MUST be this exact question: "${baseQuestion}"
-- Question 2: draw on ONE of the 4 sources above — pick the most interesting thread. Options in priority order:
-  (a) Something specific from today's tasks or calendar events (e.g. "How did [thing] go?")
-  (b) A follow-up on a theme from a recent diary entry (e.g. referencing something she wrote about before)
-  (c) A warm personal question about Sidoi, health, relationships, energy, or what she's looking forward to
-- Each question must be 1–2 sentences. Warm, personal, never clinical.
-- Return ONLY valid JSON, no extra text: {"prompts":["question 1","question 2"]}`
+- Question 2: pick the most specific, interesting thread from today's tasks or calendar events (e.g. "How did [concrete thing] go?"). If no tasks/events, use a follow-up on a recent diary theme.
+- Question 3: draw from Brenda's personality — a personal dimension like health, relationships, Sidoi business, energy levels, something she's looking forward to, or a pattern from recent diary entries.
+- CRITICAL: Never generate "Anything else on your mind?" or any other generic catch-all question. Every question must be specific and personal.
+- Each question must be 1–2 sentences. Warm, conversational, never clinical.
+- Return ONLY valid JSON, no extra text: {"prompts":["question 1","question 2","question 3"]}`
+
+  const q2Fallback = BASE_QUESTIONS[(dayOfYear + seed + 1) % BASE_QUESTIONS.length]
+  const q3Fallback = BASE_QUESTIONS[(dayOfYear + seed + 2) % BASE_QUESTIONS.length]
 
   const key = process.env.GEMINI_API_KEY
   if (!key) {
-    return NextResponse.json({ prompts: [baseQuestion, 'Anything else on your mind today?'] })
+    return NextResponse.json({ prompts: [baseQuestion, q2Fallback, q3Fallback] })
   }
 
   try {
@@ -195,7 +197,7 @@ RULES:
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.85, maxOutputTokens: 256 },
+          generationConfig: { temperature: 0.85, maxOutputTokens: 400 },
         }),
       }
     )
@@ -204,10 +206,10 @@ RULES:
     const match = raw.match(/\{[\s\S]*\}/)
     if (!match) throw new Error('no JSON in response')
     const parsed = JSON.parse(match[0])
-    const prompts: string[] = Array.isArray(parsed.prompts) ? parsed.prompts.slice(0, 2) : []
-    if (prompts.length === 0) throw new Error('empty prompts')
+    const prompts: string[] = Array.isArray(parsed.prompts) ? parsed.prompts.slice(0, 3) : []
+    if (prompts.length < 3) throw new Error('not enough prompts')
     return NextResponse.json({ prompts })
   } catch {
-    return NextResponse.json({ prompts: [baseQuestion, 'Anything else on your mind today?'] })
+    return NextResponse.json({ prompts: [baseQuestion, q2Fallback, q3Fallback] })
   }
 }

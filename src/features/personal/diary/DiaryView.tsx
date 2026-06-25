@@ -411,12 +411,18 @@ export function DiaryView() {
           <button onClick={() => setPhase('home')} className="text-white/35 text-sm hover:text-white/60 transition-colors">←</button>
           <h2 className="text-lg font-semibold text-white">Diary</h2>
         </div>
-        <span className="text-[10px] px-2 py-0.5 rounded-full"
-          style={mode === 'prompt'
-            ? { backgroundColor: `${PINK}15`, color: PINK }
-            : { backgroundColor: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)' }}>
-          {mode === 'prompt' ? '✨ Prompt' : '📝 Free write'}
-        </span>
+        {mode === 'prompt' ? (
+          <button onClick={refreshPrompts} disabled={loadingPrompts}
+            className="text-[11px] font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-40"
+            style={{ backgroundColor: `${PINK}15`, border: `1px solid ${PINK}30`, color: PINK }}>
+            ↻ New questions
+          </button>
+        ) : (
+          <span className="text-[10px] px-2 py-0.5 rounded-full"
+            style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)' }}>
+            📝 Free write
+          </span>
+        )}
       </div>
 
       <span className="text-xs" style={{ color: `${PINK}70` }}>{dateLabel}</span>
@@ -440,24 +446,13 @@ export function DiaryView() {
       {/* Prompt mode */}
       {mode === 'prompt' && (
         <section className="space-y-4">
-          {/* Refresh button — always visible in prompt mode */}
-          <div className="flex justify-end mb-1">
-            <button onClick={refreshPrompts} disabled={loadingPrompts}
-              className="text-[11px] font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-40"
-              style={{
-                backgroundColor: `${PINK}15`,
-                border: `1px solid ${PINK}30`,
-                color: PINK,
-              }}>
-              ↻ New questions
-            </button>
-          </div>
-
           {loadingPrompts ? (
             <>
               <div className="h-4 rounded-md animate-pulse w-3/4" style={{ backgroundColor: `${PINK}18` }} />
               <div className="h-20 rounded-xl animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }} />
               <div className="h-4 rounded-md animate-pulse w-1/2" style={{ backgroundColor: `${PINK}18` }} />
+              <div className="h-20 rounded-xl animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }} />
+              <div className="h-4 rounded-md animate-pulse w-2/3" style={{ backgroundColor: `${PINK}18` }} />
               <div className="h-20 rounded-xl animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }} />
             </>
           ) : questions.map((q, i) => (
