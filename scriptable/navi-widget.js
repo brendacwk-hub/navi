@@ -65,7 +65,7 @@ var homeEmpty = homeItems.length === 0
 
 var widget = new ListWidget()
 widget.backgroundColor = new Color("#0c0c0c")
-widget.setPadding(14, 11, 7, 11)
+widget.setPadding(20, 11, 7, 11)
 widget.spacing = 4
 
 var dateStr = new Date().toLocaleDateString("en-HK", { weekday: "short", day: "numeric" })
