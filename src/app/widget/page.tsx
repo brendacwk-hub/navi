@@ -35,7 +35,7 @@ function filterDueTodayCycles(cycles: any[], today: Date) {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', margin: '6px 0 4px' }}>
+    <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', margin: '12px 0 6px' }}>
       {children}
     </p>
   )
@@ -48,13 +48,13 @@ function CycleRow({ cycle, accent }: { cycle: any; accent: string }) {
   const done  = items.filter((i: { status: string }) => i.status === 'done').length
   return (
     <div style={{
-      padding: '4px 8px', borderRadius: 8,
+      padding: '7px 10px', borderRadius: 10,
       background: 'rgba(255,255,255,0.04)',
       border: '1px solid rgba(255,255,255,0.07)',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         {(cycle.must || cycle.urgent) && (
-          <span style={{ fontSize: 7, color: cycle.must ? '#f87171' : '#fbbf24' }}>
+          <span style={{ fontSize: 8, color: cycle.must ? '#f87171' : '#fbbf24' }}>
             {cycle.must ? '●' : '◐'}
           </span>
         )}
@@ -62,13 +62,13 @@ function CycleRow({ cycle, accent }: { cycle: any; accent: string }) {
           {cycle.title}
         </span>
         {total > 0 && (
-          <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.3)', whiteSpace: 'nowrap' }}>
             {done}/{total}
           </span>
         )}
       </div>
       {total > 0 && (
-        <div style={{ marginTop: 3, height: 2, borderRadius: 2, background: 'rgba(255,255,255,0.08)' }}>
+        <div style={{ marginTop: 4, height: 2, borderRadius: 2, background: 'rgba(255,255,255,0.08)' }}>
           <div style={{ height: '100%', borderRadius: 2, width: `${total > 0 ? Math.round((done / total) * 100) : 0}%`, background: accent }} />
         </div>
       )}
@@ -80,13 +80,13 @@ function CycleRow({ cycle, accent }: { cycle: any; accent: string }) {
 function TaskRow({ task }: { task: any }) {
   return (
     <div style={{
-      padding: '4px 8px', borderRadius: 8,
+      padding: '7px 10px', borderRadius: 10,
       background: 'rgba(255,255,255,0.04)',
       border: '1px solid rgba(255,255,255,0.07)',
-      display: 'flex', alignItems: 'center', gap: 5,
+      display: 'flex', alignItems: 'center', gap: 6,
     }}>
       {(task.must || task.urgent) && (
-        <span style={{ fontSize: 7, color: task.must ? '#f87171' : '#fbbf24' }}>
+        <span style={{ fontSize: 8, color: task.must ? '#f87171' : '#fbbf24' }}>
           {task.must ? '●' : '◐'}
         </span>
       )}
@@ -160,7 +160,7 @@ export default async function WidgetPage() {
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '14px 16px 12px', flexShrink: 0,
+        padding: '10px 14px', flexShrink: 0,
         borderBottom: '1px solid rgba(255,255,255,0.06)',
         background: '#111',
       }}>
@@ -177,7 +177,7 @@ export default async function WidgetPage() {
           background: '#0e1628',
           borderRight: '1px solid rgba(255,255,255,0.06)',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6, flexWrap: 'nowrap', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8, flexWrap: 'nowrap', overflow: 'hidden' }}>
             <span style={{ fontSize: 11, flexShrink: 0 }}>🏠</span>
             <span style={{ fontSize: 11, fontWeight: 700, color: PINK, flexShrink: 0 }}>Home</span>
             <div style={{ display: 'flex', gap: 3, marginLeft: 2, flexShrink: 0 }}>
@@ -195,7 +195,7 @@ export default async function WidgetPage() {
           {personalDueTodayCycles.length > 0 && (
             <>
               <SectionTitle>Due Today</SectionTitle>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 {personalDueTodayCycles.slice(0, 4).map((c: { id: string }) => (
                   <CycleRow key={c.id} cycle={c} accent={PINK} />
                 ))}
@@ -206,7 +206,7 @@ export default async function WidgetPage() {
 
         {/* Work */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '10px 10px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6, flexWrap: 'nowrap', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8, flexWrap: 'nowrap', overflow: 'hidden' }}>
             <span style={{ fontSize: 11, flexShrink: 0 }}>💼</span>
             <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)', flexShrink: 0 }}>Work</span>
             <div style={{ display: 'flex', gap: 3, marginLeft: 2, flexShrink: 0 }}>
@@ -227,7 +227,7 @@ export default async function WidgetPage() {
             return (
               <>
                 <SectionTitle>Due Today</SectionTitle>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                   {cappedTasks.map((t: { id: string }) => (
                     <TaskRow key={t.id} task={t} />
                   ))}
