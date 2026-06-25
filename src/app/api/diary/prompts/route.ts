@@ -35,10 +35,11 @@ interface DayContext {
   workTasks: string[]
   workCycles: string[]
   personalCycles: string[]
+  pastDiary: { id: string; snippet: string }[]
 }
 
 async function fetchDayContext(date: string): Promise<DayContext> {
-  const ctx: DayContext = { gcal: [], workTasks: [], workCycles: [], personalCycles: [] }
+  const ctx: DayContext = { gcal: [], workTasks: [], workCycles: [], personalCycles: [], pastDiary: [] }
 
   await Promise.allSettled([
     // GCal events for the day
@@ -107,6 +108,22 @@ async function fetchDayContext(date: string): Promise<DayContext> {
           .slice(0, 5)
       } catch { /* ignore */ }
     })(),
+
+    // Past diary entries for continuity (last 6 before today)
+    (async () => {
+      try {
+        const { data } = await admin.from('diary_entries')
+          .select('id, mood, prompts, body')
+          .lt('id', date)
+          .order('id', { ascending: false })
+          .limit(6)
+        for (const row of (data ?? []) as { id: string; mood: string; prompts: { question: string; answer: string }[]; body: string }[]) {
+          const firstAnswer = row.prompts?.find(p => p.answer?.trim())?.answer ?? ''
+          const text = (firstAnswer || row.body || '').trim().replace(/\s+/g, ' ')
+          if (text) ctx.pastDiary.push({ id: row.id, snippet: text.slice(0, 220) })
+        }
+      } catch { /* ignore */ }
+    })(),
   ])
 
   return ctx
@@ -115,44 +132,54 @@ async function fetchDayContext(date: string): Promise<DayContext> {
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const date = searchParams.get('date') ?? new Date().toISOString().slice(0, 10)
+  const seed = parseInt(searchParams.get('seed') ?? '0', 10) || 0
 
-  // Rotating base question — one per day, full cycle before repeating
+  // Rotating base question — advances by day AND by refresh seed so "New questions" always differs
   const [y, m, d] = date.split('-').map(Number)
   const dayOfYear = Math.floor((Date.UTC(y, m - 1, d) - Date.UTC(y, 0, 0)) / 86_400_000)
-  const baseQuestion = BASE_QUESTIONS[dayOfYear % BASE_QUESTIONS.length]
+  const baseQuestion = BASE_QUESTIONS[(dayOfYear + seed) % BASE_QUESTIONS.length]
 
   const dayName = new Date(date + 'T12:00:00').toLocaleDateString('en-HK', { weekday: 'long' })
 
-  // Read personality notes
+  // Read personality notes (source 4)
   let personality = ''
   try {
     personality = fs.readFileSync(path.join(process.cwd(), 'personal', 'personality.md'), 'utf8')
     if (personality.length > 2000) personality = personality.slice(0, 2000) + '\n...'
   } catch { /* continue without */ }
 
-  // Fetch what happened today
+  // Fetch all context sources
   const ctx = await fetchDayContext(date)
   const allWork = [...ctx.workTasks, ...ctx.workCycles]
-  const contextLines = [
-    ctx.gcal.length     ? `Calendar events: ${ctx.gcal.join('; ')}`              : '',
-    allWork.length      ? `Work tasks/projects done: ${allWork.join('; ')}`       : '',
-    ctx.personalCycles.length ? `Personal tasks done: ${ctx.personalCycles.join('; ')}` : '',
-  ].filter(Boolean)
 
-  const contextSection = contextLines.length
-    ? `What Brenda did on ${date}:\n${contextLines.join('\n')}\n`
+  // Source 1: tasks completed today
+  const taskSection = [
+    allWork.length           ? `Work tasks/projects done: ${allWork.join('; ')}`              : '',
+    ctx.personalCycles.length ? `Personal tasks done: ${ctx.personalCycles.join('; ')}`       : '',
+  ].filter(Boolean).join('\n')
+
+  // Source 2: calendar events today
+  const calSection = ctx.gcal.length ? `Calendar events: ${ctx.gcal.join('; ')}` : ''
+
+  // Source 3: recent diary entries
+  const diarySection = ctx.pastDiary.length
+    ? `Recent diary entries (most recent first):\n${ctx.pastDiary.map(e => `${e.id}: ${e.snippet}`).join('\n')}`
     : ''
+
+  const todaySection = [taskSection, calSection].filter(Boolean).join('\n')
 
   const prompt = `You are a warm, encouraging diary assistant for Brenda.
 
-${personality ? `Context about Brenda:\n${personality}\n` : ''}${contextSection}
-Generate exactly 2 short diary prompt questions for ${dayName}, ${date}.
+${personality ? `About Brenda:\n${personality}\n` : ''}${diarySection ? `\n${diarySection}\n` : ''}${todaySection ? `\nWhat Brenda did on ${date} (${dayName}):\n${todaySection}\n` : ''}
+Generate exactly 2 short diary prompt questions for tonight's entry (${dayName}, ${date}).${seed > 0 ? ` This is refresh #${seed} — do NOT repeat any question from the base list that was already shown today.` : ''}
 
 RULES:
 - Question 1 MUST be this exact question: "${baseQuestion}"
-- Question 2: if today's events or completed tasks are listed above, pick one and ask about it specifically (e.g. "How did [thing] go?" or "What was the highlight of [event]?"). If nothing is listed, write a warm personal question rotating across topics (Sidoi, health, relationships, mood, what she's looking forward to).
-- Each question must be 1–2 sentences maximum
-- Tone: warm, personal, encouraging. Never clinical or corporate.
+- Question 2: draw on ONE of the 4 sources above — pick the most interesting thread. Options in priority order:
+  (a) Something specific from today's tasks or calendar events (e.g. "How did [thing] go?")
+  (b) A follow-up on a theme from a recent diary entry (e.g. referencing something she wrote about before)
+  (c) A warm personal question about Sidoi, health, relationships, energy, or what she's looking forward to
+- Each question must be 1–2 sentences. Warm, personal, never clinical.
 - Return ONLY valid JSON, no extra text: {"prompts":["question 1","question 2"]}`
 
   const key = process.env.GEMINI_API_KEY

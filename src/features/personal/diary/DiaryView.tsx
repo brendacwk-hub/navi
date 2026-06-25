@@ -59,6 +59,7 @@ export function DiaryView() {
   const [questions, setQuestions]     = useState<string[]>([])
   const [answers, setAnswers]         = useState<string[]>([])
   const [body, setBody]               = useState('')
+  const [refreshSeed, setRefreshSeed]     = useState(0)
   const [loadingPrompts, setLoadingPrompts] = useState(false)
   const [savedAt, setSavedAt]         = useState<string | null>(null)
   const [saving, setSaving]           = useState(false)
@@ -84,12 +85,12 @@ export function DiaryView() {
   }, [])
 
   // ── Fetch Gemini prompts ───────────────────────────────────────────────────
-  const fetchPrompts = useCallback(async () => {
+  const fetchPrompts = useCallback(async (seed = 0) => {
     if (promptsFetched.current) return
     promptsFetched.current = true
     setLoadingPrompts(true)
     try {
-      const res  = await fetch(`/api/diary/prompts?date=${today}`)
+      const res  = await fetch(`/api/diary/prompts?date=${today}&seed=${seed}`)
       const json = await res.json()
       if (Array.isArray(json.prompts) && json.prompts.length > 0) {
         setQuestions(json.prompts)
@@ -196,10 +197,12 @@ export function DiaryView() {
   }
 
   function refreshPrompts() {
+    const newSeed = refreshSeed + 1
+    setRefreshSeed(newSeed)
     promptsFetched.current = false
     setQuestions([])
     setAnswers([])
-    fetchPrompts()
+    fetchPrompts(newSeed)
   }
 
   // ── Google Docs sync ─────────────────────────────────────────────────────
@@ -438,7 +441,7 @@ export function DiaryView() {
       {mode === 'prompt' && (
         <section className="space-y-4">
           {/* Refresh button — always visible in prompt mode */}
-          <div className="flex justify-end -mb-1">
+          <div className="flex justify-end mb-1">
             <button onClick={refreshPrompts} disabled={loadingPrompts}
               className="text-[11px] font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-40"
               style={{
