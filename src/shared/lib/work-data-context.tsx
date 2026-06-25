@@ -474,7 +474,21 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleTodayTask = useCallback((taskId: string) => {
-    setTodayTasks(prev => { const next = patchTodayTask(prev, taskId, t => ({ ...t, done: !t.done })); syncToday(next); return next })
+    setTodayTasks(prev => {
+      const next = patchTodayTask(prev, taskId, t => {
+        if (!t.done) {
+          // Completing (false → true): log permanently for analytics
+          dbWrite({
+            table: 'task_completions',
+            operation: 'insert',
+            data: { task_id: t.id, title: t.label, area: t.area, effort: t.effort, must: t.must, urgent: t.urgent ?? false, mode: 'work' },
+          })
+        }
+        return { ...t, done: !t.done }
+      })
+      syncToday(next)
+      return next
+    })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const deleteTodayTask = useCallback((taskId: string) => {
