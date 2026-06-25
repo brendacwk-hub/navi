@@ -65,8 +65,8 @@ var homeEmpty = homeItems.length === 0
 
 var widget = new ListWidget()
 widget.backgroundColor = new Color("#0c0c0c")
-widget.setPadding(20, 11, 7, 11)
-widget.spacing = 4
+widget.setPadding(20, 14, 9, 14)
+widget.spacing = 6
 
 var dateStr = new Date().toLocaleDateString("en-HK", { weekday: "short", day: "numeric" })
 
@@ -124,7 +124,7 @@ function makeCol(parent, data, label, labelColor, bg, colW, showHabitRow) {
   col.backgroundColor = new Color(bg)
   col.cornerRadius = 8
   col.setPadding(6, 8, 6, 8)
-  col.spacing = 3
+  col.spacing = 2
 
   // Header: label + habits (only when showHabitRow is true)
   var hdr = col.addStack()
@@ -153,7 +153,7 @@ function makeCol(parent, data, label, labelColor, bg, colW, showHabitRow) {
     irow.layoutHorizontally()
     irow.backgroundColor = new Color(hex, 0.2)
     irow.cornerRadius = 5
-    irow.setPadding(5, 7, 5, 7)
+    irow.setPadding(3, 6, 3, 6)
     var itxt = irow.addText(item.title || item.label || "")
     itxt.font = Font.systemFont(12)
     itxt.textColor = new Color(hex)
