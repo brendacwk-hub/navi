@@ -1,7 +1,6 @@
-// v8 — self-updating, adaptive layout
+// v9 — confirmed layout design
 var SCRIPT_URL = "https://raw.githubusercontent.com/brendacwk-hub/navi/main/scriptable/navi-widget.js"
 
-// Auto-update when run manually in the Scriptable app
 if (!config.runsInWidget) {
   try {
     var fm = FileManager.iCloud()
@@ -31,10 +30,9 @@ async function get(mode) {
 var p = await get("personal")
 var w = await get("work")
 
-var dayStart = new Date()
-dayStart.setHours(0, 0, 0, 0)
-var dayEnd = new Date()
-dayEnd.setHours(23, 59, 59, 999)
+// ── Calendar events ────────────────────────────────────────────────────────
+var dayStart = new Date(); dayStart.setHours(0, 0, 0, 0)
+var dayEnd   = new Date(); dayEnd.setHours(23, 59, 59, 999)
 var calEvents = []
 try {
   var allCals = await Calendar.forEvents()
@@ -45,6 +43,13 @@ try {
     .sort(function(a, b) { return a.startDate.getTime() - b.startDate.getTime() })
 } catch(e) {}
 
+// Show next upcoming event; if all passed → last of the day
+var now = new Date()
+var upcoming = calEvents.filter(function(e) { return e.startDate >= now })
+var shownEvent = upcoming.length > 0 ? upcoming[0] : (calEvents.length > 0 ? calEvents[calEvents.length - 1] : null)
+var remainingCount = upcoming.length > 1 ? upcoming.length - 1 : 0
+
+// ── Data helpers ───────────────────────────────────────────────────────────
 var AREA = {
   finance: "#3b82f6", hr: "#22c55e", ops: "#eab308", others: "#ec4899",
   housework: "#fb7185", "personal-finance": "#22d3ee", sidoi: "#f9a8d4", tobuy: "#fcd34d"
@@ -58,11 +63,17 @@ function isDone(item) {
   return false
 }
 
-var homeUndone = (p.habits || []).filter(function(h) { return !h.complete })
-var homeItems = (p.tasks || []).filter(function(t) { return !isDone(t) })
+var homeItems  = (p.tasks || []).filter(function(t) { return !isDone(t) })
   .concat((p.cycles || []).filter(function(c) { return !isDone(c) }))
-var homeEmpty = homeItems.length === 0
+var homeUndone = (p.habits || []).filter(function(h) { return !h.complete })
+var homeEmpty  = homeItems.length === 0
 
+var workItems  = (w.tasks || []).filter(function(t) { return !isDone(t) })
+  .concat((w.cycles || []).filter(function(c) { return !isDone(c) }))
+var workUndone = (w.habits || []).filter(function(h) { return !h.complete })
+var workEmpty  = workItems.length === 0
+
+// ── Widget shell ───────────────────────────────────────────────────────────
 var widget = new ListWidget()
 widget.backgroundColor = new Color("#0c0c0c")
 widget.setPadding(20, 14, 9, 14)
@@ -70,100 +81,147 @@ widget.spacing = 6
 
 var dateStr = new Date().toLocaleDateString("en-HK", { weekday: "short", day: "numeric" })
 
-// Top row: event (left) + date (right) — always shown when events exist
-if (calEvents.length > 0) {
-  var topRow = widget.addStack()
-  topRow.layoutHorizontally()
-  topRow.spacing = 5
-  var ev = calEvents[0]
-  var tStr = ev.startDate.toLocaleTimeString("en-HK", { hour: "numeric", minute: "2-digit", hour12: false })
-  var extra = calEvents.length > 1 ? " +" + (calEvents.length - 1) : ""
-  var evTxt = topRow.addText(ev.title + extra + "  " + tStr)
+// ── Top row ────────────────────────────────────────────────────────────────
+var topRow = widget.addStack()
+topRow.layoutHorizontally()
+topRow.spacing = 0
+
+if (shownEvent) {
+  // Indent 8px extra so event aligns with column content (widget pad 14 + col pad 8 = 22px total)
+  topRow.setPadding(0, 8, 0, 0)
+
+  // Coloured bar using calendar colour
+  var barStack = topRow.addStack()
+  barStack.size = new Size(3, 14)
+  barStack.cornerRadius = 1.5
+  try { barStack.backgroundColor = shownEvent.calendar.color }
+  catch(e) { barStack.backgroundColor = new Color("#4285f4") }
+
+  topRow.addSpacer(5)
+
+  // Event title + optional count
+  var evTitle = shownEvent.title
+  if (remainingCount > 0) evTitle += " +" + remainingCount
+  var evTxt = topRow.addText(evTitle)
   evTxt.font = Font.systemFont(11)
-  evTxt.textColor = new Color("#ffffff", 0.55)
+  evTxt.textColor = new Color("#FFD28C", 0.82)
   evTxt.lineLimit = 1
+
+  topRow.addSpacer(6)
+
+  // Time
+  var tStr = shownEvent.startDate.toLocaleTimeString("en-HK", { hour: "numeric", minute: "2-digit", hour12: false })
+  var timeTxt = topRow.addText(tStr)
+  timeTxt.font = Font.systemFont(10)
+  timeTxt.textColor = new Color("#FFD28C", 0.42)
+
+  topRow.addSpacer()
+
+  var dTxt = topRow.addText(dateStr)
+  dTxt.font = Font.boldSystemFont(11)
+  dTxt.textColor = new Color("#ffffff", 0.62)
+} else {
+  // No event — date top-right only
   topRow.addSpacer()
   var dTxt = topRow.addText(dateStr)
   dTxt.font = Font.boldSystemFont(11)
-  dTxt.textColor = new Color("#ffffff", 0.65)
+  dTxt.textColor = new Color("#ffffff", 0.62)
 }
 
-// Column layout
-var scrW = Device.screenSize().width
-var colsGap = 7
-var padH = 22  // left+right padding
-var totalW = Math.floor(scrW * 0.88 - padH)
+// ── S6: nothing at all ─────────────────────────────────────────────────────
+if (homeEmpty && workEmpty) {
+  widget.addSpacer()
 
-var cols = widget.addStack()
-cols.layoutHorizontally()
-cols.spacing = colsGap
+  var emojiRow = widget.addStack()
+  emojiRow.layoutHorizontally()
+  emojiRow.addSpacer()
+  var emojis = emojiRow.addText("🌸  🐻  🌼")
+  emojis.font = Font.systemFont(20)
+  emojiRow.addSpacer()
 
-function makeCol(parent, data, label, labelColor, bg, colW, showHabitRow, extraHabits) {
-  var habits = data.habits || []
-  var undone = habits.filter(function(h) { return !h.complete })
-  if (extraHabits) undone = undone.concat(extraHabits)
-  var tasks = (data.tasks || []).filter(function(t) { return !isDone(t) })
-  var cycles = (data.cycles || []).filter(function(c) { return !isDone(c) })
-  var items = tasks.concat(cycles)
+  widget.addSpacer(5)
 
-  var col = parent.addStack()
-  col.layoutVertically()
-  col.size = new Size(colW, 0)
-  col.backgroundColor = new Color(bg)
-  col.cornerRadius = 8
-  col.setPadding(6, 8, 6, 8)
-  col.spacing = 2
+  var msgRow = widget.addStack()
+  msgRow.layoutHorizontally()
+  msgRow.addSpacer()
+  var msg = msgRow.addText("Nothing due today — enjoy your day")
+  msg.font = Font.systemFont(10)
+  msg.textColor = new Color("#ffffff", 0.28)
+  msgRow.addSpacer()
 
-  // Header: label + habits (only when showHabitRow is true)
-  var hdr = col.addStack()
-  hdr.layoutHorizontally()
-  hdr.spacing = 4
+  widget.addSpacer()
+} else {
+  // ── Columns ──────────────────────────────────────────────────────────────
+  var scrW   = Device.screenSize().width
+  var GAP    = 7
+  var PAD_H  = 22
+  var totalW = Math.floor(scrW * 0.88 - PAD_H)
 
-  var lbl = hdr.addText(label)
-  lbl.font = Font.boldSystemFont(10)
-  lbl.textColor = new Color(labelColor)
+  var cols = widget.addStack()
+  cols.layoutHorizontally()
+  cols.spacing = GAP
 
-  if (showHabitRow && undone.length > 0) {
-    hdr.addSpacer()
-    var habitSlice = undone.slice(0, 3)
-    for (var i = 0; i < habitSlice.length; i++) {
-      var et = hdr.addText(habitSlice[i].emoji)
-      et.font = Font.systemFont(13)
+  function makeCol(parent, data, label, labelColor, bg, colW, extraHabits) {
+    var habits = data.habits || []
+    var undone = habits.filter(function(h) { return !h.complete })
+    if (extraHabits) undone = undone.concat(extraHabits)
+    var items  = (data.tasks || []).filter(function(t) { return !isDone(t) })
+      .concat((data.cycles || []).filter(function(c) { return !isDone(c) }))
+
+    var col = parent.addStack()
+    col.layoutVertically()
+    col.size = new Size(colW, 0)
+    col.backgroundColor = new Color(bg)
+    col.cornerRadius = 8
+    col.setPadding(6, 8, 6, 8)
+    col.spacing = 2
+
+    // Header
+    var hdr = col.addStack()
+    hdr.layoutHorizontally()
+    hdr.spacing = 4
+    var lbl = hdr.addText(label)
+    lbl.font = Font.boldSystemFont(10)
+    lbl.textColor = new Color(labelColor)
+    if (undone.length > 0) {
+      hdr.addSpacer()
+      var slice = undone.slice(0, 3)
+      for (var i = 0; i < slice.length; i++) {
+        var et = hdr.addText(slice[i].emoji)
+        et.font = Font.systemFont(13)
+      }
+    }
+
+    // Task rows
+    var capped = items.slice(0, 4)
+    for (var j = 0; j < capped.length; j++) {
+      var item = capped[j]
+      var hex  = AREA[(item.area || "").toLowerCase()] || "#888888"
+      var irow = col.addStack()
+      irow.layoutHorizontally()
+      irow.backgroundColor = new Color(hex, 0.2)
+      irow.cornerRadius = 5
+      irow.setPadding(3, 6, 3, 6)
+      var itxt = irow.addText(item.title || item.label || "")
+      itxt.font = Font.systemFont(12)
+      itxt.textColor = new Color(hex)
+      itxt.lineLimit = 2
     }
   }
 
-  var cappedItems = items.slice(0, 4)
-  for (var j = 0; j < cappedItems.length; j++) {
-    var item = cappedItems[j]
-    var areaKey = (item.area || "").toLowerCase()
-    var hex = AREA[areaKey] || "#888888"
-    var irow = col.addStack()
-    irow.layoutHorizontally()
-    irow.backgroundColor = new Color(hex, 0.2)
-    irow.cornerRadius = 5
-    irow.setPadding(3, 6, 3, 6)
-    var itxt = irow.addText(item.title || item.label || "")
-    itxt.font = Font.systemFont(12)
-    itxt.textColor = new Color(hex)
-    itxt.lineLimit = 2
+  if (homeEmpty) {
+    // S1 / S2: Work full-width, personal habits in Work header
+    makeCol(cols, w, "Work", "#ffffff", "#111111", totalW, homeUndone)
+  } else if (workEmpty) {
+    // S4 / S5: Home full-width, work habits in Home header
+    makeCol(cols, p, "Home", "#f0a8c8", "#0e1628", totalW, workUndone)
+  } else {
+    // S3: equal split, each column shows its own habits
+    var hw = Math.floor((totalW - GAP) / 2)
+    var ww = totalW - hw - GAP
+    makeCol(cols, p, "Home", "#f0a8c8", "#0e1628", hw, null)
+    makeCol(cols, w, "Work", "#ffffff", "#111111", ww, null)
   }
-
-  if (items.length === 0) {
-    var cl = col.addText("All clear")
-    cl.font = Font.systemFont(12)
-    cl.textColor = new Color("#ffffff", 0.2)
-  }
-}
-
-if (homeEmpty) {
-  // Home has no tasks: Work takes full width; personal habits shown in Work header
-  makeCol(cols, w, "Work", "#ffffff", "#111111", totalW, true, homeUndone)
-} else {
-  // Both have content: equal split
-  var hw = Math.floor((totalW - colsGap) / 2)
-  var ww = totalW - hw - colsGap
-  makeCol(cols, p, "Home", "#f0a8c8", "#0e1628", hw, true)
-  makeCol(cols, w, "Work", "#ffffff", "#111111", ww, true)
 }
 
 Script.setWidget(widget)
