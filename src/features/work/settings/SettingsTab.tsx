@@ -16,18 +16,24 @@ interface CompletedTask {
   id: string
   title: string
   area: string
+  mode: 'work' | 'personal'
   effort: string
   sub_area: string | null
   items: unknown
   completed_at: string
   notes: string | null
+  type: 'cycle' | 'task'
 }
 
 const AREA_BADGE: Record<string, string> = {
-  finance: 'bg-finance/15 text-finance border-finance/25',
-  hr:      'bg-hr/15 text-hr border-hr/25',
-  ops:     'bg-ops/15 text-ops border-ops/25',
-  others:  'bg-others/15 text-others border-others/25',
+  finance:          'bg-finance/15 text-finance border-finance/25',
+  hr:               'bg-hr/15 text-hr border-hr/25',
+  ops:              'bg-ops/15 text-ops border-ops/25',
+  others:           'bg-others/15 text-others border-others/25',
+  housework:        'bg-[#fb7185]/15 text-[#fb7185] border-[#fb7185]/25',
+  'personal-finance': 'bg-[#22d3ee]/15 text-[#22d3ee] border-[#22d3ee]/25',
+  sidoi:            'bg-[#f9a8d4]/15 text-[#f9a8d4] border-[#f9a8d4]/25',
+  tobuy:            'bg-[#fcd34d]/15 text-[#fcd34d] border-[#fcd34d]/25',
 }
 
 interface ConnectionState {
@@ -86,31 +92,49 @@ export function SettingsTab() {
   const loadArchive = useCallback(async () => {
     setArchiveLoading(true)
     try {
-      const res  = await fetch('/api/db?table=cycles')
-      const json = await res.json()
-      if (!res.ok || json.error) { setArchive([]); return }
+      const [workCyclesRes, personalCyclesRes, tasksRes] = await Promise.all([
+        fetch('/api/db?table=cycles&eqCol=status&eqVal=complete'),
+        fetch('/api/db?table=completed_tasks'),
+        fetch('/api/db?table=task_completions'),
+      ])
+      const [workCyclesJson, personalCyclesJson, tasksJson] = await Promise.all([
+        workCyclesRes.json(), personalCyclesRes.json(), tasksRes.json(),
+      ])
 
+      const completed: CompletedTask[] = []
+
+      // Work cycles (status='complete' in cycles table)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      function leafDone(i: any): boolean {
-        if (Array.isArray(i.subItems) && i.subItems.length > 0) return i.subItems.every(leafDone)
-        return i.status === 'done'
+      for (const c of ((workCyclesJson.data ?? []) as any[])) {
+        if (!c.last_completed_at) continue
+        completed.push({
+          id: c.id, title: c.title, area: c.area ?? 'others', mode: 'work',
+          effort: c.effort ?? '', sub_area: c.sub_area ?? null, items: c.items ?? null,
+          completed_at: c.last_completed_at, notes: c.notes ?? null, type: 'cycle',
+        })
       }
 
+      // Personal cycles (completed_tasks table — deleted from cycles on completion)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const completed: CompletedTask[] = (json.data ?? []).filter((c: any) => {
-        if ((c.trigger_label as string | null)?.startsWith('every ')) return false
-        if (Array.isArray(c.items)  && c.items.length  > 0 && c.items.every(leafDone)) return true
-        if (Array.isArray(c.phases) && c.phases.length > 0 &&
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          c.phases.every((p: any) => Array.isArray(p.items) && p.items.length > 0 && p.items.every(leafDone))) return true
-        return false
+      for (const c of ((personalCyclesJson.data ?? []) as any[])) {
+        completed.push({
+          id: c.id, title: c.title, area: c.area ?? 'housework', mode: 'personal',
+          effort: c.effort ?? '', sub_area: c.sub_area ?? null, items: c.items ?? null,
+          completed_at: c.completed_at ?? c.created_at, notes: c.notes ?? null, type: 'cycle',
+        })
+      }
+
+      // Individual task completions (work + personal)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      }).map((c: any) => ({
-        id: c.id, title: c.title, area: c.area, effort: c.effort ?? '',
-        sub_area: c.sub_area ?? null, items: c.items ?? null,
-        completed_at: c.last_completed_at ?? c.created_at ?? new Date().toISOString(),
-        notes: c.notes ?? null,
-      }))
+      for (const t of ((tasksJson.data ?? []) as any[])) {
+        completed.push({
+          id: `tc-${t.id ?? t.task_id ?? t.title}-${t.completed_at}`,
+          title: t.title, area: t.area ?? 'others',
+          mode: (t.mode as 'work' | 'personal') ?? 'work',
+          effort: t.effort ?? '', sub_area: null, items: null,
+          completed_at: t.completed_at, notes: null, type: 'task',
+        })
+      }
 
       completed.sort((a, b) => b.completed_at.localeCompare(a.completed_at))
       setArchive(completed)
@@ -120,6 +144,7 @@ export function SettingsTab() {
   }, [])
 
   async function reopenTask(task: CompletedTask) {
+    if (task.type !== 'cycle' || task.mode !== 'work') return
     setReopening(task.id)
     try {
       const resetItems = resetItemStatuses(task.items)
@@ -455,7 +480,7 @@ export function SettingsTab() {
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/6">
           <div>
             <h3 className="text-sm font-semibold text-white">Completed Tasks</h3>
-            <p className="text-[11px] text-white/35 mt-0.5">Cycles with all items checked off</p>
+            <p className="text-[11px] text-white/35 mt-0.5">All finished cycles & tasks — work and personal</p>
           </div>
           <button onClick={loadArchive} disabled={archiveLoading} className="text-white/25 hover:text-white/55 transition-colors disabled:opacity-40">
             {archiveLoading
@@ -473,28 +498,33 @@ export function SettingsTab() {
             <div className="space-y-1 max-h-80 overflow-y-auto pr-1">
               {archive.map(task => (
                 <div key={task.id} className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium flex-shrink-0 capitalize ${AREA_BADGE[task.area] ?? AREA_BADGE.finance}`}>
-                    {task.area === 'hr' ? 'HR' : task.area}
+                  <span className="text-[9px] text-white/20 flex-shrink-0 w-3">
+                    {task.mode === 'personal' ? '🏠' : '💼'}
+                  </span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium flex-shrink-0 capitalize ${AREA_BADGE[task.area] ?? AREA_BADGE.others}`}>
+                    {task.area === 'hr' ? 'HR' : task.area === 'personal-finance' ? 'Finance' : task.area}
                   </span>
                   <span className="flex-1 text-xs text-white/70 truncate">{task.title}</span>
                   <span className="text-[10px] text-white/25 flex-shrink-0">
                     {new Date(task.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                   </span>
-                  <button
-                    onClick={() => reopenTask(task)}
-                    disabled={reopening === task.id}
-                    className="flex-shrink-0 flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-white/10 text-white/35 hover:text-navi-blue hover:border-navi-blue/30 transition-all disabled:opacity-40"
-                  >
-                    {reopening === task.id
-                      ? <Loader2 className="w-3 h-3 animate-spin" />
-                      : <RotateCcw className="w-3 h-3" />}
-                    Reopen
-                  </button>
+                  {task.type === 'cycle' && task.mode === 'work' && (
+                    <button
+                      onClick={() => reopenTask(task)}
+                      disabled={reopening === task.id}
+                      className="flex-shrink-0 flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-white/10 text-white/35 hover:text-navi-blue hover:border-navi-blue/30 transition-all disabled:opacity-40"
+                    >
+                      {reopening === task.id
+                        ? <Loader2 className="w-3 h-3 animate-spin" />
+                        : <RotateCcw className="w-3 h-3" />}
+                      Reopen
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-xs text-white/25 py-2">No completed tasks yet. Check off all items in a cycle for it to appear here.</p>
+            <p className="text-xs text-white/25 py-2">Nothing completed yet.</p>
           )}
         </div>
       </section>

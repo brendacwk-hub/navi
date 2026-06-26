@@ -497,6 +497,15 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-59 · Unstarted recurring cycles appearing via sticky logic on every non-trigger day
+
+**Symptom:** `bank-statements-monthly` ("Every 2nd of month") appeared in Today on June 26 even though no items had ever been started (0/3 items done). It should only appear on the 2nd.
+**Root cause:** The sticky-visibility check in `TodayView.tsx` (`isStickyActive`) activates when `hasTriggerFiredThisPeriod` returns true — for "Every 2nd", that means `dom >= 2`, which is true from June 2 onwards. There was no guard to prevent unstarted cycles from being shown via sticky; the logic was originally designed for in-progress cycles that need to stay visible after their trigger day.
+**Fix:** Added `hasStarted = allItems.some(i => i.status === 'done')` in the `cyclesToday` filter before the sticky check. `isStickyActive` now requires `must && isRecurring && !nextDueAt && hasStarted && hasTriggerFiredThisPeriod`. Unstarted cycles only appear on their exact trigger day via `isTriggerDueToday`; sticky only activates once the user has touched at least one item.
+**Lesson:** Sticky "stay visible" logic is only meaningful for in-progress work. An unstarted recurring cycle should appear exactly once on its trigger day and then disappear until the user acts on it. Always gate sticky/carry-over behavior on `hasStarted` — otherwise cycles with past trigger dates become permanently visible background noise.
+
+---
+
 ## How to use this doc
 
 **MANDATORY RULE:** Every bug fixed must be logged here. This is a build record, not optional cleanup.

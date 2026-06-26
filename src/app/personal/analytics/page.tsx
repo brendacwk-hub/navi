@@ -11,13 +11,13 @@ const admin = createClient(
 )
 
 export default async function PersonalAnalyticsPage() {
-  const yearAgoISO = new Date(Date.now() + 8 * 60 * 60 * 1000 - 365 * 86400 * 1000).toISOString()
-
-  const [completedCyclesRes, openCyclesRes, workHabitDefs, personalHabitDefs, habitLogsRes, diaryRes, taskCompletionsRes] = await Promise.all([
+  const [completedCyclesRes, personalCompletedRes, openCyclesRes, workHabitDefs, personalHabitDefs, habitLogsRes, diaryRes, taskCompletionsRes] = await Promise.all([
     admin.from('cycles')
       .select('id,title,area,mode,trigger_label,created_at,last_completed_at,effort,must,urgent,items')
       .eq('status', 'complete')
       .not('last_completed_at', 'is', null),
+    admin.from('completed_tasks')
+      .select('id,title,area,effort,completed_at'),
     admin.from('cycles')
       .select('id,title,area,mode,trigger_label,created_at,effort,must,urgent')
       .neq('status', 'complete'),
@@ -27,7 +27,6 @@ export default async function PersonalAnalyticsPage() {
     admin.from('diary_entries').select('id,mood').order('id', { ascending: false }).limit(400),
     admin.from('task_completions')
       .select('title,area,effort,must,urgent,mode,completed_at')
-      .gte('completed_at', yearAgoISO)
       .order('completed_at', { ascending: false }),
   ])
 
@@ -38,15 +37,26 @@ export default async function PersonalAnalyticsPage() {
     items: { status: string }[] | null
   }
 
-  const cycles: CompletedCycle[] = ((completedCyclesRes.data ?? []) as CycleRow[]).map(r => ({
-    id: r.id, title: r.title, area: r.area,
-    mode: (r.mode as 'work' | 'personal') ?? 'work',
-    triggerLabel: r.trigger_label,
-    createdAt: r.created_at, lastCompletedAt: r.last_completed_at,
+  type PersonalCompRow = { id: string; title: string; area: string; effort: string; completed_at: string }
+  const personalCompleted: CompletedCycle[] = ((personalCompletedRes.data ?? []) as PersonalCompRow[]).map(r => ({
+    id: r.id, title: r.title, area: r.area, mode: 'personal' as const,
+    triggerLabel: null, createdAt: r.completed_at, lastCompletedAt: r.completed_at,
     effort: (r.effort as 'quick' | 'medium' | 'heavy') ?? 'quick',
-    must: r.must ?? false, urgent: r.urgent ?? false,
-    items: r.items ?? null,
+    must: false, urgent: false, items: null,
   }))
+
+  const cycles: CompletedCycle[] = [
+    ...((completedCyclesRes.data ?? []) as CycleRow[]).map(r => ({
+      id: r.id, title: r.title, area: r.area,
+      mode: (r.mode as 'work' | 'personal') ?? 'work',
+      triggerLabel: r.trigger_label,
+      createdAt: r.created_at, lastCompletedAt: r.last_completed_at,
+      effort: (r.effort as 'quick' | 'medium' | 'heavy') ?? 'quick',
+      must: r.must ?? false, urgent: r.urgent ?? false,
+      items: r.items ?? null,
+    })),
+    ...personalCompleted,
+  ]
 
   type OpenCycleRow = {
     id: string; title: string; area: string; mode: string
