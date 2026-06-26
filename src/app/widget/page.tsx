@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
+import { google } from 'googleapis'
 import { isTriggerDueToday } from '@/shared/lib/sort-utils'
+import { getAuthClient, getStoredAuth } from '@/shared/lib/google-auth'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Navi Widget' }
@@ -28,6 +30,58 @@ function filterDueTodayCycles(cycles: any[], today: Date) {
     return isTriggerDueToday(c.trigger_label ?? undefined, today)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   }).sort((a: any, b: any) => (b.must ? 1 : 0) - (a.must ? 1 : 0) || (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0))
+}
+
+// ── GCal helpers ──────────────────────────────────────────────────────────────
+
+interface CalEvent {
+  id: string
+  title: string
+  start: string
+  allDay: boolean
+  color: string
+}
+
+async function fetchTodayEvents(today: string): Promise<CalEvent[]> {
+  try {
+    const client = await getAuthClient()
+    if (!client) return []
+    const row = await getStoredAuth()
+    const calendarIds: string[] = row?.selected_calendar_ids ?? []
+    if (calendarIds.length === 0) return []
+
+    const cal = google.calendar({ version: 'v3', auth: client })
+    const timeMin = `${today}T00:00:00+08:00`
+    const timeMax = `${today}T23:59:59+08:00`
+
+    const results = await Promise.all(
+      calendarIds.map(async calId => {
+        try {
+          const { data } = await cal.events.list({
+            calendarId: calId, timeMin, timeMax,
+            singleEvents: true, orderBy: 'startTime', maxResults: 20,
+          })
+          const calList = await cal.calendarList.get({ calendarId: calId }).catch(() => null)
+          const color = row?.calendar_colors?.[calId] ?? calList?.data.backgroundColor ?? '#4285f4'
+          return (data.items ?? []).map(e => ({
+            id: e.id ?? '',
+            title: e.summary ?? '(no title)',
+            start: e.start?.dateTime ?? e.start?.date ?? '',
+            allDay: !e.start?.dateTime,
+            color,
+          }))
+        } catch { return [] }
+      }),
+    )
+    return results.flat().sort((a, b) => a.start.localeCompare(b.start))
+  } catch { return [] }
+}
+
+function fmtEventTime(start: string, allDay: boolean): string {
+  if (allDay) return 'All day'
+  try {
+    return new Date(start).toLocaleTimeString('en-HK', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Hong_Kong' })
+  } catch { return '' }
 }
 
 // ── Sub-components (all server-rendered) ───────────────────────────────────────
@@ -76,6 +130,25 @@ function CycleRow({ cycle, accent }: { cycle: any; accent: string }) {
   )
 }
 
+function EventRow({ event }: { event: CalEvent }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 6,
+      padding: '5px 10px', borderRadius: 8,
+      background: 'rgba(255,255,255,0.04)',
+      border: '1px solid rgba(255,255,255,0.07)',
+    }}>
+      <span style={{ width: 3, height: 16, borderRadius: 2, background: event.color, flexShrink: 0 }} />
+      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.75)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {event.title}
+      </span>
+      <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }}>
+        {fmtEventTime(event.start, event.allDay)}
+      </span>
+    </div>
+  )
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function TaskRow({ task }: { task: any }) {
   return (
@@ -111,6 +184,7 @@ export default async function WidgetPage() {
     personalCyclesRes,
     workCyclesRes,
     workTasksRes,
+    calEvents,
   ] = await Promise.all([
     admin.from('habit_definitions').select('habits').eq('id', 'personal-singleton').single(),
     admin.from('habit_logs').select('logs').eq('id', `personal-${today}`).single(),
@@ -123,6 +197,7 @@ export default async function WidgetPage() {
       .select('id,title,area,trigger_label,status,next_due_at,items,must,urgent')
       .eq('mode', 'work').neq('status', 'complete'),
     admin.from('today_tasks').select('data').eq('id', 'singleton').single(),
+    fetchTodayEvents(today),
   ])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -167,6 +242,23 @@ export default async function WidgetPage() {
         <span style={{ fontWeight: 700, fontSize: 14, letterSpacing: '-0.02em' }}>Navi</span>
         <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{formatDate()}</span>
       </div>
+
+      {/* GCal Events strip */}
+      {calEvents.length > 0 && (
+        <div style={{
+          flexShrink: 0, padding: '8px 10px 6px',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+        }}>
+          <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: 5 }}>
+            Today&#39;s Events
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {calEvents.slice(0, 4).map(ev => (
+              <EventRow key={ev.id} event={ev} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Columns */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>

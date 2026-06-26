@@ -14,6 +14,7 @@ interface CalendarItem {
 
 interface CompletedTask {
   id: string
+  rawId?: string  // actual DB id for task_completions rows
   title: string
   area: string
   mode: 'work' | 'personal'
@@ -129,6 +130,7 @@ export function SettingsTab() {
       for (const t of ((tasksJson.data ?? []) as any[])) {
         completed.push({
           id: `tc-${t.id ?? t.task_id ?? t.title}-${t.completed_at}`,
+          rawId: t.id ?? undefined,
           title: t.title, area: t.area ?? 'others',
           mode: (t.mode as 'work' | 'personal') ?? 'work',
           effort: t.effort ?? '', sub_area: null, items: null,
@@ -144,25 +146,61 @@ export function SettingsTab() {
   }, [])
 
   async function reopenTask(task: CompletedTask) {
-    if (task.type !== 'cycle' || task.mode !== 'work') return
     setReopening(task.id)
     try {
-      const resetItems = resetItemStatuses(task.items)
-      await fetch('/api/db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          table: 'cycles', operation: 'upsert',
-          data: {
-            id: task.id, title: task.title, area: task.area, effort: task.effort,
-            must: false, urgent: false, status: 'active',
-            trigger_label: null, sub_area: task.sub_area ?? null,
-            items: resetItems, phases: null, notes: task.notes ?? null,
-            next_due_at: null, last_completed_at: null,
-            mode: 'work',
-          },
-        }),
-      })
+      if (task.type === 'task') {
+        // Delete the completion log entry; task had no persistent home to restore to
+        if (task.rawId) {
+          await fetch('/api/db', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ table: 'task_completions', operation: 'delete', matchId: task.rawId }),
+          })
+        }
+      } else if (task.mode === 'personal') {
+        // Re-insert into cycles + delete from completed_tasks
+        const resetItems = resetItemStatuses(task.items)
+        await Promise.all([
+          fetch('/api/db', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              table: 'cycles', operation: 'upsert',
+              data: {
+                id: task.id, title: task.title, area: task.area, effort: task.effort,
+                must: false, urgent: false, status: 'active',
+                trigger_label: null, sub_area: task.sub_area ?? null,
+                items: resetItems, notes: task.notes ?? null,
+                next_due_at: null, last_completed_at: null,
+                mode: 'personal',
+              },
+            }),
+          }),
+          fetch('/api/db', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ table: 'completed_tasks', operation: 'delete', matchId: task.id }),
+          }),
+        ])
+      } else {
+        // Work cycle: restore to active
+        const resetItems = resetItemStatuses(task.items)
+        await fetch('/api/db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            table: 'cycles', operation: 'upsert',
+            data: {
+              id: task.id, title: task.title, area: task.area, effort: task.effort,
+              must: false, urgent: false, status: 'active',
+              trigger_label: null, sub_area: task.sub_area ?? null,
+              items: resetItems, phases: null, notes: task.notes ?? null,
+              next_due_at: null, last_completed_at: null,
+              mode: 'work',
+            },
+          }),
+        })
+      }
       setArchive(prev => prev.filter(t => t.id !== task.id))
     } finally {
       setReopening(null)
@@ -508,18 +546,16 @@ export function SettingsTab() {
                   <span className="text-[10px] text-white/25 flex-shrink-0">
                     {new Date(task.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                   </span>
-                  {task.type === 'cycle' && task.mode === 'work' && (
-                    <button
-                      onClick={() => reopenTask(task)}
-                      disabled={reopening === task.id}
-                      className="flex-shrink-0 flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-white/10 text-white/35 hover:text-navi-blue hover:border-navi-blue/30 transition-all disabled:opacity-40"
-                    >
-                      {reopening === task.id
-                        ? <Loader2 className="w-3 h-3 animate-spin" />
-                        : <RotateCcw className="w-3 h-3" />}
-                      Reopen
-                    </button>
-                  )}
+                  <button
+                    onClick={() => reopenTask(task)}
+                    disabled={reopening === task.id}
+                    className="flex-shrink-0 flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-white/10 text-white/35 hover:text-navi-blue hover:border-navi-blue/30 transition-all disabled:opacity-40"
+                  >
+                    {reopening === task.id
+                      ? <Loader2 className="w-3 h-3 animate-spin" />
+                      : <RotateCcw className="w-3 h-3" />}
+                    Reopen
+                  </button>
                 </div>
               ))}
             </div>
