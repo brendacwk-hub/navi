@@ -506,6 +506,15 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-60 · Scriptable widget: personal habits hijacking top row, hiding calendar events
+
+**Symptom:** When home had no tasks but had uncompleted personal habits, the top row showed "Home 🏃📚🍎" instead of the calendar event. Events were invisible despite existing in the iOS calendar.
+**Root cause:** The top-row condition was `if (homeEmpty && homeUndone.length > 0) { show habits }` — this branch had priority over the `else if (calEvents.length > 0)` event branch. So events were silently dropped whenever home was empty with pending habits.
+**Fix:** Complete rewrite of widget layout logic (v9). Events now always occupy the top row when they exist. Personal habits move into the Work column header when the Home column is hidden (homeEmpty). Symmetric logic added for workEmpty (Home full-width, work habits in Home header). Also added: smart event selection (next upcoming / last of day), amber colour for event text, coloured bar from `shownEvent.calendar.color`, and S6 centred emoji screen.
+**Lesson:** Top-row slot must follow a strict priority: event > habits. Never let a secondary indicator (habits) silently displace the primary one (events). Layout decisions for all edge cases should be drawn and confirmed before coding.
+
+---
+
 ## How to use this doc
 
 **MANDATORY RULE:** Every bug fixed must be logged here. This is a build record, not optional cleanup.

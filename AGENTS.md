@@ -17,7 +17,7 @@ Format:
 **Lesson:** what to never repeat
 ```
 
-Number sequentially from the last entry. The current highest is B-59.
+Number sequentially from the last entry. The current highest is B-60.
 Before building any feature that touches an existing area, re-read the relevant BUGS.md entries first.
 
 ---
