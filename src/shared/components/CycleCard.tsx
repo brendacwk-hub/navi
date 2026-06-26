@@ -249,7 +249,7 @@ export function CycleCard({ cycle, filter = 'All' }: Props) {
 
   return (
     <div
-      className={`rounded-xl border overflow-hidden transition-all group/card ${personalColor ? '' : `${style.border} ${style.bg}`}`}
+      className={`rounded-xl border [overflow:clip] transition-all group/card ${personalColor ? '' : `${style.border} ${style.bg}`}`}
       style={personalColor ? { borderColor: personalColor + '40', backgroundColor: personalColor + '0d' } : {}}
     >
       {/* Header */}

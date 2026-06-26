@@ -141,7 +141,7 @@ export function PersonalQuickAddButton() {
           <div className="absolute bottom-0 left-0 right-0 flex justify-center px-4 pb-6">
             <div className="w-full max-w-lg">
               <div
-                className="w-full bg-[#1e1e1e] border border-white/12 rounded-2xl shadow-2xl overflow-hidden"
+                className="w-full bg-[#1e1e1e] border border-white/12 rounded-2xl shadow-2xl [overflow:clip]"
                 onClick={e => e.stopPropagation()}
               >
                 {/* Type tabs + close */}
