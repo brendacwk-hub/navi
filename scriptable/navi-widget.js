@@ -70,67 +70,22 @@ widget.spacing = 6
 
 var dateStr = new Date().toLocaleDateString("en-HK", { weekday: "short", day: "numeric" })
 
-// Top row: if home is empty, show home habit emojis left + date right
-//          if home has tasks and event exists, show event left + date right
-//          if home has tasks and no event, just date right
-// Top row: habits (if home has no tasks) + date
-var topRow = widget.addStack()
-topRow.layoutHorizontally()
-topRow.spacing = 5
-
-if (homeEmpty && homeUndone.length > 0) {
-  var homeTag = topRow.addText("Home")
-  homeTag.font = Font.systemFont(11)
-  homeTag.textColor = new Color("#f0a8c8", 0.6)
-  topRow.addSpacer(3)
-  var topHabits = homeUndone.slice(0, 3)
-  for (var hi = 0; hi < topHabits.length; hi++) {
-    var he = topRow.addText(topHabits[hi].emoji)
-    he.font = Font.systemFont(13)
-  }
-}
-topRow.addSpacer()
-var dTxt = topRow.addText(dateStr)
-dTxt.font = Font.boldSystemFont(11)
-dTxt.textColor = new Color("#ffffff", 0.65)
-
-// Events row: always show if there are events today
+// Top row: event (left) + date (right) — always shown when events exist
 if (calEvents.length > 0) {
-  var evRow = widget.addStack()
-  evRow.layoutHorizontally()
-  evRow.spacing = 6
-  evRow.backgroundColor = new Color("#ffffff", 0.05)
-  evRow.cornerRadius = 6
-  evRow.setPadding(4, 8, 4, 8)
-  var showEvs = calEvents.slice(0, 2)
-  for (var ei = 0; ei < showEvs.length; ei++) {
-    var ev = showEvs[ei]
-    var tStr = ev.startDate.toLocaleTimeString("en-HK", { hour: "numeric", minute: "2-digit", hour12: true })
-    if (ei > 0) {
-      var sep = evRow.addText("·")
-      sep.font = Font.systemFont(10)
-      sep.textColor = new Color("#ffffff", 0.2)
-    }
-    var evStack = evRow.addStack()
-    evStack.layoutHorizontally()
-    evStack.spacing = 4
-    var evDot = evStack.addText("●")
-    evDot.font = Font.systemFont(7)
-    evDot.textColor = new Color("#" + (ev.calendar.color.hex || "4285f4"))
-    var evTxt = evStack.addText(ev.title)
-    evTxt.font = Font.systemFont(10)
-    evTxt.textColor = new Color("#ffffff", 0.6)
-    evTxt.lineLimit = 1
-    var evTime = evStack.addText(tStr)
-    evTime.font = Font.systemFont(9)
-    evTime.textColor = new Color("#ffffff", 0.3)
-  }
-  if (calEvents.length > 2) {
-    evRow.addSpacer()
-    var more = evRow.addText("+" + (calEvents.length - 2) + " more")
-    more.font = Font.systemFont(9)
-    more.textColor = new Color("#ffffff", 0.25)
-  }
+  var topRow = widget.addStack()
+  topRow.layoutHorizontally()
+  topRow.spacing = 5
+  var ev = calEvents[0]
+  var tStr = ev.startDate.toLocaleTimeString("en-HK", { hour: "numeric", minute: "2-digit", hour12: false })
+  var extra = calEvents.length > 1 ? " +" + (calEvents.length - 1) : ""
+  var evTxt = topRow.addText(ev.title + extra + "  " + tStr)
+  evTxt.font = Font.systemFont(11)
+  evTxt.textColor = new Color("#ffffff", 0.55)
+  evTxt.lineLimit = 1
+  topRow.addSpacer()
+  var dTxt = topRow.addText(dateStr)
+  dTxt.font = Font.boldSystemFont(11)
+  dTxt.textColor = new Color("#ffffff", 0.65)
 }
 
 // Column layout
@@ -143,9 +98,10 @@ var cols = widget.addStack()
 cols.layoutHorizontally()
 cols.spacing = colsGap
 
-function makeCol(parent, data, label, labelColor, bg, colW, showHabitRow) {
+function makeCol(parent, data, label, labelColor, bg, colW, showHabitRow, extraHabits) {
   var habits = data.habits || []
   var undone = habits.filter(function(h) { return !h.complete })
+  if (extraHabits) undone = undone.concat(extraHabits)
   var tasks = (data.tasks || []).filter(function(t) { return !isDone(t) })
   var cycles = (data.cycles || []).filter(function(c) { return !isDone(c) })
   var items = tasks.concat(cycles)
@@ -200,8 +156,8 @@ function makeCol(parent, data, label, labelColor, bg, colW, showHabitRow) {
 }
 
 if (homeEmpty) {
-  // Home has no tasks: Work takes full width
-  makeCol(cols, w, "Work", "#ffffff", "#111111", totalW, true)
+  // Home has no tasks: Work takes full width; personal habits shown in Work header
+  makeCol(cols, w, "Work", "#ffffff", "#111111", totalW, true, homeUndone)
 } else {
   // Both have content: equal split
   var hw = Math.floor((totalW - colsGap) / 2)
