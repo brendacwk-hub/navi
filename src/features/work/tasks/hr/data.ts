@@ -61,7 +61,6 @@ export const hrCycles: Cycle[] = [
             { id: 'p2b-8', label: 'GAHK (HKD)', status: 'todo' },
             { id: 'p2b-9', label: 'GAHK (USD)', status: 'todo' },
           ] },
-          { id: 'p2c', label: 'Fiat: GAHK Shacom', status: 'todo', effort: 'medium' },
           { id: 'p2d', label: 'Crypto: plan crypto settlement', status: 'todo', effort: 'medium' },
           { id: 'p2e', label: 'Arrange funds from sub-account to main account + records', status: 'todo', effort: 'medium' },
           { id: 'p2f', label: 'Crypto + MOD salaries settlement', status: 'todo', effort: 'medium' },
