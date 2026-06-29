@@ -50,7 +50,17 @@ export const hrCycles: Cycle[] = [
         status: 'upcoming',
         items: [
           { id: 'p2a', label: 'Send email to BCOM', status: 'todo', effort: 'quick' },
-          { id: 'p2b', label: 'Fiat: EV Tech BCOM, Apexco BCOM, DT HSBC, OA Airwallex, ADFL Zand', status: 'todo', effort: 'heavy' },
+          { id: 'p2b', label: 'Fiat: EV Tech BCOM, Apexco BCOM, DT HSBC, OA Airwallex, ADFL Zand', status: 'todo', effort: 'heavy', subItems: [
+            { id: 'p2b-1', label: 'EV Tech BCOM (HKD)', status: 'todo' },
+            { id: 'p2b-2', label: 'EV Tech BCOM (USD)', status: 'todo' },
+            { id: 'p2b-3', label: 'Apexco BCOM', status: 'todo' },
+            { id: 'p2b-4', label: 'DT HSBC', status: 'todo' },
+            { id: 'p2b-5', label: 'OA Airwallex', status: 'todo' },
+            { id: 'p2b-6', label: 'Duom bcom', status: 'todo' },
+            { id: 'p2b-7', label: 'ADFL Zand', status: 'todo' },
+            { id: 'p2b-8', label: 'GAHK (HKD)', status: 'todo' },
+            { id: 'p2b-9', label: 'GAHK (USD)', status: 'todo' },
+          ] },
           { id: 'p2c', label: 'Fiat: GAHK Shacom', status: 'todo', effort: 'medium' },
           { id: 'p2d', label: 'Crypto: plan crypto settlement', status: 'todo', effort: 'medium' },
           { id: 'p2e', label: 'Arrange funds from sub-account to main account + records', status: 'todo', effort: 'medium' },
