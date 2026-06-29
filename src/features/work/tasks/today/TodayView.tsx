@@ -7,7 +7,7 @@ import { useSearch } from '@/shared/lib/search-context'
 import { useWorkData } from '@/shared/lib/work-data-context'
 import { useInbox } from '@/shared/lib/inbox-context'
 import { useToast } from '@/shared/lib/toast-context'
-import { useHabits } from '@/shared/lib/habit-context'
+import { useHabits, getWeekDateKeys, getMonthDateKeys, type WorkHabit, type HabitLog } from '@/shared/lib/habit-context'
 import { useWeeklyReview } from '@/shared/lib/use-weekly-review'
 import { fuzzyMatch } from '@/shared/lib/search-utils'
 import { isTriggerDueToday, hasTriggerFiredThisPeriod, allCycleDone, isRecurring, computeSortDate } from '@/shared/lib/sort-utils'
@@ -356,14 +356,40 @@ function ComingUpSection({ cycles }: { cycles: Cycle[] }) {
 // Computed dynamically from actual Finance + HR recurring cycles
 
 
+function isScheduledToday(habit: WorkHabit, dow: number): boolean {
+  const f = habit.frequency
+  if (!f || f.type === 'daily')       return true
+  if (f.type === 'weekdays')          return dow >= 1 && dow <= 5
+  if (f.type === 'days')              return f.days.includes(dow)
+  if (f.type === 'times_per_week')    return true
+  if (f.type === 'times_per_month')   return true
+  return true
+}
+
+function getHabitCount(habit: WorkHabit, todayLogs: HabitLog, weekLogs: Record<string, HabitLog>, today: Date): { count: number; suffix: string } {
+  const f = habit.frequency
+  if (f?.type === 'times_per_week') {
+    const count = getWeekDateKeys(today).reduce((s, k) => s + (weekLogs[k]?.[habit.id] ?? 0), 0)
+    return { count, suffix: 'wk' }
+  }
+  if (f?.type === 'times_per_month') {
+    const count = getMonthDateKeys(today).reduce((s, k) => s + (weekLogs[k]?.[habit.id] ?? 0), 0)
+    return { count, suffix: 'mo' }
+  }
+  return { count: todayLogs[habit.id] ?? 0, suffix: '' }
+}
+
 // ── Main view ─────────────────────────────────────────────────────────────────
 function HabitStrip() {
-  const { habits, todayLogs, isWorkday, logHabit, unlogHabit } = useHabits()
-  if (!isWorkday || habits.length === 0) return null
+  const { habits, todayLogs, weekLogs, logHabit, unlogHabit } = useHabits()
+  const today = new Date()
+  const dow   = today.getDay()
+  const todayHabits = [...habits].filter(h => isScheduledToday(h, dow)).sort((a, b) => a.order - b.order)
+  if (todayHabits.length === 0) return null
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      {[...habits].sort((a, b) => a.order - b.order).map(habit => {
-        const count = todayLogs[habit.id] ?? 0
+      {todayHabits.map(habit => {
+        const { count, suffix } = getHabitCount(habit, todayLogs, weekLogs, today)
         const done = count >= habit.goal
         return (
           <div key={habit.id}
@@ -376,7 +402,7 @@ function HabitStrip() {
           >
             <span className="text-base leading-none">{habit.emoji}</span>
             <span className={`text-[11px] font-medium tabular-nums ${done ? 'text-green-400' : 'text-white/55'}`}>
-              {count}/{habit.goal}
+              {count}/{habit.goal}{suffix ? <span className="text-[9px] opacity-60 ml-0.5">{suffix}</span> : null}
             </span>
             <button
               onClick={e => { e.stopPropagation(); logHabit(habit.id) }}
