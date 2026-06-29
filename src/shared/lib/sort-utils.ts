@@ -126,7 +126,7 @@ export function computeSortDate(triggerLabel: string | undefined): number {
 export function resolveLabel(label: string): string {
   if (!label) return label
   const base = new Date(); base.setHours(0, 0, 0, 0)
-  const iso = (d: Date) => d.toISOString().slice(0, 10)
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   if (label === 'Today') return iso(base)
   if (label === 'Tomorrow') {
     const d = new Date(base); d.setDate(d.getDate() + 1); return iso(d)

@@ -513,6 +513,20 @@ A living document. Update after every fix session to avoid repeating the same mi
 **Fix:** Complete rewrite of widget layout logic (v9). Events now always occupy the top row when they exist. Personal habits move into the Work column header when the Home column is hidden (homeEmpty). Symmetric logic added for workEmpty (Home full-width, work habits in Home header). Also added: smart event selection (next upcoming / last of day), amber colour for event text, coloured bar from `shownEvent.calendar.color`, and S6 centred emoji screen.
 **Lesson:** Top-row slot must follow a strict priority: event > habits. Never let a secondary indicator (habits) silently displace the primary one (events). Layout decisions for all edge cases should be drawn and confirmed before coding.
 
+### B-61 · "Due Today" tasks showing "Overdue · 1d" after midnight
+
+**Symptom:** Tasks set as "Due Today" via any due-date preset displayed "Overdue · 1d" the next calendar day in the user's timezone (HKT, UTC+8).
+**Root cause:** `resolveLabel` in `sort-utils.ts` used `d.toISOString().slice(0, 10)` to build the stored ISO date. `toISOString()` always returns UTC. Since `base = new Date(); base.setHours(0,0,0,0)` sets local midnight, in HKT that is 16:00 UTC of the *previous* calendar day — so "Today" stored `2026-06-28` while the actual local date was `2026-06-29`. The next time `fmtTrigger` ran, `d < today` was true and `days = 1`.
+**Fix:** Changed `iso` helper in `resolveLabel` to use local date parts: `` `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` ``. All presets (Today, Tomorrow, In 2 Days, etc.) now store the correct local date.
+**Lesson:** `toISOString()` is always UTC. Any code that converts a local-time `Date` to a `YYYY-MM-DD` string for user-facing features must use `getFullYear()` / `getMonth()` / `getDate()` (local) — not `toISOString()`.
+
+### B-62 · Payroll Phase 2 p2b subItems not showing after static update
+
+**Symptom:** After adding `subItems` to item `p2b` in `hr/data.ts`, the payroll cycle still showed the flat item with no sub-tasks in the app.
+**Root cause:** Both merge sites in `work-data-context.tsx` (`loadFromSupabase` and `refreshData`) spread `...row` from the DB row first, then only overwrote `triggerLabel`, `effort`, `must`, `title`, `subArea`, `area`. The `phases` field was left as-is from the DB. The DB's stored phases JSON predated the `subItems` addition, so the new subItems on `p2b` were silently discarded every load.
+**Fix:** Added `mergePhases(staticPhases, dbPhases)` helper. Uses static phases as the structural template (items, subItems, labels, flags); overlays only `status` fields from the DB (phase status, item status, subItem status). Applied in both merge sites: `phases: s.phases ? mergePhases(s.phases, row.phases) : row.phases`.
+**Lesson:** DB owns *state* (statuses, completion timestamps); static code owns *structure* (which items/subItems exist, their labels). The merge must always apply structure from static and status from DB — not blindly prefer one source. Whenever items or subItems are added to a static cycle, the DB rows for existing cycles will lag behind until a merge-aware load is performed.
+
 ---
 
 ## How to use this doc

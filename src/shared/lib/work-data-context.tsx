@@ -63,6 +63,29 @@ function toRow(c: Cycle) {
   return row
 }
 
+// Merge static phase structure with DB phase statuses.
+// Static wins for structure (items, subItems, labels); DB wins for status fields only.
+function mergePhases(staticPhases: Cycle['phases'], dbPhases: Cycle['phases']): Cycle['phases'] {
+  if (!staticPhases) return dbPhases
+  if (!dbPhases) return staticPhases
+  const dbById = new Map(dbPhases.map(p => [p.id, p]))
+  return staticPhases.map(sp => {
+    const dbP = dbById.get(sp.id)
+    if (!dbP) return sp
+    const dbItemById = new Map(dbP.items.map(i => [i.id, i]))
+    const mergedItems = sp.items.map(si => {
+      const dbI = dbItemById.get(si.id)
+      if (!dbI) return si
+      const mergedSubs = si.subItems?.map(ss => {
+        const dbS = dbI.subItems?.find(ds => ds.id === ss.id)
+        return dbS ? { ...ss, status: dbS.status } : ss
+      })
+      return { ...si, status: dbI.status, ...(mergedSubs ? { subItems: mergedSubs } : {}) }
+    })
+    return { ...sp, status: dbP.status, items: mergedItems }
+  })
+}
+
 // Check and reset any cycles whose nextDueAt has passed
 function applyRecurrenceResets(cycles: Cycle[], onReset: (c: Cycle) => void): Cycle[] {
   const today = new Date().toISOString().slice(0, 10)
@@ -255,6 +278,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
               title:        s.title,
               subArea:      s.subArea,
               area:         s.area,
+              phases:       s.phases ? mergePhases(s.phases, row.phases) : row.phases,
             }
           }),
           ...toInsert,
@@ -331,7 +355,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
           if (!s) return row
           const dbTrigR = row.triggerLabel ?? ''
           const finalTrigR = s.triggerLabel || (/^\d{4}-\d{2}-\d{2}$/.test(dbTrigR) ? dbTrigR : '')
-          return { ...row, triggerLabel: finalTrigR, effort: s.effort, must: s.must, title: s.title, subArea: s.subArea, area: s.area }
+          return { ...row, triggerLabel: finalTrigR, effort: s.effort, must: s.must, title: s.title, subArea: s.subArea, area: s.area, phases: s.phases ? mergePhases(s.phases, row.phases) : row.phases }
         })
         const resetRefreshed = applyRecurrenceResets(hydrated, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
         const now2 = new Date()
