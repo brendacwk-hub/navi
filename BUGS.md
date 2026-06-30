@@ -527,6 +527,13 @@ A living document. Update after every fix session to avoid repeating the same mi
 **Fix:** Added `mergePhases(staticPhases, dbPhases)` helper. Uses static phases as the structural template (items, subItems, labels, flags); overlays only `status` fields from the DB (phase status, item status, subItem status). Applied in both merge sites: `phases: s.phases ? mergePhases(s.phases, row.phases) : row.phases`.
 **Lesson:** DB owns *state* (statuses, completion timestamps); static code owns *structure* (which items/subItems exist, their labels). The merge must always apply structure from static and status from DB — not blindly prefer one source. Whenever items or subItems are added to a static cycle, the DB rows for existing cycles will lag behind until a merge-aware load is performed.
 
+### B-63 · Completed cycles reappear on their tab after reopening the app
+
+**Symptom:** User marks a cycle as "Done ✓" (all items ticked, clicks Done). It disappears from the tab. On next app open, it reappears showing "Overdue · Xd".
+**Root cause:** `updateCycle` correctly removes the cycle from in-memory state and writes `status: 'complete'` to the DB. But both `loadFromSupabase` and `refreshData` read ALL cycles from DB (regardless of status) and set them back into `financeCycles`/`hrCycles`/etc. with no status filter. The `status: 'complete'` cycle was silently re-injected on every load.
+**Fix:** Added `const activeCycles = allCycles.filter(c => c.status !== 'complete')` before the four `setXxxCycles` calls in `loadFromSupabase`, and the same in `refreshData`. Completed cycles stay in the DB (for the Settings archive to read), but never enter the active cycle lists.
+**Lesson:** Whenever a "remove from state" operation writes a tombstone flag to DB (`status: 'complete'`), the load path must explicitly exclude that flag. Removing from in-memory state is not enough — the DB read on next load will undo it without a corresponding filter.
+
 ---
 
 ## How to use this doc

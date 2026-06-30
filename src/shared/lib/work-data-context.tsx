@@ -291,10 +291,11 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
           return activated
         })
 
-        setFinanceCycles(allCycles.filter(c => c.area === 'finance'))
-        setHrCycles(allCycles.filter(c => c.area === 'hr'))
-        setOpsCycles(allCycles.filter(c => c.area === 'ops'))
-        setOthersCycles(allCycles.filter(c => c.area === 'others'))
+        const activeCycles = allCycles.filter(c => c.status !== 'complete')
+        setFinanceCycles(activeCycles.filter(c => c.area === 'finance'))
+        setHrCycles(activeCycles.filter(c => c.area === 'hr'))
+        setOpsCycles(activeCycles.filter(c => c.area === 'ops'))
+        setOthersCycles(activeCycles.filter(c => c.area === 'others'))
       } else {
         // First ever load — seed the DB with initial data and show cycles immediately
         const initCycles = [...initFinance, ...initHr]
@@ -364,10 +365,11 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
           if (activated !== c) dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(activated) })
           return activated
         })
-        setFinanceCycles(refreshed.filter(c => c.area === 'finance'))
-        setHrCycles(refreshed.filter(c => c.area === 'hr'))
-        setOpsCycles(refreshed.filter(c => c.area === 'ops'))
-        setOthersCycles(refreshed.filter(c => c.area === 'others'))
+        const activeRefreshed = refreshed.filter(c => c.status !== 'complete')
+        setFinanceCycles(activeRefreshed.filter(c => c.area === 'finance'))
+        setHrCycles(activeRefreshed.filter(c => c.area === 'hr'))
+        setOpsCycles(activeRefreshed.filter(c => c.area === 'ops'))
+        setOthersCycles(activeRefreshed.filter(c => c.area === 'others'))
       }
       const singletonRow = allTodayRows.find(r => r.id === 'singleton')
       if (singletonRow) setTodayTasks(singletonRow.data)
