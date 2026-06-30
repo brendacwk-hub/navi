@@ -83,7 +83,9 @@ function SortableItemRow({ id, children }: { id: string; children: React.ReactNo
 }
 
 function PhaseSection({ phase, cycle, filter }: { phase: CyclePhase; cycle: Cycle; filter: CycleFilter }) {
-  const [open, setOpen] = useState(phase.status === 'active')
+  const { done, total } = countItems(phase.items) // always full count
+  const allDone = total > 0 && done === total
+  const [open, setOpen] = useState(phase.status === 'active' && !allDone)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ctx = (useContext(WorkDataContext) ?? useContext(PersonalDataContext)) as any
   const { toggleItem, setItemLabel, setItemNote, setItemUrgent, setItemDue, deleteItem } = ctx
@@ -94,8 +96,6 @@ function PhaseSection({ phase, cycle, filter }: { phase: CyclePhase; cycle: Cycl
   const visibleItems = isFiltering
     ? filterToLeaves(phase.items, cycle, filter)
     : phase.items
-
-  const { done, total } = countItems(phase.items) // always full count
 
   if (isFiltering && visibleItems.length === 0) return null
 
