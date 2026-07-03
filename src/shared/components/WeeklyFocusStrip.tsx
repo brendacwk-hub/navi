@@ -1,7 +1,6 @@
 'use client'
 
 import { Star } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import type { Cycle } from '@/shared/types'
 
 const AREA_DOT: Record<string, string> = {
@@ -10,10 +9,10 @@ const AREA_DOT: Record<string, string> = {
 
 interface WeeklyFocusStripProps {
   focusCycles: Cycle[]
+  onSelect: (cycle: Cycle) => void
 }
 
-export function WeeklyFocusStrip({ focusCycles }: WeeklyFocusStripProps) {
-  const router = useRouter()
+export function WeeklyFocusStrip({ focusCycles, onSelect }: WeeklyFocusStripProps) {
   if (focusCycles.length === 0) return null
   return (
     <div className="rounded-xl border border-navi-blue/20 bg-navi-blue/5 p-3.5">
@@ -25,7 +24,7 @@ export function WeeklyFocusStrip({ focusCycles }: WeeklyFocusStripProps) {
         {focusCycles.map(c => (
           <button
             key={c.id}
-            onClick={() => router.push(`/work/${c.area}`)}
+            onClick={() => onSelect(c)}
             className="flex items-center gap-1.5 bg-white/5 border border-white/8 rounded-lg px-2.5 py-1.5 hover:bg-white/10 hover:border-white/15 transition-all active:scale-95"
           >
             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${AREA_DOT[c.area] ?? 'bg-white/25'}`} />

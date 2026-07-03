@@ -18,6 +18,7 @@ import { isTriggerDueToday, hasTriggerFiredThisPeriod, allCycleDone, isRecurring
 import { CycleCard } from '@/shared/components/CycleCard'
 import { WeeklyReview } from '@/shared/components/WeeklyReview'
 import { WeeklyFocusStrip } from '@/shared/components/WeeklyFocusStrip'
+import { CycleDetailSheet } from '@/shared/components/CycleDetailSheet'
 import type { Cycle } from '@/shared/types'
 import type { TodayTaskData } from './data'
 
@@ -470,6 +471,7 @@ export function TodayView() {
   const { items: inboxItems } = useInbox()
   const { thisWeekFocus, isReviewDue, saveReview, dismissReview } = useWeeklyReview()
   const [showReview, setShowReview] = useState(false)
+  const [sheetCycle, setSheetCycle] = useState<Cycle | null>(null)
 
   const today = new Date()
   const todayStr0 = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
@@ -676,7 +678,7 @@ export function TodayView() {
         )}
 
         {/* Weekly focus strip (shown all week once review is done) */}
-        {focusCycles.length > 0 && <WeeklyFocusStrip focusCycles={focusCycles} />}
+        {focusCycles.length > 0 && <WeeklyFocusStrip focusCycles={focusCycles} onSelect={setSheetCycle} />}
 
         {chainItems.length > 0 && (
           <div className="rounded-xl border border-navi-blue/25 bg-navi-blue/8 p-4">
@@ -685,18 +687,25 @@ export function TodayView() {
               <span className="text-[11px] text-white/35">{chainItems.filter(s => s.done).length}/{chainItems.length} done</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
-              {chainItems.map((step, i) => (
-                <div key={step.id} className="flex items-center gap-1.5">
-                  <div className={`text-[11px] px-2 py-1 rounded-md font-medium ${
-                    step.done ? 'bg-green-500/15 text-green-400 border border-green-500/20'
-                    : step.active ? 'bg-navi-blue/20 text-navi-blue border border-navi-blue/30'
-                    : 'bg-white/5 text-white/30 border border-white/8'
-                  }`}>
-                    {step.done ? '✓ ' : step.active ? '● ' : '○ '}{step.label}
+              {chainItems.map((step, i) => {
+                const cycle = allCycles.find(c => c.id === step.id)
+                return (
+                  <div key={step.id} className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => cycle && setSheetCycle(cycle)}
+                      disabled={!cycle}
+                      className={`text-[11px] px-2 py-1 rounded-md font-medium transition-all active:scale-95 ${
+                        step.done ? 'bg-green-500/15 text-green-400 border border-green-500/20 hover:bg-green-500/25'
+                        : step.active ? 'bg-navi-blue/20 text-navi-blue border border-navi-blue/30 hover:bg-navi-blue/30'
+                        : 'bg-white/5 text-white/30 border border-white/8 hover:bg-white/10 hover:text-white/45'
+                      }`}
+                    >
+                      {step.done ? '✓ ' : step.active ? '● ' : '○ '}{step.label}
+                    </button>
+                    {i < chainItems.length - 1 && <ChevronRight className="w-3 h-3 text-white/15 flex-shrink-0" />}
                   </div>
-                  {i < chainItems.length - 1 && <ChevronRight className="w-3 h-3 text-white/15 flex-shrink-0" />}
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}
@@ -747,6 +756,8 @@ export function TodayView() {
         todayStr={todayStr}
       />
     )}
+
+    <CycleDetailSheet cycle={sheetCycle} onClose={() => setSheetCycle(null)} />
     </>
   )
 }

@@ -138,10 +138,11 @@ function PhaseSection({ phase, cycle, filter }: { phase: CyclePhase; cycle: Cycl
 interface Props {
   cycle: Cycle
   filter?: CycleFilter
+  defaultExpanded?: boolean
 }
 
-export function CycleCard({ cycle, filter = 'All' }: Props) {
-  const [expanded, setExpanded] = useState(false)
+export function CycleCard({ cycle, filter = 'All', defaultExpanded = false }: Props) {
+  const [expanded, setExpanded] = useState(defaultExpanded)
   const [editingTitle, setEditingTitle] = useState(false)
   const [draft, setDraft] = useState(cycle.title)
   const [editMust, setEditMust] = useState(cycle.must)

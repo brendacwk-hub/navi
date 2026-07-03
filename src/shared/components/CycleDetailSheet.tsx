@@ -1,0 +1,76 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { X } from 'lucide-react'
+import type { Cycle } from '@/shared/types'
+import { CycleCard } from './CycleCard'
+
+interface Props {
+  cycle: Cycle | null
+  onClose: () => void
+}
+
+export function CycleDetailSheet({ cycle, onClose }: Props) {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    if (cycle) {
+      // Defer one frame so the CSS transition plays on mount
+      requestAnimationFrame(() => setVisible(true))
+    } else {
+      setVisible(false)
+    }
+  }, [cycle])
+
+  // Swipe-down to close
+  useEffect(() => {
+    if (!cycle) return
+    let startY = 0
+    const onTouchStart = (e: TouchEvent) => { startY = e.touches[0].clientY }
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.changedTouches[0].clientY - startY > 60) onClose()
+    }
+    document.addEventListener('touchstart', onTouchStart, { passive: true })
+    document.addEventListener('touchend', onTouchEnd, { passive: true })
+    return () => {
+      document.removeEventListener('touchstart', onTouchStart)
+      document.removeEventListener('touchend', onTouchEnd)
+    }
+  }, [cycle, onClose])
+
+  if (!cycle) return null
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40 bg-black/55 transition-opacity duration-200"
+        style={{ opacity: visible ? 1 : 0 }}
+        onClick={onClose}
+      />
+
+      {/* Sheet */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl bg-[#111111] border-t border-white/10 max-h-[88vh] flex flex-col transition-transform duration-300 ease-out"
+        style={{ transform: visible ? 'translateY(0)' : 'translateY(100%)' }}
+      >
+        {/* Handle bar + close */}
+        <div className="flex items-center justify-between px-4 pt-3 pb-2 flex-shrink-0">
+          <div className="w-8" />
+          <div className="w-10 h-1 rounded-full bg-white/20" />
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-white/35 hover:text-white/65 hover:bg-white/8 transition-all"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Scrollable content */}
+        <div className="overflow-y-auto flex-1 px-4 pb-10 pt-1">
+          <CycleCard cycle={cycle} defaultExpanded />
+        </div>
+      </div>
+    </>
+  )
+}
