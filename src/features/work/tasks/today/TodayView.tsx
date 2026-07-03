@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo } from 'react'
 import { Zap, ChevronDown, Clock, ChevronRight, FileText, Pencil, X, Minus, Star, Plus, GripVertical } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { DragEndEvent } from '@dnd-kit/core'
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import { useSearch } from '@/shared/lib/search-context'
 import { useWorkData } from '@/shared/lib/work-data-context'
 import { useInbox } from '@/shared/lib/inbox-context'
@@ -364,26 +364,34 @@ type TodayItem =
   | { kind: 'cycle'; id: string; cycle: Cycle }
   | { kind: 'task';  id: string; task: TodayTaskData }
 
+function TodayItemContent({ item }: { item: TodayItem }) {
+  return (
+    <>
+      {item.kind === 'cycle'
+        ? <CycleCard cycle={item.cycle} />
+        : <TodayTaskCard task={item.task} />}
+    </>
+  )
+}
+
 function SortableTodayItem({ item }: { item: TodayItem }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.45 : 1 }}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.25 : 1 }}
       className="flex items-stretch gap-1"
     >
       <div
         {...attributes}
         {...listeners}
-        className="flex items-center justify-center w-5 flex-shrink-0 cursor-grab active:cursor-grabbing touch-none select-none"
+        className="flex items-center justify-center w-6 flex-shrink-0 cursor-grab active:cursor-grabbing select-none"
         style={{ touchAction: 'none' }}
       >
-        <GripVertical className="w-3 h-3 text-white/18" />
+        <GripVertical className="w-3.5 h-3.5 text-white/25" />
       </div>
       <div className="flex-1 min-w-0">
-        {item.kind === 'cycle'
-          ? <CycleCard cycle={item.cycle} />
-          : <TodayTaskCard task={item.task} />}
+        <TodayItemContent item={item} />
       </div>
     </div>
   )
@@ -472,6 +480,7 @@ export function TodayView() {
   const { thisWeekFocus, isReviewDue, saveReview, dismissReview } = useWeeklyReview()
   const [showReview, setShowReview] = useState(false)
   const [sheetCycle, setSheetCycle] = useState<Cycle | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null)
 
   const today = new Date()
   const todayStr0 = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
@@ -606,19 +615,23 @@ export function TodayView() {
     return result
   }, [defaultItems, manualOrder])
 
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(String(event.active.id))
+  }
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveId(null)
     const { active, over } = event
     if (!over || active.id === over.id) return
-    setManualOrder(prev => {
-      const currentIds = prev.length > 0 ? prev : defaultItemIds
-      const from = currentIds.indexOf(String(active.id))
-      const to   = currentIds.indexOf(String(over.id))
-      if (from === -1 || to === -1) return prev
-      const next = arrayMove(currentIds, from, to)
-      localStorage.setItem(ORDER_KEY, JSON.stringify(next))
-      return next
-    })
-  }, [defaultItemIds, ORDER_KEY]) // eslint-disable-line react-hooks/exhaustive-deps
+    // Always compute from the currently-displayed order, not stale manualOrder
+    const currentIds = orderedItems.map(i => i.id)
+    const from = currentIds.indexOf(String(active.id))
+    const to   = currentIds.indexOf(String(over.id))
+    if (from === -1 || to === -1) return
+    const next = arrayMove(currentIds, from, to)
+    setManualOrder(next)
+    localStorage.setItem(ORDER_KEY, JSON.stringify(next))
+  }
 
   const totalDueToday = visibleTasks.length + cyclesToday.length
 
@@ -724,10 +737,26 @@ export function TodayView() {
                 {query ? `No tasks match "${query}"` : 'No tasks for today'}
               </div>
             ) : (
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                 <SortableContext items={orderedItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
                   {orderedItems.map(item => <SortableTodayItem key={item.id} item={item} />)}
                 </SortableContext>
+                <DragOverlay dropAnimation={null}>
+                  {activeId ? (() => {
+                    const item = orderedItems.find(i => i.id === activeId)
+                    if (!item) return null
+                    return (
+                      <div className="flex items-stretch gap-1 opacity-95 shadow-2xl rounded-xl">
+                        <div className="flex items-center justify-center w-6 flex-shrink-0">
+                          <GripVertical className="w-3.5 h-3.5 text-white/50" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <TodayItemContent item={item} />
+                        </div>
+                      </div>
+                    )
+                  })() : null}
+                </DragOverlay>
               </DndContext>
             )}
           </div>
