@@ -257,28 +257,16 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
         }
 
         // Merge: DB rows (minus migrated) + fresh static inserts
-        // For static cycles, triggerLabel/effort/must always come from code —
-        // DB only owns item states, nextDueAt, lastCompletedAt, notes.
+        // DB owns all user-editable fields (title, effort, must, subArea, triggerLabel).
+        // Static only provides phase structure (so new sub-tasks in code appear correctly).
         const merged = [
           ...rows.filter(r => !migrateIdSet.has(r.id)).map(r => {
             const row = fromRow(r)
             const s = staticById.get(row.id)
             if (!s) return row
-            // Static wins when non-empty (recurring schedule). For one-off active cycles
-            // (static trigger is empty), only keep the DB value if it's a plain ISO date
-            // (user-set due date). Any stale keyword like 'Today' or 'every day' gets wiped.
-            const dbTrigger = row.triggerLabel ?? ''
-            const finalTrigger = s.triggerLabel ||
-              (/^\d{4}-\d{2}-\d{2}$/.test(dbTrigger) ? dbTrigger : '')
             return {
               ...row,
-              triggerLabel: finalTrigger,
-              effort:       s.effort,
-              must:         s.must,
-              title:        s.title,
-              subArea:      s.subArea,
-              area:         s.area,
-              phases:       s.phases ? mergePhases(s.phases, row.phases) : row.phases,
+              phases: s.phases ? mergePhases(s.phases, row.phases) : row.phases,
             }
           }),
           ...toInsert,
@@ -354,9 +342,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
           const row = fromRow(r)
           const s = staticById.get(row.id)
           if (!s) return row
-          const dbTrigR = row.triggerLabel ?? ''
-          const finalTrigR = s.triggerLabel || (/^\d{4}-\d{2}-\d{2}$/.test(dbTrigR) ? dbTrigR : '')
-          return { ...row, triggerLabel: finalTrigR, effort: s.effort, must: s.must, title: s.title, subArea: s.subArea, area: s.area, phases: s.phases ? mergePhases(s.phases, row.phases) : row.phases }
+          return { ...row, phases: s.phases ? mergePhases(s.phases, row.phases) : row.phases }
         })
         const resetRefreshed = applyRecurrenceResets(hydrated, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
         const now2 = new Date()
