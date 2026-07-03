@@ -61,7 +61,7 @@ function toRow(c: Cycle) {
 }
 
 function applyRecurrenceResets(cycles: Cycle[], onReset: (c: Cycle) => void): Cycle[] {
-  const today = new Date().toISOString().slice(0, 10)
+  const _d = new Date(); const today = `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`
   return cycles.map(c => {
     if (c.nextDueAt && c.nextDueAt <= today) {
       const fresh = resetCycle(c)
@@ -69,6 +69,27 @@ function applyRecurrenceResets(cycles: Cycle[], onReset: (c: Cycle) => void): Cy
       return fresh
     }
     return c
+  })
+}
+
+function mergePhases(staticPhases: Cycle['phases'], dbPhases: Cycle['phases']): Cycle['phases'] {
+  if (!staticPhases) return dbPhases
+  if (!dbPhases) return staticPhases
+  const dbById = new Map(dbPhases.map(p => [p.id, p]))
+  return staticPhases.map(sp => {
+    const dbP = dbById.get(sp.id)
+    if (!dbP) return sp
+    const dbItemById = new Map(dbP.items.map(i => [i.id, i]))
+    const mergedItems = sp.items.map(si => {
+      const dbI = dbItemById.get(si.id)
+      if (!dbI) return si
+      const mergedSubs = si.subItems?.map(ss => {
+        const dbS = dbI.subItems?.find(ds => ds.id === ss.id)
+        return dbS ? { ...ss, status: dbS.status } : ss
+      })
+      return { ...si, status: dbI.status, ...(mergedSubs ? { subItems: mergedSubs } : {}) }
+    })
+    return { ...sp, status: dbP.status, items: mergedItems }
   })
 }
 
@@ -149,8 +170,13 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
         dbWrite({ table: 'cycles', operation: 'upsert', data: toInsert.map(toRow) })
       }
 
+      const staticById = new Map(initPersonalFinance.map(c => [c.id, c]))
       const all = [
-        ...rows.map(fromRow),
+        ...rows.map(r => {
+          const row = fromRow(r)
+          const s = staticById.get(row.id)
+          return s?.phases ? { ...row, phases: mergePhases(s.phases, row.phases) } : row
+        }),
         ...toInsert,
       ]
       const cycles = applyRecurrenceResets(all, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))

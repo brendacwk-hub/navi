@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
       .map(h => ({ id: h.id, name: h.name, emoji: h.emoji, goal: h.goal, done: logs[h.id] ?? 0, complete: (logs[h.id] ?? 0) >= h.goal }))
   }
 
-  const todayDate = new Date(today + 'T00:00:00')
+  const [_ty, _tm, _td] = today.split('-').map(Number); const todayDate = new Date(_ty, _tm - 1, _td)
 
   if (mode === 'work') {
     const [habitDefRes, habitLogRes, todayTasksRes, cyclesRes] = await Promise.all([

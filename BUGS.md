@@ -541,6 +541,18 @@ A living document. Update after every fix session to avoid repeating the same mi
 **Fix:** Removed all static field overrides from both merge sites. Only `phases` is still merged from static (via `mergePhases`), which is needed so sub-task additions in code appear correctly. DB now owns all user-editable fields after initial creation.
 **Lesson:** Static data should seed the DB once on first insert, then DB owns the data. Static-wins on every load defeats the purpose of a DB-backed app. Keep static overrides only for structural fields the user cannot edit (like phase sub-task labels), not for user-facing fields.
 
+### B-65 · Timezone bug: `toISOString().slice(0,10)` returns UTC date, not local
+**Symptom:** In UTC+8 (HKT), after midnight local time but before midnight UTC, `applyRecurrenceResets` computes yesterday's date. Recurring cycles reset a day late.
+**Root cause:** `new Date().toISOString()` returns UTC time. `slice(0,10)` gives the UTC date, which is one day behind local date between midnight local and midnight UTC in positive-offset timezones.
+**Fix:** Replaced with local date parts: `` `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` `` in both `work-data-context.tsx` and `personal-data-context.tsx`.
+**Lesson:** Never use `toISOString().slice(0,10)` for local date strings. Use `getFullYear/getMonth/getDate` which respect local timezone.
+
+### B-66 · Audit fixes: diverged logic between work and personal contexts
+**Symptom:** PersonalTodayView was missing (a) sticky recurring logic — must cycles that fired their trigger this period wouldn't stay visible after first day; (b) search filter — query bar had no effect on personal today; (c) two-tier sort — recurring and non-recurring cycles mixed randomly; (d) mergePhases — DB phase structure overwriting static for personal finance cycles.
+**Root cause:** Work and personal parallel files drifted over multiple sessions. Fixes applied to work context were not ported to personal.
+**Fix:** PersonalTodayView — added `isStickyActive`, `hasTriggerFiredThisPeriod`, `useSearch`, `fuzzyMatch`, recurring-aware nextDueAt filter, two-tier sort. personal-data-context — added `mergePhases` function and applied in `loadFromSupabase`. Also fixed `new Date(str+'T00:00:00')` UTC-parse in TodayView, widget route, widget page, CycleCard `fmtTrigger`. Extracted shared `getHabitCount` from TodayView and PersonalTodayView into `habit-context.tsx`.
+**Lesson:** When fixing logic in one parallel context, always port the fix to its mirror immediately. Add a TODO comment or audit note so drift doesn't accumulate silently.
+
 ---
 
 ## How to use this doc

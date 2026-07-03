@@ -174,7 +174,7 @@ function TaskRow({ task }: { task: any }) {
 
 export default async function WidgetPage() {
   const today    = todayKey()
-  const todayDate = new Date(`${today}T00:00:00`)
+  const [_ty, _tm, _td] = today.split('-').map(Number); const todayDate = new Date(_ty, _tm - 1, _td)
 
   const [
     personalHabitDefRow,

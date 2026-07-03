@@ -111,6 +111,19 @@ export function getMonthDateKeys(date: Date): string[] {
   )
 }
 
+export function getHabitCount(habit: WorkHabit, todayLogs: HabitLog, weekLogs: Record<string, HabitLog>, today: Date): { count: number; suffix: string } {
+  const f = habit.frequency
+  if (f?.type === 'times_per_week') {
+    const count = getWeekDateKeys(today).reduce((s, k) => s + (weekLogs[k]?.[habit.id] ?? 0), 0)
+    return { count, suffix: 'wk' }
+  }
+  if (f?.type === 'times_per_month') {
+    const count = getMonthDateKeys(today).reduce((s, k) => s + (weekLogs[k]?.[habit.id] ?? 0), 0)
+    return { count, suffix: 'mo' }
+  }
+  return { count: todayLogs[habit.id] ?? 0, suffix: '' }
+}
+
 function todayKey(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`

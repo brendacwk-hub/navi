@@ -88,7 +88,7 @@ function mergePhases(staticPhases: Cycle['phases'], dbPhases: Cycle['phases']): 
 
 // Check and reset any cycles whose nextDueAt has passed
 function applyRecurrenceResets(cycles: Cycle[], onReset: (c: Cycle) => void): Cycle[] {
-  const today = new Date().toISOString().slice(0, 10)
+  const _d = new Date(); const today = `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`
   return cycles.map(c => {
     if (c.nextDueAt && c.nextDueAt <= today) {
       const fresh = resetCycle(c)

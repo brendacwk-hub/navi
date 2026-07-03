@@ -3,8 +3,10 @@
 import { useMemo } from 'react'
 import { Minus } from 'lucide-react'
 import { usePersonalData } from '@/shared/lib/personal-data-context'
-import { useHabits, getWeekDateKeys, getMonthDateKeys, type WorkHabit, type HabitLog } from '@/shared/lib/habit-context'
-import { isTriggerDueToday, allCycleDone } from '@/shared/lib/sort-utils'
+import { useHabits, getHabitCount, type WorkHabit, type HabitLog } from '@/shared/lib/habit-context'
+import { isTriggerDueToday, isRecurring, hasTriggerFiredThisPeriod, allCycleDone } from '@/shared/lib/sort-utils'
+import { useSearch } from '@/shared/lib/search-context'
+import { fuzzyMatch } from '@/shared/lib/search-utils'
 import { CycleCard } from '@/shared/components/CycleCard'
 import type { Cycle } from '@/shared/types'
 
@@ -20,24 +22,6 @@ function isScheduledToday(habit: WorkHabit, dow: number): boolean {
   if (f.type === 'times_per_week')         return true  // show every day, track weekly
   if (f.type === 'times_per_month')        return true  // show every day, track monthly
   return true
-}
-
-function getHabitDisplay(
-  habit: WorkHabit,
-  todayLogs: HabitLog,
-  weekLogs: Record<string, HabitLog>,
-  today: Date,
-): { count: number; suffix: string } {
-  const f = habit.frequency
-  if (f?.type === 'times_per_week') {
-    const count = getWeekDateKeys(today).reduce((s, k) => s + (weekLogs[k]?.[habit.id] ?? 0), 0)
-    return { count, suffix: 'wk' }
-  }
-  if (f?.type === 'times_per_month') {
-    const count = getMonthDateKeys(today).reduce((s, k) => s + (weekLogs[k]?.[habit.id] ?? 0), 0)
-    return { count, suffix: 'mo' }
-  }
-  return { count: todayLogs[habit.id] ?? 0, suffix: '' }
 }
 
 // ── Personal habit strip for Today ───────────────────────────────────────────
@@ -60,7 +44,7 @@ function PersonalHabitStrip() {
       style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
     >
       {todayHabits.map(habit => {
-        const { count, suffix } = getHabitDisplay(habit, todayLogs, weekLogs, today)
+        const { count, suffix } = getHabitCount(habit, todayLogs, weekLogs, today)
         const done = count >= habit.goal
         return (
           <div
@@ -102,6 +86,7 @@ function PersonalHabitStrip() {
 
 export function PersonalTodayView() {
   const { houseworkCycles, personalFinanceCycles, sidoiCycles, tobuyCycles } = usePersonalData()
+  const { query } = useSearch()
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -113,14 +98,20 @@ export function PersonalTodayView() {
   )
 
   const dueToday = useMemo(() => {
-    const todayDate = new Date(today)
+    const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate())
     return allCycles
       .filter(c => {
         if (c.status === 'complete') return false
         if (allCycleDone(c)) return false
+        const trigger = c.triggerLabel ?? ''
         if (c.nextDueAt) {
-          const nextDue = new Date(c.nextDueAt + 'T00:00:00')
-          if (nextDue > todayDate) return false
+          if (isRecurring(trigger)) {
+            const [ndy, ndm, ndd] = c.nextDueAt.split('-').map(Number)
+            const nextDue = new Date(ndy, ndm - 1, ndd)
+            if (nextDue > todayDate) return false
+          } else {
+            return false
+          }
         }
         const allItems = c.items
           ? c.items.flatMap(i => [i, ...(i.subItems ?? [])])
@@ -129,17 +120,27 @@ export function PersonalTodayView() {
         const allHaveDue  = hasItems && allItems.every(i => !!i.due)
         const noneHaveDue = !hasItems || allItems.every(i => !i.due)
 
-        if (allHaveDue)  return allItems.some(i => i.status !== 'done' && i.due! <= todayStr)
-        if (noneHaveDue) return isTriggerDueToday(c.triggerLabel, todayDate)
-        return isTriggerDueToday(c.triggerLabel, todayDate) ||
-          allItems.some(i => i.status !== 'done' && !!i.due && i.due <= todayStr)
+        if (allHaveDue) return allItems.some(i => i.status !== 'done' && i.due! <= todayStr)
+
+        const hasStarted = allItems.some(i => i.status === 'done')
+        const isStickyActive = c.must && isRecurring(trigger) && !c.nextDueAt &&
+          hasStarted && hasTriggerFiredThisPeriod(trigger, todayDate)
+
+        if (noneHaveDue) return isTriggerDueToday(trigger, todayDate) || isStickyActive
+        return isTriggerDueToday(trigger, todayDate) ||
+          allItems.some(i => i.status !== 'done' && !!i.due && i.due <= todayStr) ||
+          isStickyActive
       })
+      .filter(c => !query.trim() || fuzzyMatch(c.title, query))
       .sort((a, b) => {
+        const aRec = isRecurring(a.triggerLabel) ? 1 : 0
+        const bRec = isRecurring(b.triggerLabel) ? 1 : 0
+        if (aRec !== bRec) return aRec - bRec
         const score = (c: Cycle) => (c.must ? 2 : 0) + ((c.urgent ?? false) ? 1 : 0)
         return score(b) - score(a)
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allCycles, todayStr])
+  }, [allCycles, todayStr, query])
 
   return (
     <div className="flex-1 overflow-y-auto">

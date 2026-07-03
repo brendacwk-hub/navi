@@ -38,7 +38,7 @@ function fmtTrigger(label: string | undefined): { display: string; overdue: bool
   // New recurrence pattern → friendly display, never overdue
   if (isRecurrString(label)) return { display: fmtRecurrDisplay(label), overdue: false }
   if (/^\d{4}-\d{2}-\d{2}$/.test(label)) {
-    const d = new Date(label + 'T00:00:00')
+    const [_ly, _lm, _ld] = label.split('-').map(Number); const d = new Date(_ly, _lm - 1, _ld)
     const today = new Date(); today.setHours(0, 0, 0, 0)
     if (d.getTime() === today.getTime()) return { display: 'Due Today', overdue: false }
     if (d < today) {

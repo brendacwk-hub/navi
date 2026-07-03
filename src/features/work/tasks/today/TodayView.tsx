@@ -11,7 +11,7 @@ import { useSearch } from '@/shared/lib/search-context'
 import { useWorkData } from '@/shared/lib/work-data-context'
 import { useInbox } from '@/shared/lib/inbox-context'
 import { useToast } from '@/shared/lib/toast-context'
-import { useHabits, getWeekDateKeys, getMonthDateKeys, type WorkHabit, type HabitLog } from '@/shared/lib/habit-context'
+import { useHabits, getHabitCount, type WorkHabit, type HabitLog } from '@/shared/lib/habit-context'
 import { useWeeklyReview } from '@/shared/lib/use-weekly-review'
 import { fuzzyMatch } from '@/shared/lib/search-utils'
 import { isTriggerDueToday, hasTriggerFiredThisPeriod, allCycleDone, isRecurring, computeSortDate } from '@/shared/lib/sort-utils'
@@ -410,19 +410,6 @@ function isScheduledToday(habit: WorkHabit, dow: number): boolean {
   return true
 }
 
-function getHabitCount(habit: WorkHabit, todayLogs: HabitLog, weekLogs: Record<string, HabitLog>, today: Date): { count: number; suffix: string } {
-  const f = habit.frequency
-  if (f?.type === 'times_per_week') {
-    const count = getWeekDateKeys(today).reduce((s, k) => s + (weekLogs[k]?.[habit.id] ?? 0), 0)
-    return { count, suffix: 'wk' }
-  }
-  if (f?.type === 'times_per_month') {
-    const count = getMonthDateKeys(today).reduce((s, k) => s + (weekLogs[k]?.[habit.id] ?? 0), 0)
-    return { count, suffix: 'mo' }
-  }
-  return { count: todayLogs[habit.id] ?? 0, suffix: '' }
-}
-
 // ── Main view ─────────────────────────────────────────────────────────────────
 function HabitStrip() {
   const { habits, todayLogs, weekLogs, logHabit, unlogHabit } = useHabits()
@@ -547,7 +534,7 @@ export function TodayView() {
 
   // Cycles from all areas that are due today (including recurring patterns)
   const cyclesToday = useMemo(() => {
-    const todayDate = new Date(todayStr + 'T00:00:00')
+    const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate())
     const all = [...financeCycles, ...hrCycles, ...opsCycles, ...othersCycles]
     return all
       .filter(c => {
