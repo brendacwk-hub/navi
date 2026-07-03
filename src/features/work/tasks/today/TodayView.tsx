@@ -1,8 +1,12 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Zap, ChevronDown, Clock, ChevronRight, FileText, Pencil, X, Minus, Star, Plus } from 'lucide-react'
+import { useState, useMemo, useCallback } from 'react'
+import { Zap, ChevronDown, Clock, ChevronRight, FileText, Pencil, X, Minus, Star, Plus, GripVertical } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import type { DragEndEvent } from '@dnd-kit/core'
 import { useSearch } from '@/shared/lib/search-context'
 import { useWorkData } from '@/shared/lib/work-data-context'
 import { useInbox } from '@/shared/lib/inbox-context'
@@ -353,6 +357,37 @@ function ComingUpSection({ cycles }: { cycles: Cycle[] }) {
 }
 
 // ── Monthly chain ─────────────────────────────────────────────────────────────
+// ── Drag-to-reorder ───────────────────────────────────────────────────────────
+
+type TodayItem =
+  | { kind: 'cycle'; id: string; cycle: Cycle }
+  | { kind: 'task';  id: string; task: TodayTaskData }
+
+function SortableTodayItem({ item }: { item: TodayItem }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.45 : 1 }}
+      className="flex items-stretch gap-1"
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="flex items-center justify-center w-5 flex-shrink-0 cursor-grab active:cursor-grabbing touch-none select-none"
+        style={{ touchAction: 'none' }}
+      >
+        <GripVertical className="w-3 h-3 text-white/18" />
+      </div>
+      <div className="flex-1 min-w-0">
+        {item.kind === 'cycle'
+          ? <CycleCard cycle={item.cycle} />
+          : <TodayTaskCard task={item.task} />}
+      </div>
+    </div>
+  )
+}
+
 // Computed dynamically from actual Finance + HR recurring cycles
 
 
@@ -437,6 +472,19 @@ export function TodayView() {
   const [showReview, setShowReview] = useState(false)
 
   const today = new Date()
+  const todayStr0 = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const ORDER_KEY = `navi-today-order-${todayStr0}`
+
+  // Per-day manual order stored in localStorage; resets automatically each new day
+  const [manualOrder, setManualOrder] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return []
+    try { return JSON.parse(localStorage.getItem(ORDER_KEY) ?? '[]') } catch { return [] }
+  })
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 5 } }),
+  )
 
   // Dynamic monthly chain from actual Finance + HR recurring cycles
   // Exclude pure weekday patterns (Every Monday etc.) — those are weekly, not monthly close
@@ -536,6 +584,40 @@ export function TodayView() {
     () => [...financeCycles, ...hrCycles, ...opsCycles, ...othersCycles],
     [financeCycles, hrCycles, opsCycles, othersCycles]
   )
+
+  // Build unified item list in default order (priority cycles → tasks → normal cycles)
+  const defaultItems: TodayItem[] = useMemo(() => [
+    ...cyclesToday.filter(c => c.must || c.urgent).map(c => ({ kind: 'cycle' as const, id: c.id, cycle: c })),
+    ...visibleTasks.map(t => ({ kind: 'task' as const, id: t.id, task: t })),
+    ...cyclesToday.filter(c => !c.must && !c.urgent).map(c => ({ kind: 'cycle' as const, id: c.id, cycle: c })),
+  ], [cyclesToday, visibleTasks])
+
+  const defaultItemIds = defaultItems.map(i => i.id)
+
+  // Apply manual order, appending any new items at the end
+  const orderedItems = useMemo(() => {
+    if (manualOrder.length === 0) return defaultItems
+    const byId = new Map(defaultItems.map(i => [i.id, i]))
+    const result: TodayItem[] = []
+    for (const id of manualOrder) { const item = byId.get(id); if (item) result.push(item) }
+    for (const item of defaultItems) { if (!manualOrder.includes(item.id)) result.push(item) }
+    return result
+  }, [defaultItems, manualOrder])
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    setManualOrder(prev => {
+      const currentIds = prev.length > 0 ? prev : defaultItemIds
+      const from = currentIds.indexOf(String(active.id))
+      const to   = currentIds.indexOf(String(over.id))
+      if (from === -1 || to === -1) return prev
+      const next = arrayMove(currentIds, from, to)
+      localStorage.setItem(ORDER_KEY, JSON.stringify(next))
+      return next
+    })
+  }, [defaultItemIds, ORDER_KEY]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const totalDueToday = visibleTasks.length + cyclesToday.length
 
   const focusCycles = useMemo(() =>
@@ -633,11 +715,11 @@ export function TodayView() {
                 {query ? `No tasks match "${query}"` : 'No tasks for today'}
               </div>
             ) : (
-              <>
-                {cyclesToday.filter(c => c.must || c.urgent).map(cycle => <CycleCard key={cycle.id} cycle={cycle} />)}
-                {visibleTasks.map(task => <TodayTaskCard key={task.id} task={task} />)}
-                {cyclesToday.filter(c => !c.must && !c.urgent).map(cycle => <CycleCard key={cycle.id} cycle={cycle} />)}
-              </>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={orderedItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                  {orderedItems.map(item => <SortableTodayItem key={item.id} item={item} />)}
+                </SortableContext>
+              </DndContext>
             )}
           </div>
         </div>
