@@ -82,10 +82,10 @@ function SortableItemRow({ id, children }: { id: string; children: React.ReactNo
   )
 }
 
-function PhaseSection({ phase, cycle, filter }: { phase: CyclePhase; cycle: Cycle; filter: CycleFilter }) {
+function PhaseSection({ phase, cycle, filter, forceOpen = false }: { phase: CyclePhase; cycle: Cycle; filter: CycleFilter; forceOpen?: boolean }) {
   const { done, total } = countItems(phase.items) // always full count
   const allDone = total > 0 && done === total
-  const [open, setOpen] = useState(phase.status === 'active' && !allDone)
+  const [open, setOpen] = useState(forceOpen || (phase.status === 'active' && !allDone))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ctx = (useContext(WorkDataContext) ?? useContext(PersonalDataContext)) as any
   const { toggleItem, setItemLabel, setItemNote, setItemUrgent, setItemDue, deleteItem } = ctx
@@ -534,7 +534,7 @@ export function CycleCard({ cycle, filter = 'All', defaultExpanded = false }: Pr
           )}
           {cycle.phases ? (
             cycle.phases.map(phase => (
-              <PhaseSection key={phase.id} phase={phase} cycle={cycle} filter={filter} />
+              <PhaseSection key={phase.id} phase={phase} cycle={cycle} filter={filter} forceOpen={defaultExpanded} />
             ))
           ) : (
             <div className="space-y-0.5">
