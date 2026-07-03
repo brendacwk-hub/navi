@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Zap, ChevronDown, Clock, ChevronRight, FileText, Pencil, X, Minus, Star, Plus, GripVertical } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core'
@@ -486,11 +486,25 @@ export function TodayView() {
   const todayStr0 = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
   const ORDER_KEY = `navi-today-order-${todayStr0}`
 
-  // Per-day manual order stored in localStorage; resets automatically each new day
+  // Per-day manual order — localStorage for instant initial load, DB for cross-device sync
   const [manualOrder, setManualOrder] = useState<string[]>(() => {
     if (typeof window === 'undefined') return []
     try { return JSON.parse(localStorage.getItem(ORDER_KEY) ?? '[]') } catch { return [] }
   })
+
+  // On mount, pull order from DB and apply if it's for today (overrides stale localStorage)
+  useEffect(() => {
+    fetch('/api/preferences')
+      .then(r => r.json())
+      .then((data: { today_order?: { date: string; order: string[] } | null }) => {
+        const ord = data.today_order
+        if (ord && ord.date === todayStr0 && Array.isArray(ord.order) && ord.order.length > 0) {
+          setManualOrder(ord.order)
+          localStorage.setItem(ORDER_KEY, JSON.stringify(ord.order))
+        }
+      })
+      .catch(() => {})
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -631,6 +645,12 @@ export function TodayView() {
     const next = arrayMove(currentIds, from, to)
     setManualOrder(next)
     localStorage.setItem(ORDER_KEY, JSON.stringify(next))
+    // Sync to DB so order is shared across devices
+    fetch('/api/preferences', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ today_order: { date: todayStr0, order: next } }),
+    }).catch(() => {})
   }
 
   const totalDueToday = visibleTasks.length + cyclesToday.length

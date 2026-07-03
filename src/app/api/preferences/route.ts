@@ -11,17 +11,34 @@ const supabase = createClient(
 export async function GET() {
   const { data } = await supabase
     .from('user_preferences')
-    .select('font_scale')
+    .select('font_scale, today_order')
     .eq('id', 'singleton')
     .single()
-  return NextResponse.json({ font_scale: data?.font_scale ?? 'small' })
+  return NextResponse.json({
+    font_scale: data?.font_scale ?? 'small',
+    today_order: data?.today_order ?? null,
+  })
 }
 
 export async function POST(req: NextRequest) {
-  const { font_scale } = await req.json()
-  if (!['small', 'medium', 'large'].includes(font_scale)) {
-    return NextResponse.json({ error: 'Invalid font_scale' }, { status: 400 })
+  const body = await req.json()
+  const updates: Record<string, unknown> = { id: 'singleton' }
+
+  if ('font_scale' in body) {
+    if (!['small', 'medium', 'large'].includes(body.font_scale)) {
+      return NextResponse.json({ error: 'Invalid font_scale' }, { status: 400 })
+    }
+    updates.font_scale = body.font_scale
   }
-  await supabase.from('user_preferences').upsert({ id: 'singleton', font_scale })
+
+  if ('today_order' in body) {
+    const ord = body.today_order
+    if (!ord || typeof ord.date !== 'string' || !Array.isArray(ord.order)) {
+      return NextResponse.json({ error: 'Invalid today_order' }, { status: 400 })
+    }
+    updates.today_order = ord
+  }
+
+  await supabase.from('user_preferences').upsert(updates)
   return NextResponse.json({ ok: true })
 }
