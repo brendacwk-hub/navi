@@ -534,6 +534,13 @@ A living document. Update after every fix session to avoid repeating the same mi
 **Fix:** Added `const activeCycles = allCycles.filter(c => c.status !== 'complete')` before the four `setXxxCycles` calls in `loadFromSupabase`, and the same in `refreshData`. Completed cycles stay in the DB (for the Settings archive to read), but never enter the active cycle lists.
 **Lesson:** Whenever a "remove from state" operation writes a tombstone flag to DB (`status: 'complete'`), the load path must explicitly exclude that flag. Removing from in-memory state is not enough — the DB read on next load will undo it without a corresponding filter.
 
+### B-64 · Edits to cycles (title, effort, must, subArea) lost on every reload
+
+**Symptom:** User edits a cycle's title, effort, must toggle, or sub-area via the UI. Change saves fine and shows immediately. On next page load or pull-to-refresh, all edits revert to the original values.
+**Root cause:** `loadFromSupabase` and `refreshData` both merged static data (`initFinance`/`initHr`) back on top of every DB row using field-level static-wins: `title: s.title, effort: s.effort, must: s.must, subArea: s.subArea, triggerLabel: finalTrigger`. This was originally intended to ensure recurring schedules in code always propagated to users, but it silently overwrote all user edits on every load.
+**Fix:** Removed all static field overrides from both merge sites. Only `phases` is still merged from static (via `mergePhases`), which is needed so sub-task additions in code appear correctly. DB now owns all user-editable fields after initial creation.
+**Lesson:** Static data should seed the DB once on first insert, then DB owns the data. Static-wins on every load defeats the purpose of a DB-backed app. Keep static overrides only for structural fields the user cannot edit (like phase sub-task labels), not for user-facing fields.
+
 ---
 
 ## How to use this doc
