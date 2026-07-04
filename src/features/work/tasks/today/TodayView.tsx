@@ -706,24 +706,22 @@ export function TodayView() {
               <span className="text-xs font-semibold text-navi-blue uppercase tracking-wider">Monthly Chain</span>
               <span className="text-[11px] text-white/35">{chainItems.filter(s => s.done).length}/{chainItems.length} done</span>
             </div>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {chainItems.map((step, i) => {
+            <div className="grid grid-cols-3 gap-1.5">
+              {chainItems.map((step) => {
                 const cycle = allCycles.find(c => c.id === step.id)
                 return (
-                  <div key={step.id} className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => cycle && setSheetCycle(cycle)}
-                      disabled={!cycle}
-                      className={`text-[11px] px-2 py-1 rounded-md font-medium transition-all active:scale-95 ${
-                        step.done ? 'bg-green-500/15 text-green-400 border border-green-500/20 hover:bg-green-500/25'
-                        : step.active ? 'bg-navi-blue/20 text-navi-blue border border-navi-blue/30 hover:bg-navi-blue/30'
-                        : 'bg-white/5 text-white/30 border border-white/8 hover:bg-white/10 hover:text-white/45'
-                      }`}
-                    >
-                      {step.done ? '✓ ' : step.active ? '● ' : '○ '}{step.label}
-                    </button>
-                    {i < chainItems.length - 1 && <ChevronRight className="w-3 h-3 text-white/15 flex-shrink-0" />}
-                  </div>
+                  <button
+                    key={step.id}
+                    onClick={() => cycle && setSheetCycle(cycle)}
+                    disabled={!cycle}
+                    className={`text-[11px] px-2 py-1 rounded-md font-medium transition-all active:scale-95 w-full text-left truncate ${
+                      step.done ? 'bg-green-500/15 text-green-400 border border-green-500/20 hover:bg-green-500/25'
+                      : step.active ? 'bg-navi-blue/20 text-navi-blue border border-navi-blue/30 hover:bg-navi-blue/30'
+                      : 'bg-white/5 text-white/30 border border-white/8 hover:bg-white/10 hover:text-white/45'
+                    }`}
+                  >
+                    {step.done ? '✓ ' : step.active ? '● ' : '○ '}{step.label}
+                  </button>
                 )
               })}
             </div>

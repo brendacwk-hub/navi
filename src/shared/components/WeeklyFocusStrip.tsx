@@ -20,15 +20,15 @@ export function WeeklyFocusStrip({ focusCycles, onSelect }: WeeklyFocusStripProp
         <Star className="w-3 h-3 text-navi-blue/60" />
         <span className="text-[10px] font-semibold text-navi-blue/70 uppercase tracking-wider">This Week's Focus</span>
       </div>
-      <div className="flex gap-2 flex-wrap">
+      <div className="grid grid-cols-3 gap-2">
         {focusCycles.map(c => (
           <button
             key={c.id}
             onClick={() => onSelect(c)}
-            className="flex items-center gap-1.5 bg-white/5 border border-white/8 rounded-lg px-2.5 py-1.5 hover:bg-white/10 hover:border-white/15 transition-all active:scale-95"
+            className="flex items-center gap-1.5 min-w-0 bg-white/5 border border-white/8 rounded-lg px-2.5 py-1.5 hover:bg-white/10 hover:border-white/15 transition-all active:scale-95"
           >
             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${AREA_DOT[c.area] ?? 'bg-white/25'}`} />
-            <span className="text-[11.5px] text-white/65 font-medium">{c.title}</span>
+            <span className="text-[11.5px] text-white/65 font-medium truncate">{c.title}</span>
           </button>
         ))}
       </div>

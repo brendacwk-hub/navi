@@ -87,6 +87,12 @@
 - [ ] VAPID env vars → add to Vercel
 - [ ] External cron: cron-job.org calling `/api/push/daily` every 5 minutes
 - [ ] ⌘N shortcut (not functional)
+
+## UX Improvements (discussed, not yet built)
+
+- [ ] **Weekly Review — remove Monday-only gate** — Surface banner on Tue/Wed too until dismissed. A missed Monday means no review until next week.
+- [ ] **Calendar — tap cycle opens CycleDetailSheet** — Tapping a cycle on the calendar grid currently does nothing. Should open the same CycleDetailSheet used on Today tab.
+- [ ] **Templates — quick access from QuickAdd or Today** — Currently 3 navigations deep (area tab → Templates tab → Run). Needs a shortcut.
 - [ ] Search highlight (no visual feedback on match location)
 - [ ] Analytics tab (both modes — build after personal mode)
 - [ ] iPhone widget `?mode=personal` (build after personal mode core)
