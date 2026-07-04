@@ -25,7 +25,7 @@ export function WeeklyFocusStrip({ focusCycles, onSelect }: WeeklyFocusStripProp
           <button
             key={c.id}
             onClick={() => onSelect(c)}
-            className="flex items-center gap-1.5 min-w-0 bg-white/5 border border-white/8 rounded-lg px-2.5 py-1.5 hover:bg-white/10 hover:border-white/15 transition-all active:scale-95"
+            className="flex items-center gap-1.5 min-w-0 w-full sm:w-auto bg-white/5 border border-white/8 rounded-lg px-2.5 py-1.5 hover:bg-white/10 hover:border-white/15 transition-all active:scale-95"
           >
             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${AREA_DOT[c.area] ?? 'bg-white/25'}`} />
             <span className="text-[11.5px] text-white/65 font-medium truncate">{c.title}</span>
