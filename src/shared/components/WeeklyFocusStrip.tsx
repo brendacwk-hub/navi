@@ -20,7 +20,7 @@ export function WeeklyFocusStrip({ focusCycles, onSelect }: WeeklyFocusStripProp
         <Star className="w-3 h-3 text-navi-blue/60" />
         <span className="text-[10px] font-semibold text-navi-blue/70 uppercase tracking-wider">This Week's Focus</span>
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:gap-2">
         {focusCycles.map(c => (
           <button
             key={c.id}
