@@ -553,6 +553,12 @@ A living document. Update after every fix session to avoid repeating the same mi
 **Fix:** PersonalTodayView — added `isStickyActive`, `hasTriggerFiredThisPeriod`, `useSearch`, `fuzzyMatch`, recurring-aware nextDueAt filter, two-tier sort. personal-data-context — added `mergePhases` function and applied in `loadFromSupabase`. Also fixed `new Date(str+'T00:00:00')` UTC-parse in TodayView, widget route, widget page, CycleCard `fmtTrigger`. Extracted shared `getHabitCount` from TodayView and PersonalTodayView into `habit-context.tsx`.
 **Lesson:** When fixing logic in one parallel context, always port the fix to its mirror immediately. Add a TODO comment or audit note so drift doesn't accumulate silently.
 
+### B-67 · isStickyActive never fired for personal recurring cycles
+**Symptom:** Recurring personal cycles that had been started (some items done) would disappear from Personal Today after their trigger day, even though work wasn't finished.
+**Root cause:** `isStickyActive` in PersonalTodayView had a stray `c.must &&` condition copied from the work context. Personal cycles don't use the `must` flag, so the condition was always false.
+**Fix:** Removed `c.must &&` from the `isStickyActive` expression in `PersonalTodayView.tsx`.
+**Lesson:** When porting logic from work to personal context, audit every flag condition — personal and work cycles don't share the same flag conventions.
+
 ---
 
 ## How to use this doc

@@ -2,8 +2,9 @@
 
 import { useMemo } from 'react'
 import { Minus } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { usePersonalData } from '@/shared/lib/personal-data-context'
-import { useHabits, getHabitCount, type WorkHabit, type HabitLog } from '@/shared/lib/habit-context'
+import { useHabits, getHabitCount, type WorkHabit } from '@/shared/lib/habit-context'
 import { isTriggerDueToday, isRecurring, hasTriggerFiredThisPeriod, allCycleDone } from '@/shared/lib/sort-utils'
 import { useSearch } from '@/shared/lib/search-context'
 import { fuzzyMatch } from '@/shared/lib/search-utils'
@@ -12,19 +13,56 @@ import type { Cycle } from '@/shared/types'
 
 const PINK = '#f0a8c8'
 
+const AREA_META = [
+  { key: 'housework',        label: 'Housework', color: '#fb7185', href: '/personal/housework' },
+  { key: 'personal-finance', label: 'Finance',   color: '#22d3ee', href: '/personal/finance'   },
+  { key: 'sidoi',            label: 'Sidoi',     color: '#f9a8d4', href: '/personal/sidoi'     },
+  { key: 'tobuy',            label: 'To Buy',    color: '#fcd34d', href: '/personal/tobuy'     },
+] as const
+
 // ── Habit helpers ─────────────────────────────────────────────────────────────
 
 function isScheduledToday(habit: WorkHabit, dow: number): boolean {
   const f = habit.frequency
-  if (!f || f.type === 'daily')            return true
-  if (f.type === 'weekdays')               return dow >= 1 && dow <= 5
-  if (f.type === 'days')                   return f.days.includes(dow)
-  if (f.type === 'times_per_week')         return true  // show every day, track weekly
-  if (f.type === 'times_per_month')        return true  // show every day, track monthly
+  if (!f || f.type === 'daily')        return true
+  if (f.type === 'weekdays')           return dow >= 1 && dow <= 5
+  if (f.type === 'days')               return f.days.includes(dow)
+  if (f.type === 'times_per_week')     return true
+  if (f.type === 'times_per_month')    return true
   return true
 }
 
-// ── Personal habit strip for Today ───────────────────────────────────────────
+// ── Coming Up helpers ─────────────────────────────────────────────────────────
+
+function getCycleNextDateStr(c: Cycle, todayStr: string): string | null {
+  if (c.nextDueAt && c.nextDueAt > todayStr) return c.nextDueAt
+  const trigger = c.triggerLabel ?? ''
+  if (!isRecurring(trigger) && /^\d{4}-\d{2}-\d{2}$/.test(trigger) && trigger > todayStr) {
+    return trigger
+  }
+  return null
+}
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+
+function fmtDateBadge(dateStr: string): { day: string; num: string } {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  return { day: DAYS[dt.getDay()], num: String(d) }
+}
+
+function fmtChipDate(dateStr: string, todayStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  const base = new Date(todayStr + 'T00:00:00')
+  const diff = Math.round((dt.getTime() - base.getTime()) / 86400000)
+  if (diff === 1) return 'Tomorrow'
+  if (diff <= 6)  return `${DAYS[dt.getDay()]} · ${d} ${MONTHS[m - 1]}`
+  return `${d} ${MONTHS[m - 1]}`
+}
+
+// ── Personal habit strip ──────────────────────────────────────────────────────
 
 function PersonalHabitStrip() {
   const { habits, todayLogs, weekLogs, logHabit, unlogHabit } = useHabits()
@@ -87,6 +125,7 @@ function PersonalHabitStrip() {
 export function PersonalTodayView() {
   const { houseworkCycles, personalFinanceCycles, sidoiCycles, tobuyCycles } = usePersonalData()
   const { query } = useSearch()
+  const router = useRouter()
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -123,7 +162,7 @@ export function PersonalTodayView() {
         if (allHaveDue) return allItems.some(i => i.status !== 'done' && i.due! <= todayStr)
 
         const hasStarted = allItems.some(i => i.status === 'done')
-        const isStickyActive = c.must && isRecurring(trigger) && !c.nextDueAt &&
+        const isStickyActive = isRecurring(trigger) && !c.nextDueAt &&
           hasStarted && hasTriggerFiredThisPeriod(trigger, todayDate)
 
         if (noneHaveDue) return isTriggerDueToday(trigger, todayDate) || isStickyActive
@@ -141,6 +180,32 @@ export function PersonalTodayView() {
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allCycles, todayStr, query])
+
+  const comingUpCycles = useMemo(() => {
+    const dueTodayIds = new Set(dueToday.map(c => c.id))
+    return allCycles
+      .filter(c => {
+        if (c.status === 'complete') return false
+        if (allCycleDone(c)) return false
+        if (dueTodayIds.has(c.id)) return false
+        return getCycleNextDateStr(c, todayStr) !== null
+      })
+      .sort((a, b) => {
+        const da = getCycleNextDateStr(a, todayStr)!
+        const db = getCycleNextDateStr(b, todayStr)!
+        return da.localeCompare(db)
+      })
+      .slice(0, 5)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allCycles, dueToday, todayStr])
+
+  const areaSnapshot = useMemo(() =>
+    AREA_META.map(area => {
+      const next = comingUpCycles.find(c => c.area === area.key) ?? null
+      return { ...area, next, nextDateStr: next ? getCycleNextDateStr(next, todayStr) : null }
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  , [comingUpCycles, todayStr])
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -174,6 +239,91 @@ export function PersonalTodayView() {
           ) : (
             <div className="space-y-3">
               {dueToday.map(cycle => <CycleCard key={cycle.id} cycle={cycle} />)}
+            </div>
+          )}
+        </div>
+
+        {/* Coming Up */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              Coming Up
+            </h3>
+          </div>
+
+          {/* Area snapshot chips 2×2 */}
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            {areaSnapshot.map(area => (
+              <button
+                key={area.key}
+                onClick={() => router.push(area.href)}
+                className="text-left rounded-[10px] active:scale-[0.98] transition-transform"
+                style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.07)',
+                  padding: '9px 10px 9px 14px',
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+              >
+                <div style={{
+                  position: 'absolute', inset: '0 auto 0 0',
+                  width: '3.5px', background: area.color,
+                  borderRadius: '10px 0 0 10px',
+                }} />
+                <div style={{ fontSize: '9.5px', fontWeight: 700, letterSpacing: '0.7px', textTransform: 'uppercase', color: `${area.color}99`, marginBottom: '4px' }}>
+                  {area.label}
+                </div>
+                {area.next && area.nextDateStr ? (
+                  <>
+                    <div style={{ fontSize: '12px', fontWeight: 500, color: 'rgba(255,255,255,0.72)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>
+                      {area.next.title}
+                    </div>
+                    <div style={{ fontSize: '10.5px', color: 'rgba(255,255,255,0.28)' }}>
+                      {fmtChipDate(area.nextDateStr, todayStr)}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.25)', fontStyle: 'italic' }}>
+                    Nothing due
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Upcoming list */}
+          {comingUpCycles.length > 0 && (
+            <div>
+              {comingUpCycles.map((c, i) => {
+                const dateStr = getCycleNextDateStr(c, todayStr)!
+                const { day, num } = fmtDateBadge(dateStr)
+                const areaMeta = AREA_META.find(a => a.key === c.area)
+                return (
+                  <div
+                    key={c.id}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '11px',
+                      padding: '9px 0',
+                      borderBottom: i < comingUpCycles.length - 1 ? '1px solid rgba(255,255,255,0.045)' : 'none',
+                    }}
+                  >
+                    <div style={{ width: '32px', flexShrink: 0, textAlign: 'center' }}>
+                      <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.24)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{day}</div>
+                      <div style={{ fontSize: '17px', fontWeight: 600, color: 'rgba(255,255,255,0.44)', lineHeight: 1.15, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.5px' }}>{num}</div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '13px', fontWeight: 500, color: 'rgba(255,255,255,0.76)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {c.title}
+                      </div>
+                      <div style={{ fontSize: '10.5px', color: 'rgba(255,255,255,0.25)', marginTop: '1.5px' }}>
+                        {areaMeta?.label ?? c.area}
+                      </div>
+                    </div>
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: areaMeta?.color ?? 'rgba(255,255,255,0.3)' }} />
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
