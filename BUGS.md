@@ -553,6 +553,12 @@ A living document. Update after every fix session to avoid repeating the same mi
 **Fix:** PersonalTodayView — added `isStickyActive`, `hasTriggerFiredThisPeriod`, `useSearch`, `fuzzyMatch`, recurring-aware nextDueAt filter, two-tier sort. personal-data-context — added `mergePhases` function and applied in `loadFromSupabase`. Also fixed `new Date(str+'T00:00:00')` UTC-parse in TodayView, widget route, widget page, CycleCard `fmtTrigger`. Extracted shared `getHabitCount` from TodayView and PersonalTodayView into `habit-context.tsx`.
 **Lesson:** When fixing logic in one parallel context, always port the fix to its mirror immediately. Add a TODO comment or audit note so drift doesn't accumulate silently.
 
+### B-70 · Personal completed cycles deleted from DB; no QuickAdd suggestions
+**Symptom:** Personal completed cycles were permanently deleted from the `cycles` table (not kept for analytics/diary). Personal QuickAdd had no autocomplete suggestions from past tasks.
+**Root cause:** `personal-data-context` used `cycles DELETE` on completion instead of `cycles UPSERT status=complete` (like work context). No `completedTitles` state existed. `PersonalQuickAdd` had no suggestion corpus at all.
+**Fix:** (1) `updateCycle` and `toggleItem` now upsert `status: 'complete'` to cycles instead of deleting. (2) Added `completedTitles` state, populated on load from `cycles WHERE mode=personal AND status=complete` and updated on each completion. (3) `loadFromSupabase` filters active cycles before setting state. (4) `PersonalQuickAdd` now builds a suggestion corpus from active + completed titles and shows a chip strip when ≥2 chars are typed.
+**Lesson:** Personal and work contexts must stay in sync. Any "archive on complete" feature must keep the row in DB with status=complete — never delete. Suggestions are only possible if titles are accumulated across sessions.
+
 ### B-69 · Completed cycles stayed visible in area tabs
 **Symptom:** After marking a task complete (or ticking all sub-tasks on a recurring cycle), the cycle still appeared in Finance/HR/Ops/Others/personal area tabs.
 **Root cause:** The area tab filter functions (sortedFiltered useMemo) had no guard for `status === 'complete'` or `nextDueAt`. Non-recurring completed cycles were already removed from context state, but recurring cycles that completed their current period have `nextDueAt` set and stay in state — they were leaking through with no view-layer filter to hide them.

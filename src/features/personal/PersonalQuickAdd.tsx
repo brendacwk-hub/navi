@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { X, Plus } from 'lucide-react'
 import { usePersonalData } from '@/shared/lib/personal-data-context'
 import { RecurrencePicker, fmtRecurrDisplay, isRecurrString } from '@/shared/components/RecurrencePicker'
@@ -30,7 +30,7 @@ interface Props {
 }
 
 export function PersonalQuickAdd({ area, defaultSubArea, onClose }: Props) {
-  const { addCycle } = usePersonalData()
+  const { addCycle, houseworkCycles, personalFinanceCycles, sidoiCycles, tobuyCycles, completedTitles } = usePersonalData()
   const [title, setTitle] = useState('')
   const [subArea, setSubArea] = useState(defaultSubArea ?? '')
   const [dueDate, setDueDate] = useState('')
@@ -39,6 +39,25 @@ export function PersonalQuickAdd({ area, defaultSubArea, onClose }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const color = AREA_COLOR[area]
+
+  const suggestions = useMemo(() => {
+    if (title.length < 2) return []
+    const q = title.toLowerCase()
+    const seen = new Set<string>()
+    const results: string[] = []
+    const allActive = [...houseworkCycles, ...personalFinanceCycles, ...sidoiCycles, ...tobuyCycles]
+    for (const c of allActive) {
+      if (c.title && !seen.has(c.title) && c.title.toLowerCase().includes(q) && c.title.toLowerCase() !== q) {
+        seen.add(c.title); results.push(c.title)
+      }
+    }
+    for (const t of completedTitles) {
+      if (!seen.has(t) && t.toLowerCase().includes(q) && t.toLowerCase() !== q) {
+        seen.add(t); results.push(t)
+      }
+    }
+    return results.slice(0, 5)
+  }, [title, houseworkCycles, personalFinanceCycles, sidoiCycles, tobuyCycles, completedTitles])
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -89,8 +108,25 @@ export function PersonalQuickAdd({ area, defaultSubArea, onClose }: Props) {
           onChange={e => setTitle(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleAdd()}
           placeholder="Task title..."
-          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/25 mb-3"
+          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/25 mb-2"
         />
+
+        {suggestions.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto scrollbar-none pb-2">
+            {suggestions.map((s, i) => (
+              <button
+                key={i}
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => { setTitle(s); setTimeout(() => inputRef.current?.focus(), 0) }}
+                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] text-white/60 hover:text-white/85 transition-all whitespace-nowrap"
+                style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderColor: `${color}30` }}
+              >
+                <span className="text-[9px]" style={{ color }}>✦</span>
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Sub-area picker for Sidoi */}
         {area === 'sidoi' && (

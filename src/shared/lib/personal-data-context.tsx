@@ -124,6 +124,7 @@ interface PersonalDataCtx {
   personalFinanceCycles: Cycle[]
   sidoiCycles: Cycle[]
   tobuyCycles: Cycle[]
+  completedTitles: string[]
   addCycle: (area: PersonalArea, cycle: Cycle) => void
   updateCycle: (area: PersonalArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes' | 'nextDueAt' | 'items'>>) => void
   deleteCycle: (area: PersonalArea, id: string) => void
@@ -144,6 +145,7 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
   const [personalFinanceCycles, setPersonalFinanceCycles] = useState<Cycle[]>([])
   const [sidoiCycles,           setSidoiCycles]           = useState<Cycle[]>([])
   const [tobuyCycles,           setTobuyCycles]           = useState<Cycle[]>([])
+  const [completedTitles,       setCompletedTitles]       = useState<string[]>([])
   const sbReady = useRef(false)
   const { showToast } = useToast()
   const pendingCompletions = useRef<Map<string, { cycle: Cycle; area: PersonalArea; timerId: ReturnType<typeof setTimeout> }>>(new Map())
@@ -179,11 +181,16 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
         }),
         ...toInsert,
       ]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const doneTitles = rows.filter((r: any) => r.status === 'complete').map((r: any) => r.title as string).filter(Boolean)
+      setCompletedTitles([...new Set(doneTitles)])
+
       const cycles = applyRecurrenceResets(all, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
-      setHouseworkCycles(cycles.filter(c => c.area === 'housework'))
-      setPersonalFinanceCycles(cycles.filter(c => c.area === 'personal-finance'))
-      setSidoiCycles(cycles.filter(c => c.area === 'sidoi'))
-      setTobuyCycles(cycles.filter(c => c.area === 'tobuy'))
+      const active = cycles.filter(c => c.status !== 'complete')
+      setHouseworkCycles(active.filter(c => c.area === 'housework'))
+      setPersonalFinanceCycles(active.filter(c => c.area === 'personal-finance'))
+      setSidoiCycles(active.filter(c => c.area === 'sidoi'))
+      setTobuyCycles(active.filter(c => c.area === 'tobuy'))
     } catch (e) {
       console.error('[personal refreshData]', e)
     }
@@ -202,12 +209,9 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
     cycleSetter(area)(prev => {
       const target = prev.find(c => c.id === id)
       if (patch.status === 'complete' && target && !isRecurring(target.triggerLabel)) {
-        dbWrite({ table: 'completed_tasks', operation: 'upsert', data: {
-          id: target.id, title: target.title, area: target.area, effort: target.effort,
-          sub_area: target.subArea ?? null, items: target.items ?? null,
-          completed_at: new Date().toISOString(), notes: target.notes ?? null,
-        }})
-        dbWrite({ table: 'cycles', operation: 'delete', matchId: id })
+        const completedAt = new Date().toISOString()
+        dbWrite({ table: 'cycles', operation: 'upsert', data: toRow({ ...target, status: 'complete', lastCompletedAt: completedAt }) })
+        setCompletedTitles(ct => [...new Set([...ct, target.title])])
         return prev.filter(c => c.id !== id)
       }
       const next = prev.map(c => c.id === id ? { ...c, ...patch } : c)
@@ -262,15 +266,9 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
       }
       if (!isRecurring(changed.triggerLabel) && allCycleDone(changed)) {
         const completedAt = new Date().toISOString()
-        const timerId = setTimeout(() => {
-          pendingCompletions.current.delete(cycleId)
-          dbWrite({ table: 'completed_tasks', operation: 'upsert', data: {
-            id: changed.id, title: changed.title, area: changed.area, effort: changed.effort,
-            sub_area: changed.subArea ?? null, items: changed.items ?? null,
-            completed_at: completedAt, notes: changed.notes ?? null,
-          }})
-          dbWrite({ table: 'cycles', operation: 'delete', matchId: cycleId })
-        }, 5000)
+        dbWrite({ table: 'cycles', operation: 'upsert', data: toRow({ ...changed, status: 'complete', lastCompletedAt: completedAt }) })
+        setCompletedTitles(ct => [...new Set([...ct, changed.title])])
+        const timerId = setTimeout(() => { pendingCompletions.current.delete(cycleId) }, 5000)
         pendingCompletions.current.set(cycleId, { cycle: changed, area, timerId })
         showToast(`"${changed.title}" completed`, {
           duration: 5000,
@@ -328,7 +326,7 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
 
   return (
     <PersonalDataContext.Provider value={{
-      houseworkCycles, personalFinanceCycles, sidoiCycles, tobuyCycles,
+      houseworkCycles, personalFinanceCycles, sidoiCycles, tobuyCycles, completedTitles,
       addCycle, updateCycle, deleteCycle, deleteItem, addCycleItem,
       toggleItem, setItemLabel, setItemNote, setItemUrgent, setItemDue,
       refreshData: loadFromSupabase,
