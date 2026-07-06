@@ -553,6 +553,12 @@ A living document. Update after every fix session to avoid repeating the same mi
 **Fix:** PersonalTodayView — added `isStickyActive`, `hasTriggerFiredThisPeriod`, `useSearch`, `fuzzyMatch`, recurring-aware nextDueAt filter, two-tier sort. personal-data-context — added `mergePhases` function and applied in `loadFromSupabase`. Also fixed `new Date(str+'T00:00:00')` UTC-parse in TodayView, widget route, widget page, CycleCard `fmtTrigger`. Extracted shared `getHabitCount` from TodayView and PersonalTodayView into `habit-context.tsx`.
 **Lesson:** When fixing logic in one parallel context, always port the fix to its mirror immediately. Add a TODO comment or audit note so drift doesn't accumulate silently.
 
+### B-69 · Completed cycles stayed visible in area tabs
+**Symptom:** After marking a task complete (or ticking all sub-tasks on a recurring cycle), the cycle still appeared in Finance/HR/Ops/Others/personal area tabs.
+**Root cause:** The area tab filter functions (sortedFiltered useMemo) had no guard for `status === 'complete'` or `nextDueAt`. Non-recurring completed cycles were already removed from context state, but recurring cycles that completed their current period have `nextDueAt` set and stay in state — they were leaking through with no view-layer filter to hide them.
+**Fix:** Added `if (cycle.status === 'complete' || cycle.nextDueAt) return false` at the top of the filter in FinanceTab, HRTab, OpsTab, OthersTab, and PersonalTabLayout.
+**Lesson:** Any list view of active cycles must explicitly filter out both `status === 'complete'` (non-recurring archived) and `nextDueAt` (recurring done-for-this-period). The data layer only removes non-recurring cycles; view-layer guards are needed for recurring ones.
+
 ### B-68 · Sub-task ticks not saving in CycleDetailSheet
 **Symptom:** Tapping a sub-task checkbox inside the cycle detail sheet appeared to do nothing — ticks wouldn't persist visually.
 **Root cause:** `TodayView` stored the clicked cycle in `sheetCycle` state as a snapshot. When `toggleItem` updated `allCycles` in the data context, `sheetCycle` still held the old object, so `CycleCard` re-rendered with stale data and the tick appeared to revert.

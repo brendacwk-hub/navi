@@ -73,6 +73,7 @@ function OpsTabInner() {
 
   const sortedFiltered = useMemo(() => sortCycles(
     opsCycles.filter(cycle => {
+      if (cycle.status === 'complete' || cycle.nextDueAt) return false
       if (activeSub && cycle.subArea !== activeSub) return false
       const chipMatch = (() => {
         if (chipFilter === 'All') return true

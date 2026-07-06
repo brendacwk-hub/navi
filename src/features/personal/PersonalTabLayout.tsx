@@ -46,6 +46,7 @@ export function PersonalTabLayout({ area, cycles, subAreaConfig }: Props) {
 
   const sortedFiltered = useMemo(() => sortCycles(
     cycles.filter(c => {
+      if (c.status === 'complete' || c.nextDueAt) return false
       if (activeSub && c.subArea !== activeSub) return false
       if (chipFilter === 'All' || chipFilter === 'Latest') return true
       return cycleHasMatchingItems(c, chipFilter)

@@ -18,6 +18,7 @@ export function OthersTab() {
 
   const filtered = useMemo(() => sortCycles(
     othersCycles.filter(cycle => {
+      if (cycle.status === 'complete' || cycle.nextDueAt) return false
       const chipMatch = (() => {
         if (active === 'All') return true
         return cycleHasMatchingItems(cycle, active)

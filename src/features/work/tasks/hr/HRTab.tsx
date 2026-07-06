@@ -74,6 +74,7 @@ function HRTabInner() {
   // Cycles filtered and sorted by deadline
   const sortedFiltered = useMemo(() => sortCycles(
     hrCycles.filter(cycle => {
+      if (cycle.status === 'complete' || cycle.nextDueAt) return false
       if (activeSub && cycle.subArea !== activeSub) return false
       if (chipFilter === 'Latest') return matchesCycle(cycle, query)
       const chipMatch = (() => {
