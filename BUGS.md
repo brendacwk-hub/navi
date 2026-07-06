@@ -553,6 +553,12 @@ A living document. Update after every fix session to avoid repeating the same mi
 **Fix:** PersonalTodayView — added `isStickyActive`, `hasTriggerFiredThisPeriod`, `useSearch`, `fuzzyMatch`, recurring-aware nextDueAt filter, two-tier sort. personal-data-context — added `mergePhases` function and applied in `loadFromSupabase`. Also fixed `new Date(str+'T00:00:00')` UTC-parse in TodayView, widget route, widget page, CycleCard `fmtTrigger`. Extracted shared `getHabitCount` from TodayView and PersonalTodayView into `habit-context.tsx`.
 **Lesson:** When fixing logic in one parallel context, always port the fix to its mirror immediately. Add a TODO comment or audit note so drift doesn't accumulate silently.
 
+### B-68 · Sub-task ticks not saving in CycleDetailSheet
+**Symptom:** Tapping a sub-task checkbox inside the cycle detail sheet appeared to do nothing — ticks wouldn't persist visually.
+**Root cause:** `TodayView` stored the clicked cycle in `sheetCycle` state as a snapshot. When `toggleItem` updated `allCycles` in the data context, `sheetCycle` still held the old object, so `CycleCard` re-rendered with stale data and the tick appeared to revert.
+**Fix:** Replaced `cycle={sheetCycle}` with `cycle={sheetCycle ? (allCycles.find(c => c.id === sheetCycle.id) ?? sheetCycle) : null}` in `TodayView.tsx` (line 798), so the sheet always receives the live cycle from `allCycles`.
+**Lesson:** Never pass a click-time snapshot as a long-lived prop to a sheet/modal that needs to reflect mutations. Always derive the current object from the live data source using the ID.
+
 ### B-67 · isStickyActive never fired for personal recurring cycles
 **Symptom:** Recurring personal cycles that had been started (some items done) would disappear from Personal Today after their trigger day, even though work wasn't finished.
 **Root cause:** `isStickyActive` in PersonalTodayView had a stray `c.must &&` condition copied from the work context. Personal cycles don't use the `must` flag, so the condition was always false.

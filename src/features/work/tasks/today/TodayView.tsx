@@ -795,7 +795,7 @@ export function TodayView() {
       />
     )}
 
-    <CycleDetailSheet cycle={sheetCycle} onClose={() => setSheetCycle(null)} />
+    <CycleDetailSheet cycle={sheetCycle ? (allCycles.find(c => c.id === sheetCycle.id) ?? sheetCycle) : null} onClose={() => setSheetCycle(null)} />
     </>
   )
 }
