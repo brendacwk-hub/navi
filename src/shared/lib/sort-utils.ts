@@ -464,6 +464,36 @@ export function resetCycle(cycle: Cycle): Cycle {
   return { ...base, items: resetItems(cycle.items ?? []) }
 }
 
+// ── Completion history ────────────────────────────────────────────────────────
+
+/**
+ * Builds the row to INSERT into cycle_completions.
+ * Pass a client-generated `id` (crypto.randomUUID()) when the caller needs
+ * to be able to DELETE the row on undo. Omit it otherwise — Supabase generates
+ * the UUID server-side.
+ */
+export function buildCompletionRow(
+  c: Cycle,
+  mode: 'work' | 'personal',
+  id?: string,
+): Record<string, unknown> {
+  const dueDate =
+    !isRecurring(c.triggerLabel) && /^\d{4}-\d{2}-\d{2}$/.test(c.triggerLabel ?? '')
+      ? (c.triggerLabel ?? null)
+      : null
+  return {
+    ...(id ? { id } : {}),
+    cycle_id:  c.id,
+    title:     c.title,
+    area:      c.area,
+    mode,
+    sub_area:  c.subArea  ?? null,
+    effort:    c.effort   ?? null,
+    due_date:  dueDate,
+    recurring: isRecurring(c.triggerLabel ?? ''),
+  }
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function addDays(d: Date, n: number): Date {

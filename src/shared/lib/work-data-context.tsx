@@ -6,7 +6,7 @@ import { hrCycles as initHr } from '@/features/work/tasks/hr/data'
 import { todayTaskData as initToday } from '@/features/work/tasks/today/data'
 import type { Cycle, ChecklistItem, WorkArea } from '@/shared/types'
 import type { TodayTaskData, TodaySubItem } from '@/features/work/tasks/today/data'
-import { isRecurring, computeNextDue, allCycleDone, resetCycle, isTriggerDueToday } from '@/shared/lib/sort-utils'
+import { isRecurring, computeNextDue, allCycleDone, resetCycle, isTriggerDueToday, buildCompletionRow } from '@/shared/lib/sort-utils'
 import { useToast } from '@/shared/lib/toast-context'
 
 // ── Server route helpers — bypass RLS using service role key ──────────────────
@@ -213,7 +213,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
   const [completedTitles, setCompletedTitles] = useState<string[]>([])
   const sbReady = useRef(false)
   const { showToast } = useToast()
-  const pendingCompletions = useRef<Map<string, { cycle: Cycle; area: WorkArea; timerId: ReturnType<typeof setTimeout>; archiveId: string }>>(new Map())
+  const pendingCompletions = useRef<Map<string, { cycle: Cycle; area: WorkArea; timerId: ReturnType<typeof setTimeout>; archiveId: string; completionId: string }>>(new Map())
 
   // ── Load from DB on mount ─────────────────────────────────────────────────
   const loadFromSupabase = useCallback(async () => {
@@ -399,6 +399,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
             items: target.items ?? null, completed_at: completedAt, notes: target.notes ?? null } },
         })
         dbWrite({ table: 'cycles', operation: 'upsert', data: toRow({ ...target, status: 'complete', lastCompletedAt: completedAt }) })
+        dbWrite({ table: 'cycle_completions', operation: 'insert', data: buildCompletionRow(target, 'work') })
         setCompletedTitles(ct => [...new Set([...ct, target.title])])
         return prev.filter(c => c.id !== id)
       }
@@ -427,6 +428,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
         if (nextDue) {
           const withDue = { ...changed, lastCompletedAt: new Date().toISOString(), nextDueAt: nextDue }
           syncCycle(withDue)
+          dbWrite({ table: 'cycle_completions', operation: 'insert', data: buildCompletionRow(changed, 'work') })
           return toggled.map(c => c.id === cycleId ? withDue : c)
         }
       }
@@ -434,6 +436,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
       if (!isRecurring(changed.triggerLabel) && allCycleDone(changed)) {
         const completedAt = new Date().toISOString()
         const archiveId = `completed-${cycleId}`
+        const completionId = crypto.randomUUID()
         // Write archive entry immediately — today_tasks always exists (unlike completed_tasks or status column)
         dbWrite({
           table: 'today_tasks', operation: 'upsert',
@@ -443,11 +446,12 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
         })
         // Also attempt status='complete' in cycles (silent no-op if column doesn't exist)
         dbWrite({ table: 'cycles', operation: 'upsert', data: toRow({ ...changed, status: 'complete', lastCompletedAt: completedAt }) })
+        dbWrite({ table: 'cycle_completions', operation: 'insert', data: buildCompletionRow(changed, 'work', completionId) })
         setCompletedTitles(ct => [...new Set([...ct, changed.title])])
         const timerId = setTimeout(() => {
           pendingCompletions.current.delete(cycleId)
         }, 5000)
-        pendingCompletions.current.set(cycleId, { cycle: changed, area, timerId, archiveId })
+        pendingCompletions.current.set(cycleId, { cycle: changed, area, timerId, archiveId, completionId })
         showToast(`"${changed.title}" completed`, {
           duration: 5000,
           action: {
@@ -462,6 +466,8 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
               syncCycle(restored)
               // Delete archive entry so the cycle reappears on next load
               dbWrite({ table: 'today_tasks', operation: 'delete', matchId: archiveId })
+              // Delete the completion record — undo means it didn't happen
+              dbWrite({ table: 'cycle_completions', operation: 'delete', matchId: pending.completionId })
             },
           },
         })

@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
 import type { Cycle, ChecklistItem, PersonalArea } from '@/shared/types'
-import { isRecurring, computeNextDue, allCycleDone, resetCycle } from '@/shared/lib/sort-utils'
+import { isRecurring, computeNextDue, allCycleDone, resetCycle, buildCompletionRow } from '@/shared/lib/sort-utils'
 import { useToast } from '@/shared/lib/toast-context'
 import { personalFinanceCycles as initPersonalFinance } from '@/features/personal/finance/data'
 
@@ -148,7 +148,7 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
   const [completedTitles,       setCompletedTitles]       = useState<string[]>([])
   const sbReady = useRef(false)
   const { showToast } = useToast()
-  const pendingCompletions = useRef<Map<string, { cycle: Cycle; area: PersonalArea; timerId: ReturnType<typeof setTimeout> }>>(new Map())
+  const pendingCompletions = useRef<Map<string, { cycle: Cycle; area: PersonalArea; timerId: ReturnType<typeof setTimeout>; completionId: string }>>(new Map())
 
   const cycleSetter = useCallback((area: PersonalArea) => {
     if (area === 'housework')         return setHouseworkCycles
@@ -211,6 +211,7 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
       if (patch.status === 'complete' && target && !isRecurring(target.triggerLabel)) {
         const completedAt = new Date().toISOString()
         dbWrite({ table: 'cycles', operation: 'upsert', data: toRow({ ...target, status: 'complete', lastCompletedAt: completedAt }) })
+        dbWrite({ table: 'cycle_completions', operation: 'insert', data: buildCompletionRow(target, 'personal') })
         setCompletedTitles(ct => [...new Set([...ct, target.title])])
         return prev.filter(c => c.id !== id)
       }
@@ -261,15 +262,18 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
         if (nextDue) {
           const withDue = { ...changed, lastCompletedAt: new Date().toISOString(), nextDueAt: nextDue }
           syncCycle(withDue)
+          dbWrite({ table: 'cycle_completions', operation: 'insert', data: buildCompletionRow(changed, 'personal') })
           return toggled.map(c => c.id === cycleId ? withDue : c)
         }
       }
       if (!isRecurring(changed.triggerLabel) && allCycleDone(changed)) {
         const completedAt = new Date().toISOString()
+        const completionId = crypto.randomUUID()
         dbWrite({ table: 'cycles', operation: 'upsert', data: toRow({ ...changed, status: 'complete', lastCompletedAt: completedAt }) })
+        dbWrite({ table: 'cycle_completions', operation: 'insert', data: buildCompletionRow(changed, 'personal', completionId) })
         setCompletedTitles(ct => [...new Set([...ct, changed.title])])
         const timerId = setTimeout(() => { pendingCompletions.current.delete(cycleId) }, 5000)
-        pendingCompletions.current.set(cycleId, { cycle: changed, area, timerId })
+        pendingCompletions.current.set(cycleId, { cycle: changed, area, timerId, completionId })
         showToast(`"${changed.title}" completed`, {
           duration: 5000,
           action: {
@@ -282,6 +286,8 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
               const restored = patchCycleItem(pending.cycle, itemId, i => ({ ...i, status: 'todo' }))
               cycleSetter(area)(prev => [...prev, restored])
               syncCycle(restored)
+              // Delete the completion record — undo means it didn't happen
+              dbWrite({ table: 'cycle_completions', operation: 'delete', matchId: pending.completionId })
             },
           },
         })
