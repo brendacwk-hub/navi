@@ -29,6 +29,13 @@ export interface HabitDef {
   frequency?: { type: string; days?: number[]; times?: number }
 }
 
+export interface CompletionHistoryData {
+  totalCount: number
+  byArea: { area: string; label: string; count: number; color: string }[]
+  weeklyLast12: { label: string; count: number }[]
+  topCycles: { title: string; area: string; count: number }[]
+}
+
 export interface AnalyticsData {
   cycles: CompletedCycle[]
   openCycles: OpenCycle[]
@@ -36,6 +43,7 @@ export interface AnalyticsData {
   habits: HabitDef[]
   habitLogsByDate: Record<string, Record<string, number>>
   diaryEntries: { date: string; mood: string }[]
+  completionHistory?: CompletionHistoryData
 }
 
 type Period = 'week' | 'month' | 'year'
@@ -295,7 +303,7 @@ function DualLineChart({ dates, seriesA, seriesB, labelA, labelB, colorA, colorB
 // ── Main view ─────────────────────────────────────────────────────────────────
 
 export function AnalyticsView({ data }: { data: AnalyticsData }) {
-  const { cycles, openCycles, taskCompletions, habits, habitLogsByDate, diaryEntries } = data
+  const { cycles, openCycles, taskCompletions, habits, habitLogsByDate, diaryEntries, completionHistory } = data
 
   const [period, setPeriod] = useState<Period>('month')
   const [focus, setFocus] = useState<FocusMode>('output')
@@ -821,6 +829,58 @@ export function AnalyticsView({ data }: { data: AnalyticsData }) {
               ))}
             </div>
           </MetricCard>
+        )}
+
+        {/* Completion history — from cycle_completions (full log, grows over time) */}
+        {completionHistory && completionHistory.totalCount > 0 && (
+          <>
+            <div className="pt-2">
+              <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.25)' }}>Completion log</p>
+              <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.2)' }}>Full history · every cycle recorded, including recurring repeats</p>
+            </div>
+
+            <StatCard
+              label="All-time completions logged"
+              value={completionHistory.totalCount}
+              sub="cycles + recurring events"
+              accent="#818cf8"
+            />
+
+            {completionHistory.byArea.length > 0 && (
+              <MetricCard title="Completions by area — all-time">
+                <BarChart
+                  data={completionHistory.byArea.map(a => ({ label: a.label, value: a.count, color: a.color }))}
+                  barHeight={70}
+                  showValues
+                />
+              </MetricCard>
+            )}
+
+            {completionHistory.weeklyLast12.some(w => w.count > 0) && (
+              <MetricCard title="Weekly pace — last 12 weeks (full log)">
+                <BarChart
+                  data={completionHistory.weeklyLast12.map(w => ({ label: w.label, value: w.count, color: '#818cf8' }))}
+                  barHeight={70}
+                  showValues
+                />
+                <p className="text-[10px] mt-1" style={{ color: 'rgba(255,255,255,0.2)' }}>Includes every recurring completion</p>
+              </MetricCard>
+            )}
+
+            {completionHistory.topCycles.length > 0 && (
+              <MetricCard title="Most repeated cycles">
+                <div className="space-y-2.5">
+                  {completionHistory.topCycles.map((c, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-[10px] font-semibold w-4 text-right shrink-0" style={{ color: 'rgba(255,255,255,0.2)' }}>{i + 1}</span>
+                      <span className="text-[12px] flex-1 truncate" style={{ color: 'rgba(255,255,255,0.7)' }}>{c.title}</span>
+                      <span className="text-[12px] font-bold shrink-0" style={{ color: '#818cf8' }}>×{c.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </MetricCard>
+            )}
+          </>
         )}
 
       </div>

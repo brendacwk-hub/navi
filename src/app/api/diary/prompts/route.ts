@@ -30,16 +30,45 @@ const BASE_QUESTIONS = [
   "Did you get to do something just for yourself today?",
 ]
 
+interface CompletionRow {
+  title: string
+  area: string
+  mode: string
+  sub_area: string | null
+  recurring: boolean
+}
+
 interface DayContext {
   gcal: string[]
   workTasks: string[]
-  workCycles: string[]
-  personalCycles: string[]
+  completedToday: CompletionRow[]
+  weeklyByArea: { label: string; count: number; titles: string[] }[]
   pastDiary: { id: string; snippet: string }[]
 }
 
+// Increment date string by N days (YYYY-MM-DD, no Date object needed for DST safety)
+function addDaysToDate(date: string, n: number): string {
+  const [y, m, d] = date.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d + n))
+  return dt.toISOString().slice(0, 10)
+}
+
+// HK is UTC+8 — bracket queries so completions at e.g. 23:00 HK don't land on the wrong date
+function hkBracket(date: string): { from: string; to: string } {
+  return {
+    from: `${date}T00:00:00+08:00`,
+    to:   `${addDaysToDate(date, 1)}T00:00:00+08:00`,
+  }
+}
+
+const AREA_LABELS: Record<string, string> = {
+  finance: 'Finance', hr: 'HR', ops: 'Ops', others: 'Others',
+  housework: 'Housework', 'personal-finance': 'Personal Finance',
+  sidoi: 'Sidoi', tobuy: 'To Buy',
+}
+
 async function fetchDayContext(date: string): Promise<DayContext> {
-  const ctx: DayContext = { gcal: [], workTasks: [], workCycles: [], personalCycles: [], pastDiary: [] }
+  const ctx: DayContext = { gcal: [], workTasks: [], completedToday: [], weeklyByArea: [], pastDiary: [] }
 
   await Promise.allSettled([
     // GCal events for the day
@@ -81,31 +110,42 @@ async function fetchDayContext(date: string): Promise<DayContext> {
       } catch { /* ignore */ }
     })(),
 
-    // Work cycles completed on this date
+    // Cycles completed today (work + personal) — from cycle_completions
     (async () => {
       try {
-        const { data } = await admin.from('cycles')
-          .select('title, updated_at')
-          .eq('mode', 'work')
-          .eq('status', 'complete')
-        ctx.workCycles = ((data ?? []) as { title: string; updated_at?: string }[])
-          .filter(c => c.updated_at?.startsWith(date))
-          .map(c => c.title)
-          .slice(0, 5)
+        const { from, to } = hkBracket(date)
+        const { data } = await admin.from('cycle_completions')
+          .select('title, area, mode, sub_area, recurring')
+          .gte('completed_at', from)
+          .lt('completed_at', to)
+          .order('completed_at', { ascending: true })
+        ctx.completedToday = (data ?? []) as CompletionRow[]
       } catch { /* ignore */ }
     })(),
 
-    // Personal cycles completed on this date
+    // Weekly completion summary — last 7 days grouped by area
     (async () => {
       try {
-        const { data } = await admin.from('cycles')
-          .select('title, updated_at')
-          .eq('mode', 'personal')
-          .eq('status', 'complete')
-        ctx.personalCycles = ((data ?? []) as { title: string; updated_at?: string }[])
-          .filter(c => c.updated_at?.startsWith(date))
-          .map(c => c.title)
-          .slice(0, 5)
+        const weekStart = addDaysToDate(date, -6) // 7-day window ending today
+        const { from: wFrom } = hkBracket(weekStart)
+        const { to: wTo }     = hkBracket(date)
+        const { data } = await admin.from('cycle_completions')
+          .select('title, area, mode')
+          .gte('completed_at', wFrom)
+          .lt('completed_at', wTo)
+        const rows = (data ?? []) as { title: string; area: string; mode: string }[]
+        // Group by area — combine mode into label for personal areas
+        const map = new Map<string, { count: number; titles: string[] }>()
+        for (const r of rows) {
+          const label = AREA_LABELS[r.area] ?? r.area
+          const entry = map.get(label) ?? { count: 0, titles: [] }
+          entry.count++
+          if (entry.titles.length < 3) entry.titles.push(r.title)
+          map.set(label, entry)
+        }
+        ctx.weeklyByArea = [...map.entries()]
+          .map(([label, v]) => ({ label, count: v.count, titles: v.titles }))
+          .sort((a, b) => b.count - a.count)
       } catch { /* ignore */ }
     })(),
 
@@ -150,13 +190,25 @@ export async function GET(req: Request) {
 
   // Fetch all context sources
   const ctx = await fetchDayContext(date)
-  const allWork = [...ctx.workTasks, ...ctx.workCycles]
+
+  // Group today's completions by mode
+  const workDone    = ctx.completedToday.filter(c => c.mode === 'work')
+  const personalDone = ctx.completedToday.filter(c => c.mode === 'personal')
+
+  const fmtCycles = (rows: CompletionRow[]) =>
+    rows.map(c => c.sub_area ? `${c.title} (${c.sub_area})` : c.title).join('; ')
 
   // Source 1: tasks completed today
   const taskSection = [
-    allWork.length           ? `Work tasks/projects done: ${allWork.join('; ')}`              : '',
-    ctx.personalCycles.length ? `Personal tasks done: ${ctx.personalCycles.join('; ')}`       : '',
+    ctx.workTasks.length   ? `Work tasks done: ${ctx.workTasks.join('; ')}` : '',
+    workDone.length        ? `Work cycles done: ${fmtCycles(workDone)}`     : '',
+    personalDone.length    ? `Personal done: ${fmtCycles(personalDone)}`    : '',
   ].filter(Boolean).join('\n')
+
+  // Weekly summary — shown to Gemini for richer context
+  const weeklySection = ctx.weeklyByArea.length
+    ? `This week (7 days) completions by area:\n${ctx.weeklyByArea.map(a => `  ${a.label}: ${a.count} (${a.titles.join(', ')})`).join('\n')}`
+    : ''
 
   // Source 2: calendar events today
   const calSection = ctx.gcal.length ? `Calendar events: ${ctx.gcal.join('; ')}` : ''
@@ -170,7 +222,7 @@ export async function GET(req: Request) {
 
   const prompt = `You are a warm, encouraging diary assistant for Brenda.
 
-${personality ? `About Brenda:\n${personality}\n` : ''}${diarySection ? `\n${diarySection}\n` : ''}${todaySection ? `\nWhat Brenda did on ${date} (${dayName}):\n${todaySection}\n` : ''}
+${personality ? `About Brenda:\n${personality}\n` : ''}${diarySection ? `\n${diarySection}\n` : ''}${weeklySection ? `\n${weeklySection}\n` : ''}${todaySection ? `\nWhat Brenda did on ${date} (${dayName}):\n${todaySection}\n` : ''}
 Generate exactly 3 short diary prompt questions for tonight's entry (${dayName}, ${date}).${seed > 0 ? ` Refresh #${seed} — do NOT repeat any question already shown today.` : ''}
 
 RULES:

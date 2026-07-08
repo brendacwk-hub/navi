@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { AnalyticsView } from '@/features/analytics/AnalyticsView'
-import type { AnalyticsData, CompletedCycle, OpenCycle, HabitDef, TaskCompletion } from '@/features/analytics/AnalyticsView'
+import type { AnalyticsData, CompletedCycle, OpenCycle, HabitDef, TaskCompletion, CompletionHistoryData } from '@/features/analytics/AnalyticsView'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Analytics — Navi' }
@@ -10,8 +10,64 @@ const admin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 )
 
+const HISTORY_AREA_COLORS: Record<string, string> = {
+  finance: '#3b82f6', hr: '#22c55e', ops: '#eab308', others: '#ec4899',
+  housework: '#fb7185', 'personal-finance': '#22d3ee', sidoi: '#f9a8d4', tobuy: '#fcd34d',
+}
+const HISTORY_AREA_NAMES: Record<string, string> = {
+  finance: 'Finance', hr: 'HR', ops: 'Ops', others: 'Others',
+  housework: 'Housework', 'personal-finance': 'P.Finance', sidoi: 'Sidoi', tobuy: 'To Buy',
+}
+
+function toHKDate(ts: string): string {
+  return new Date(new Date(ts).getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10)
+}
+
+function mondayOf(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00')
+  const dow = (d.getDay() + 6) % 7
+  d.setDate(d.getDate() - dow)
+  return d.toISOString().slice(0, 10)
+}
+
+function buildCompletionHistory(rows: { cycle_id: string; title: string; area: string; completed_at: string }[]): CompletionHistoryData {
+  const areaMap = new Map<string, number>()
+  const cycleMap = new Map<string, { title: string; area: string; count: number }>()
+  const weekCountMap = new Map<string, number>()
+
+  for (const r of rows) {
+    areaMap.set(r.area, (areaMap.get(r.area) ?? 0) + 1)
+
+    const entry = cycleMap.get(r.cycle_id) ?? { title: r.title, area: r.area, count: 0 }
+    entry.count++
+    cycleMap.set(r.cycle_id, entry)
+
+    const monday = mondayOf(toHKDate(r.completed_at))
+    weekCountMap.set(monday, (weekCountMap.get(monday) ?? 0) + 1)
+  }
+
+  const todayHK = toHKDate(new Date().toISOString())
+  const currentMonday = mondayOf(todayHK)
+  const currentMondayD = new Date(currentMonday + 'T00:00:00')
+  const weeklyLast12 = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(currentMondayD)
+    d.setDate(currentMondayD.getDate() - (11 - i) * 7)
+    const mondayStr = d.toISOString().slice(0, 10)
+    const label = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+    return { label, count: weekCountMap.get(mondayStr) ?? 0 }
+  })
+
+  const byArea = [...areaMap.entries()]
+    .map(([area, count]) => ({ area, label: HISTORY_AREA_NAMES[area] ?? area, count, color: HISTORY_AREA_COLORS[area] ?? '#818cf8' }))
+    .sort((a, b) => b.count - a.count)
+
+  const topCycles = [...cycleMap.values()].sort((a, b) => b.count - a.count).slice(0, 5)
+
+  return { totalCount: rows.length, byArea, weeklyLast12, topCycles }
+}
+
 export default async function WorkAnalyticsPage() {
-  const [completedCyclesRes, personalCompletedRes, openCyclesRes, workHabitDefs, personalHabitDefs, habitLogsRes, diaryRes, taskCompletionsRes] = await Promise.all([
+  const [completedCyclesRes, personalCompletedRes, openCyclesRes, workHabitDefs, personalHabitDefs, habitLogsRes, diaryRes, taskCompletionsRes, completionLogRes] = await Promise.all([
     admin.from('cycles')
       .select('id,title,area,mode,trigger_label,created_at,last_completed_at,effort,must,urgent,items')
       .eq('status', 'complete')
@@ -28,6 +84,10 @@ export default async function WorkAnalyticsPage() {
     admin.from('task_completions')
       .select('title,area,effort,must,urgent,mode,completed_at')
       .order('completed_at', { ascending: false }),
+    admin.from('cycle_completions')
+      .select('cycle_id,title,area,completed_at')
+      .order('completed_at', { ascending: false })
+      .limit(2000),
   ])
 
   type CycleRow = {
@@ -100,6 +160,11 @@ export default async function WorkAnalyticsPage() {
         completedAt: r.completed_at,
       }))
 
-  const analyticsData: AnalyticsData = { cycles, openCycles, taskCompletions, habits, habitLogsByDate, diaryEntries }
+  type CompletionLogRow = { cycle_id: string; title: string; area: string; completed_at: string }
+  const completionHistory = completionLogRes.error
+    ? undefined
+    : buildCompletionHistory((completionLogRes.data ?? []) as CompletionLogRow[])
+
+  const analyticsData: AnalyticsData = { cycles, openCycles, taskCompletions, habits, habitLogsByDate, diaryEntries, completionHistory }
   return <AnalyticsView data={analyticsData} />
 }
