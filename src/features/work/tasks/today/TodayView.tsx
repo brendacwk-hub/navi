@@ -303,56 +303,84 @@ function TodayTaskCard({ task }: { task: TodayTaskData }) {
 }
 
 // ── "Coming up" — first cycle with todo items, when today list is empty ───────
-function ComingUpSection({ cycles }: { cycles: Cycle[] }) {
-  const router = useRouter()
-  const upcoming = cycles
-    .filter(c => c.status === 'active')
-    .map(c => {
-      const allItems = c.items
-        ? c.items.flatMap(i => [i, ...(i.subItems ?? [])])
-        : (c.phases ?? []).flatMap(p => p.items.flatMap(i => [i, ...(i.subItems ?? [])]))
-      const pending = allItems.filter(i => i.status !== 'done')
-      return { cycle: c, pending }
+const WORK_AREA_META: Record<string, { label: string; color: string }> = {
+  finance: { label: 'Finance', color: '#3b82f6' },
+  hr:      { label: 'HR',      color: '#22c55e' },
+  ops:     { label: 'Ops',     color: '#eab308' },
+  others:  { label: 'Others',  color: '#ec4899' },
+}
+
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const DAYS_SHORT   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+
+function getWorkCycleNextDateStr(c: Cycle, todayStr: string): string | null {
+  if (c.nextDueAt && c.nextDueAt > todayStr) return c.nextDueAt
+  const trigger = c.triggerLabel ?? ''
+  if (!isRecurring(trigger) && /^\d{4}-\d{2}-\d{2}$/.test(trigger) && trigger > todayStr) return trigger
+  return null
+}
+
+function fmtWorkDateBadge(dateStr: string): { day: string; num: string } {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  return { day: DAYS_SHORT[dt.getDay()], num: String(d) }
+}
+
+function ComingUpSection({
+  cycles, cyclesTodayIds, todayStr, onOpen,
+}: {
+  cycles: Cycle[]
+  cyclesTodayIds: Set<string>
+  todayStr: string
+  onOpen: (c: Cycle) => void
+}) {
+  const comingUp = cycles
+    .filter(c => {
+      if (c.status === 'complete') return false
+      if (allCycleDone(c)) return false
+      if (cyclesTodayIds.has(c.id)) return false
+      return getWorkCycleNextDateStr(c, todayStr) !== null
     })
-    .filter(x => x.pending.length > 0)
     .sort((a, b) => {
-      const score = (c: Cycle) => (c.must ? 2 : 0) + (c.urgent ? 1 : 0)
-      return score(b.cycle) - score(a.cycle)
+      const da = getWorkCycleNextDateStr(a, todayStr)!
+      const db = getWorkCycleNextDateStr(b, todayStr)!
+      return da.localeCompare(db)
     })
+    .slice(0, 5)
 
-  if (upcoming.length === 0) return null
-
-  const { cycle, pending } = upcoming[0]
-  const preview = pending.slice(0, 3)
+  if (comingUp.length === 0) return null
 
   return (
     <div>
       <h3 className="text-[11px] font-semibold text-white/45 uppercase tracking-widest mb-3">Coming Up</h3>
-      <button
-        onClick={() => router.push(`/work/${cycle.area}`)}
-        className={`w-full rounded-xl border border-l-4 overflow-hidden text-left hover:opacity-80 transition-opacity active:scale-[0.99] ${areaColor[cycle.area as keyof typeof areaColor] ?? 'border-l-white/20 bg-white/3 border-white/10'}`}
-      >
-        <div className="px-4 py-3">
-          <div className="flex items-center gap-2 mb-2">
-            {cycle.must && <Zap className={`w-3 h-3 flex-shrink-0 ${areaAccent[cycle.area] ?? 'text-white/40'}`} />}
-            <span className="text-sm font-bold text-white/75 truncate">{cycle.title}</span>
-            <span className={`ml-auto text-[10px] font-semibold ${areaAccent[cycle.area] ?? 'text-white/35'}`}>
-              {cycle.area.charAt(0).toUpperCase() + cycle.area.slice(1)}
-            </span>
-          </div>
-          <div className="space-y-1.5 pl-1">
-            {preview.map(item => (
-              <div key={item.id} className="flex items-center gap-2 text-[11.5px] text-white/45">
-                <span className="w-1 h-1 rounded-full bg-white/25 flex-shrink-0" />
-                <span className="truncate">{item.label}</span>
+      <div className="rounded-xl border border-white/8 bg-white/[0.02] divide-y divide-white/[0.045] overflow-hidden">
+        {comingUp.map(c => {
+          const dateStr = getWorkCycleNextDateStr(c, todayStr)!
+          const { day, num } = fmtWorkDateBadge(dateStr)
+          const meta = WORK_AREA_META[c.area] ?? { label: c.area, color: 'rgba(255,255,255,0.3)' }
+          const subLabel = c.subArea ? `${meta.label} · ${c.subArea}` : meta.label
+          return (
+            <button
+              key={c.id}
+              onClick={() => onOpen(c)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left active:bg-white/5 transition-colors"
+            >
+              <div className="w-8 flex-shrink-0 text-center">
+                <div className="text-[8.5px] font-semibold uppercase tracking-wide text-white/22">{day}</div>
+                <div className="text-[17px] font-semibold leading-tight text-white/40 tabular-nums">{num}</div>
               </div>
-            ))}
-            {pending.length > 3 && (
-              <p className="text-[10px] text-white/25 pl-3">+{pending.length - 3} more items</p>
-            )}
-          </div>
-        </div>
-      </button>
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-medium text-white/75 truncate">{c.title}</div>
+                <div className="text-[10.5px] text-white/28 mt-0.5">{subLabel}</div>
+              </div>
+              {c.must && (
+                <span className="text-[9px] font-bold tracking-wide flex-shrink-0" style={{ color: 'rgba(252,165,165,0.65)' }}>MUST</span>
+              )}
+              <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: meta.color }} />
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -771,9 +799,14 @@ export function TodayView() {
           </div>
         </div>
 
-        {/* Coming up — shown when today list is empty and no search active */}
-        {totalDueToday === 0 && !query && (
-          <ComingUpSection cycles={allCycles} />
+        {/* Coming Up — always shown below due today */}
+        {!query && (
+          <ComingUpSection
+            cycles={allCycles}
+            cyclesTodayIds={new Set(cyclesToday.map(c => c.id))}
+            todayStr={todayStr}
+            onOpen={setSheetCycle}
+          />
         )}
 
         {inboxItems.length === 0 && (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Minus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { usePersonalData } from '@/shared/lib/personal-data-context'
@@ -9,6 +9,7 @@ import { isTriggerDueToday, isRecurring, hasTriggerFiredThisPeriod, allCycleDone
 import { useSearch } from '@/shared/lib/search-context'
 import { fuzzyMatch } from '@/shared/lib/search-utils'
 import { CycleCard } from '@/shared/components/CycleCard'
+import { CycleDetailSheet } from '@/shared/components/CycleDetailSheet'
 import type { Cycle } from '@/shared/types'
 
 const PINK = '#f0a8c8'
@@ -126,6 +127,7 @@ export function PersonalTodayView() {
   const { houseworkCycles, personalFinanceCycles, sidoiCycles, tobuyCycles } = usePersonalData()
   const { query } = useSearch()
   const router = useRouter()
+  const [sheetCycle, setSheetCycle] = useState<Cycle | null>(null)
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -300,12 +302,15 @@ export function PersonalTodayView() {
                 const { day, num } = fmtDateBadge(dateStr)
                 const areaMeta = AREA_META.find(a => a.key === c.area)
                 return (
-                  <div
+                  <button
                     key={c.id}
+                    onClick={() => setSheetCycle(c)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '11px',
                       padding: '9px 0',
                       borderBottom: i < comingUpCycles.length - 1 ? '1px solid rgba(255,255,255,0.045)' : 'none',
+                      width: '100%', textAlign: 'left', background: 'none', border: 'none',
+                      cursor: 'pointer',
                     }}
                   >
                     <div style={{ width: '32px', flexShrink: 0, textAlign: 'center' }}>
@@ -321,7 +326,7 @@ export function PersonalTodayView() {
                       </div>
                     </div>
                     <div style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: areaMeta?.color ?? 'rgba(255,255,255,0.3)' }} />
-                  </div>
+                  </button>
                 )
               })}
             </div>
@@ -329,6 +334,11 @@ export function PersonalTodayView() {
         </div>
 
       </div>
+
+      <CycleDetailSheet
+        cycle={sheetCycle ? (allCycles.find(c => c.id === sheetCycle.id) ?? sheetCycle) : null}
+        onClose={() => setSheetCycle(null)}
+      />
     </div>
   )
 }

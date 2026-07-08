@@ -1,4 +1,4 @@
-// v9 — confirmed layout design
+// v10 — top-pin content in S1-S5; S6 centering preserved
 var SCRIPT_URL = "https://raw.githubusercontent.com/brendacwk-hub/navi/main/scriptable/navi-widget.js"
 
 if (!config.runsInWidget) {
@@ -222,6 +222,10 @@ if (homeEmpty && workEmpty) {
     makeCol(cols, p, "Home", "#f0a8c8", "#0e1628", hw, null)
     makeCol(cols, w, "Work", "#ffffff", "#111111", ww, null)
   }
+
+  // Pin all content to the top — consuming remaining vertical space so
+  // nothing floats to centre when there are few tasks
+  widget.addSpacer()
 }
 
 Script.setWidget(widget)

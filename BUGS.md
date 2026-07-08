@@ -547,6 +547,12 @@ A living document. Update after every fix session to avoid repeating the same mi
 **Fix:** Replaced with local date parts: `` `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` `` in both `work-data-context.tsx` and `personal-data-context.tsx`.
 **Lesson:** Never use `toISOString().slice(0,10)` for local date strings. Use `getFullYear/getMonth/getDate` which respect local timezone.
 
+### B-72 · Work Coming Up was hidden when Due Today had items; personal Coming Up items not clickable
+**Symptom:** Work Today "Coming Up" section only appeared when nothing was due today, not as a persistent section below Due Today. Personal Coming Up timeline rows were plain divs — tapping them did nothing.
+**Root cause:** Work `ComingUpSection` was wrapped in `{totalDueToday === 0 && !query && ...}` conditional. Personal timeline rows used `<div>` with no onClick or cursor styling.
+**Fix:** Work — replaced old single-card `ComingUpSection` with a new timeline-list component (date badge + title + sub-area label + MUST flag + color dot), removed the `totalDueToday === 0` guard, passes `cyclesTodayIds`, `todayStr`, `onOpen` props, each row calls `setSheetCycle`. Personal — changed `<div>` rows to `<button>` with `onClick={() => setSheetCycle(c)}`, added `CycleDetailSheet` import and `sheetCycle` state, sheet uses live-derived cycle (B-68 pattern).
+**Lesson:** Coming Up should always be visible alongside Due Today, not as a fallback. Interactive list rows must always be buttons or have explicit cursor/onClick.
+
 ### B-66 · Audit fixes: diverged logic between work and personal contexts
 **Symptom:** PersonalTodayView was missing (a) sticky recurring logic — must cycles that fired their trigger this period wouldn't stay visible after first day; (b) search filter — query bar had no effect on personal today; (c) two-tier sort — recurring and non-recurring cycles mixed randomly; (d) mergePhases — DB phase structure overwriting static for personal finance cycles.
 **Root cause:** Work and personal parallel files drifted over multiple sessions. Fixes applied to work context were not ported to personal.
