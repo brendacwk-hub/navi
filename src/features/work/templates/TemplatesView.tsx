@@ -351,7 +351,7 @@ export function RunModal({ template, area, onClose }: { template: WorkTemplate; 
             <label className="block text-[11px] text-white/35 uppercase tracking-widest mb-2">Due date</label>
             <div className="flex gap-1.5 flex-wrap mb-2">
               {DUE_PRESETS.map(d => (
-                <button key={d} onClick={() => setDue(prev => prev === resolveLabel(d) ? '' : resolveLabel(d))}
+                <button key={d} onClick={() => setDue(resolveLabel(d))}
                   className={`text-xs px-3 py-1.5 rounded-lg border transition-all ${due === resolveLabel(d) ? `${accent.btn} font-semibold` : 'border-white/10 text-white/45 hover:border-white/25'}`}>{d}</button>
               ))}
             </div>

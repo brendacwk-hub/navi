@@ -4,6 +4,14 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-73 · Task created with "Today" due date not appearing in Today tab
+**Symptom:** A task/task+ created from the + button with "Today" as the due date did not appear in the Today tab. It was visible on the category page (Finance/HR/etc.) but not on Today. After navigating to the category page and back, it would appear.  
+**Root cause:** Date preset buttons (Today / Tomorrow / In 2 Days) used a toggle pattern: clicking a preset that was already selected cleared the date instead of keeping it. On the Today tab, `dueLabel` defaults to today's ISO date, so the "Today" pill appears highlighted. If the user tapped "Today" to confirm the selection, the toggle fired and cleared `dueLabel` to `''`. The task then saved with `triggerLabel = ''`, which fails `isTriggerDueToday` and is never shown on Today tab. Category pages show all active cycles regardless of trigger date, so the task appeared there.  
+**Fix:** Removed the toggle behaviour from date preset buttons in `QuickAddButton.tsx`, `PersonalQuickAddButton.tsx`, and `TemplatesView.tsx`. Clicking a preset now always sets that date; to remove a date the user must use the "Clear" button.  
+**Lesson:** Preset buttons that look "selected" must never deselect on re-click — that violates user expectation. Toggle-off belongs only on explicit Clear/Reset controls.
+
+---
+
 ## Recurring / Persistent Bugs
 
 ### B-01 · Static cycles can have their trigger overwritten by stale DB values
@@ -591,5 +599,5 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 - Add a new entry immediately after each fix, while context is fresh.
 - Each entry must include: **symptom**, **root cause**, **fix**, **lesson**.
-- Number sequentially (next is B-58).
+- Number sequentially (next is B-74).
 - Before building a new feature that touches an area — re-read relevant entries to avoid repeating past mistakes.
