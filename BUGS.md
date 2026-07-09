@@ -4,6 +4,14 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-74 · IdeasView not filling full width on desktop
+**Symptom:** On desktop/laptop, the Ideas tab capture bar appeared narrow in the bottom-left corner instead of spanning the full width. Empty state text was cut off on the left edge.
+**Root cause:** IdeasView's root div used `h-full` instead of `flex-1`. PersonalShell wraps content in a flex ROW container — `h-full` sets height but doesn't expand the element horizontally. The view only took its natural content width, leaving the rest of the row empty.
+**Fix:** Changed root div from `h-full flex flex-col` to `flex-1 flex flex-col` in `IdeasView.tsx`. `flex-1` expands both horizontally (fills the flex row) and vertically (via `align-self: stretch`).
+**Lesson:** Any view inside PersonalShell (or WorkShell) must use `flex-1` on its root div, not `h-full`. `h-full` only works when the parent is a flex column — in a flex row parent, width comes from `flex-1`. Check DiaryView as the reference pattern.
+
+---
+
 ### B-73 · Task created with "Today" due date not appearing in Today tab
 **Symptom:** A task/task+ created from the + button with "Today" as the due date did not appear in the Today tab. It was visible on the category page (Finance/HR/etc.) but not on Today. After navigating to the category page and back, it would appear.  
 **Root cause:** Date preset buttons (Today / Tomorrow / In 2 Days) used a toggle pattern: clicking a preset that was already selected cleared the date instead of keeping it. On the Today tab, `dueLabel` defaults to today's ISO date, so the "Today" pill appears highlighted. If the user tapped "Today" to confirm the selection, the toggle fired and cleared `dueLabel` to `''`. The task then saved with `triggerLabel = ''`, which fails `isTriggerDueToday` and is never shown on Today tab. Category pages show all active cycles regardless of trigger date, so the task appeared there.  

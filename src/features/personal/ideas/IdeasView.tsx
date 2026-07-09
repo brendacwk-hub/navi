@@ -712,7 +712,7 @@ export function IdeasView({ cat: _cat }: { cat?: string } = {}) {
 
   // ── Render ──
   return (
-    <div className="h-full flex flex-col relative" style={{ background: BG }}>
+    <div className="flex-1 flex flex-col relative" style={{ background: BG }}>
 
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-5 pb-2">
