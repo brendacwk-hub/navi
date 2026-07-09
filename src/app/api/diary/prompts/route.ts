@@ -173,9 +173,12 @@ async function fetchDayContext(date: string): Promise<DayContext> {
         if (!data) return
         const parts: string[] = []
         if (data.completions_summary) parts.push(`Completions (30d): ${data.completions_summary}`)
+        if (data.velocity_summary) parts.push(`Momentum: ${data.velocity_summary}`)
         if (data.ideas_summary) parts.push(`Active ideas: ${data.ideas_summary}`)
         if (data.shelved_patterns && data.shelved_patterns !== 'No shelved ideas') parts.push(data.shelved_patterns)
+        if (data.mood_trends && data.mood_trends !== 'No mood data yet') parts.push(`Mood (30d): ${data.mood_trends}`)
         if (data.diary_themes && data.diary_themes !== 'No diary history yet') parts.push(`Diary patterns: ${data.diary_themes}`)
+        if (data.calendar_patterns && data.calendar_patterns !== 'No calendar data') parts.push(`Calendar: ${data.calendar_patterns}`)
         if (parts.length) ctx.userContext = parts.join('. ')
       } catch { /* ignore */ }
     })(),
