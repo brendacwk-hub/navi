@@ -44,6 +44,7 @@ interface DayContext {
   completedToday: CompletionRow[]
   weeklyByArea: { label: string; count: number; titles: string[] }[]
   pastDiary: { id: string; snippet: string }[]
+  userContext: string | null
 }
 
 // Increment date string by N days (YYYY-MM-DD, no Date object needed for DST safety)
@@ -68,7 +69,7 @@ const AREA_LABELS: Record<string, string> = {
 }
 
 async function fetchDayContext(date: string): Promise<DayContext> {
-  const ctx: DayContext = { gcal: [], workTasks: [], completedToday: [], weeklyByArea: [], pastDiary: [] }
+  const ctx: DayContext = { gcal: [], workTasks: [], completedToday: [], weeklyByArea: [], pastDiary: [], userContext: null }
 
   await Promise.allSettled([
     // GCal events for the day
@@ -164,6 +165,20 @@ async function fetchDayContext(date: string): Promise<DayContext> {
         }
       } catch { /* ignore */ }
     })(),
+
+    // Nightly snapshot — longitudinal patterns across completions, ideas, diary themes
+    (async () => {
+      try {
+        const { data } = await admin.from('user_context').select('*').eq('id', 'singleton').single()
+        if (!data) return
+        const parts: string[] = []
+        if (data.completions_summary) parts.push(`Completions (30d): ${data.completions_summary}`)
+        if (data.ideas_summary) parts.push(`Active ideas: ${data.ideas_summary}`)
+        if (data.shelved_patterns && data.shelved_patterns !== 'No shelved ideas') parts.push(data.shelved_patterns)
+        if (data.diary_themes && data.diary_themes !== 'No diary history yet') parts.push(`Diary patterns: ${data.diary_themes}`)
+        if (parts.length) ctx.userContext = parts.join('. ')
+      } catch { /* ignore */ }
+    })(),
   ])
 
   return ctx
@@ -222,7 +237,7 @@ export async function GET(req: Request) {
 
   const prompt = `You are a warm, encouraging diary assistant for Brenda.
 
-${personality ? `About Brenda:\n${personality}\n` : ''}${diarySection ? `\n${diarySection}\n` : ''}${weeklySection ? `\n${weeklySection}\n` : ''}${todaySection ? `\nWhat Brenda did on ${date} (${dayName}):\n${todaySection}\n` : ''}
+${personality ? `About Brenda:\n${personality}\n` : ''}${ctx.userContext ? `\nLongitudinal patterns (past weeks):\n${ctx.userContext}\n` : ''}${diarySection ? `\n${diarySection}\n` : ''}${weeklySection ? `\n${weeklySection}\n` : ''}${todaySection ? `\nWhat Brenda did on ${date} (${dayName}):\n${todaySection}\n` : ''}
 Generate exactly 3 short diary prompt questions for tonight's entry (${dayName}, ${date}).${seed > 0 ? ` Refresh #${seed} — do NOT repeat any question already shown today.` : ''}
 
 RULES:

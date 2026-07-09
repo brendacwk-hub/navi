@@ -1,3 +1,9 @@
 {
-  "alias": ["navi-ruby.vercel.app"]
+  "alias": ["navi-ruby.vercel.app"],
+  "crons": [
+    {
+      "path": "/api/context/snapshot",
+      "schedule": "0 19 * * *"
+    }
+  ]
 }
