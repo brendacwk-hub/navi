@@ -4,6 +4,22 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-76 · QuickAdd floating button showing on Ideas pages
+**Symptom:** The floating + button appeared on all `/personal/ideas/**` routes, overlapping the Ideas capture bar.
+**Root cause:** `PersonalQuickAddButton` hidden-path regex only excluded calendar, settings, diary, analytics, and habits — Ideas was never added when the Ideas route was built.
+**Fix:** Added `personal\/ideas` to the hidden regex in `PersonalQuickAddButton.tsx`.
+**Lesson:** Any new personal route with its own capture/input mechanism must be added to the QuickAdd hidden-path list at build time.
+
+---
+
+### B-75 · Ideas capture bar too small and no save feedback
+**Symptom:** Capture bar on Ideas tab appeared too low and thin, hard to tap on mobile. Also no visual indication that edits to notes/sub-thoughts/tags were being saved (user saw "no save button").
+**Root cause:** Two separate issues — (1) input row padding was `py-2.5` (same as small utility inputs) instead of a comfortable tap target; (2) `ExpandedCard` auto-saves via debounce + flush but shows no success indicator, leaving the user uncertain if changes persisted.
+**Fix:** Increased outer row padding `py-2.5→py-3.5`, pill padding `py-2.5→py-3`, font `13→14px`. Added `savedFlash` state + `flashTimerRef` to `ExpandedCard`; `flush()` now sets the flash which displays "Saved ✓" in the header for 1.5s via CSS opacity transition.
+**Lesson:** Auto-save without any visual feedback reads as "no save button" to users. Always add a brief saved indicator when there is no explicit submit button.
+
+---
+
 ### B-74 · IdeasView not filling full width on desktop
 **Symptom:** On desktop/laptop, the Ideas tab capture bar appeared narrow in the bottom-left corner instead of spanning the full width. Empty state text was cut off on the left edge.
 **Root cause:** IdeasView's root div used `h-full` instead of `flex-1`. PersonalShell wraps content in a flex ROW container — `h-full` sets height but doesn't expand the element horizontally. The view only took its natural content width, leaving the rest of the row empty.
