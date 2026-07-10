@@ -51,6 +51,11 @@ function fmtTrigger(label: string | undefined): { display: string; overdue: bool
   return { display: label, overdue: false }
 }
 
+function fmtShortDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
+
 const phaseStatusColor: Record<string, string> = {
   locked: 'text-white/25', upcoming: 'text-white/50', active: 'text-navi-blue', complete: 'text-green-400',
 }
@@ -121,6 +126,7 @@ function PhaseSection({ phase, cycle, filter, forceOpen = false }: { phase: Cycl
             <ChecklistItem
               key={item.id}
               item={item}
+              parentCycleContext={cycle}
               onToggle={id => toggleItem(area, cycleId, id)}
               onNoteChange={(id, note) => setItemNote(area, cycleId, id, note)}
               onLabelChange={(id, label) => setItemLabel(area, cycleId, id, label)}
@@ -156,6 +162,8 @@ export function CycleCard({ cycle, filter = 'All', defaultExpanded = false }: Pr
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [addingStep, setAddingStep] = useState(false)
   const [newStep, setNewStep] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiResult, setAiResult] = useState<{ suggestedDate: string; reason: string; parentRisk?: string } | null>(null)
   const titleInputRef = useRef<HTMLInputElement>(null)
   const newStepRef = useRef<HTMLInputElement>(null)
 
@@ -164,6 +172,30 @@ export function CycleCard({ cycle, filter = 'All', defaultExpanded = false }: Pr
   const { updateCycle, deleteCycle, deleteItem, toggleItem, setItemLabel, setItemNote, setItemUrgent, setItemDue, addCycleItem } = ctx
   const { showToast } = useToast()
   const area = cycle.area as WorkAreaLocal
+
+  const askCycleAI = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setAiLoading(true)
+    setAiResult(null)
+    try {
+      const res = await fetch('/api/ai/postpone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemType: 'cycle',
+          item: {
+            title: cycle.title,
+            effort: cycle.effort,
+            must: cycle.must,
+            currentDue: cycle.triggerLabel,
+          },
+        }),
+      })
+      setAiResult(await res.json())
+    } catch { /* ignore */ } finally {
+      setAiLoading(false)
+    }
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -446,6 +478,10 @@ export function CycleCard({ cycle, filter = 'All', defaultExpanded = false }: Pr
                   >
                     → Next wk
                   </button>
+                  {aiLoading
+                    ? <span className="text-[10px] text-white/25 animate-pulse">✦</span>
+                    : <button onClick={askCycleAI} className="text-[10px] text-white/25 hover:text-blue-400/80 transition-colors" title="AI suggest new date">✦</button>
+                  }
                 </>
               ) : (
                 <span className="text-[11px] text-white/35">{dueLabelDisplay}</span>
@@ -456,6 +492,25 @@ export function CycleCard({ cycle, filter = 'All', defaultExpanded = false }: Pr
             )}
             {cycle.notes && <FileText className="w-3 h-3 text-white/25 flex-shrink-0" />}
           </div>
+          {isOverdue && aiResult && (
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/20">
+                ✦ → {fmtShortDate(aiResult.suggestedDate)}
+              </span>
+              <span className="text-[10px] text-white/40 flex-1">{aiResult.reason}</span>
+              <button
+                onClick={e => { e.stopPropagation(); updateCycle(area, cycle.id, { triggerLabel: aiResult.suggestedDate }); setAiResult(null) }}
+                className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/20 hover:bg-green-500/25 transition-colors"
+              >✓ Apply</button>
+              <button
+                onClick={e => { e.stopPropagation(); setAiResult(null) }}
+                className="text-[10px] text-white/25 hover:text-white/55 transition-colors"
+              >✗</button>
+              {aiResult.parentRisk && (
+                <span className="basis-full text-[10px] text-yellow-400/70">⚠ {aiResult.parentRisk}</span>
+              )}
+            </div>
+          )}
           {/* Skip button — recurring cycles only, when not already done */}
           {!isDone && isRecurring(cycle.triggerLabel) && (
             <button
@@ -547,6 +602,7 @@ export function CycleCard({ cycle, filter = 'All', defaultExpanded = false }: Pr
                       <SortableItemRow key={item.id} id={item.id}>
                         <ChecklistItem
                           item={item}
+                          parentCycleContext={cycle}
                           onToggle={id => toggleItem(area, cycle.id, id)}
                           onNoteChange={(id, note) => setItemNote(area, cycle.id, id, note)}
                           onLabelChange={(id, label) => setItemLabel(area, cycle.id, id, label)}
@@ -563,6 +619,7 @@ export function CycleCard({ cycle, filter = 'All', defaultExpanded = false }: Pr
                   <ChecklistItem
                     key={item.id}
                     item={item}
+                    parentCycleContext={cycle}
                     onToggle={id => toggleItem(area, cycle.id, id)}
                     onNoteChange={(id, note) => setItemNote(area, cycle.id, id, note)}
                     onLabelChange={(id, label) => setItemLabel(area, cycle.id, id, label)}

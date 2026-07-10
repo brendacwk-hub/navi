@@ -20,9 +20,15 @@ const effortLabel: Record<Effort, string> = {
 
 const DUE_PRESETS = ['Today', 'Tomorrow', 'In 2 Days']
 
+function fmtShortDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
+
 interface Props {
   item: ChecklistItemType
   depth?: number
+  parentCycleContext?: { title: string; effort: Effort; triggerLabel?: string; items?: { id: string; label: string; status: string }[] }
   onToggle: (id: string) => void
   onNoteChange: (id: string, note: string) => void
   onLabelChange: (id: string, label: string) => void
@@ -31,7 +37,7 @@ interface Props {
   onDelete?: (id: string) => void
 }
 
-export function ChecklistItem({ item, depth = 0, onToggle, onNoteChange, onLabelChange, onUrgentChange, onDueChange, onDelete }: Props) {
+export function ChecklistItem({ item, depth = 0, parentCycleContext, onToggle, onNoteChange, onLabelChange, onUrgentChange, onDueChange, onDelete }: Props) {
   const [noteOpen, setNoteOpen]       = useState(false)
   const [dueOpen, setDueOpen]         = useState(false)
   const [subExpanded, setSubExpanded] = useState(true)
@@ -45,6 +51,9 @@ export function ChecklistItem({ item, depth = 0, onToggle, onNoteChange, onLabel
   useEffect(() => { if (!editing) setDraft(item.label) }, [item.label, editing])
   useEffect(() => { if (editing) inputRef.current?.focus() }, [editing])
 
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiResult, setAiResult] = useState<{ suggestedDate: string; reason: string; parentRisk?: string } | null>(null)
+
   const saveEdit = () => {
     const trimmed = draft.trim()
     if (trimmed && trimmed !== item.label) onLabelChange(item.id, trimmed)
@@ -57,6 +66,47 @@ export function ChecklistItem({ item, depth = 0, onToggle, onNoteChange, onLabel
     setLocalUrgent(next)
     onUrgentChange?.(item.id, next)
   }
+
+  const askSubtaskAI = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setAiLoading(true)
+    setAiResult(null)
+    try {
+      const res = await fetch('/api/ai/postpone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemType: 'subtask',
+          item: { label: item.label, effort: item.effort, due: item.due },
+          parentCycle: parentCycleContext ? {
+            title: parentCycleContext.title,
+            effort: parentCycleContext.effort,
+            triggerLabel: parentCycleContext.triggerLabel,
+            items: parentCycleContext.items?.map(i => ({ label: i.label, status: i.status })),
+          } : undefined,
+        }),
+      })
+      setAiResult(await res.json())
+    } catch { /* ignore */ } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const applyAiDate = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (aiResult) { onDueChange?.(item.id, aiResult.suggestedDate); setAiResult(null) }
+  }
+
+  const isItemOverdue = !!(
+    item.due &&
+    /^\d{4}-\d{2}-\d{2}$/.test(item.due) &&
+    (() => {
+      const [y, m, d] = item.due!.split('-').map(Number)
+      const due = new Date(y, m - 1, d); due.setHours(0, 0, 0, 0)
+      const tod = new Date(); tod.setHours(0, 0, 0, 0)
+      return due < tod
+    })()
+  )
 
   const indent = depth * 20
 
@@ -127,24 +177,48 @@ export function ChecklistItem({ item, depth = 0, onToggle, onNoteChange, onLabel
                 </span>
               )}
               {item.due && (
-                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-navi-blue/15 text-navi-blue/80 border border-navi-blue/20">
-                  <Calendar className="w-2.5 h-2.5" />
-                  {isRecurrString(item.due)
-                    ? fmtRecurrDisplay(item.due)
-                    : /^\d{4}-\d{2}-\d{2}$/.test(item.due)
-                      ? (() => {
-                          const d = new Date(item.due + 'T00:00:00')
-                          const tod = new Date(); tod.setHours(0, 0, 0, 0)
-                          return d.getTime() === tod.getTime() ? 'Due Today' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-                        })()
-                      : item.due}
-                </span>
+                <>
+                  <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border ${
+                    isItemOverdue
+                      ? 'bg-red-500/15 text-red-400 border-red-500/20 font-medium'
+                      : 'bg-navi-blue/15 text-navi-blue/80 border-navi-blue/20'
+                  }`}>
+                    <Calendar className="w-2.5 h-2.5" />
+                    {isRecurrString(item.due)
+                      ? fmtRecurrDisplay(item.due)
+                      : /^\d{4}-\d{2}-\d{2}$/.test(item.due)
+                        ? (() => {
+                            const d = new Date(item.due + 'T00:00:00')
+                            const tod = new Date(); tod.setHours(0, 0, 0, 0)
+                            return d.getTime() === tod.getTime() ? 'Due Today' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+                          })()
+                        : item.due}
+                  </span>
+                  {isItemOverdue && (
+                    aiLoading
+                      ? <span className="text-[10px] text-white/25 animate-pulse">✦</span>
+                      : <button onClick={askSubtaskAI} className="text-[10px] text-white/25 hover:text-blue-400/80 transition-colors" title="AI suggest new date">✦</button>
+                  )}
+                </>
               )}
               {item.effort && depth === 0 && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-white/40">
                   <span className={`w-1.5 h-1.5 rounded-full ${effortDot[item.effort]}`} />
                   {effortLabel[item.effort]}
                 </span>
+              )}
+            </div>
+          )}
+          {!editing && aiResult && (
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/20">
+                ✦ → {fmtShortDate(aiResult.suggestedDate)}
+              </span>
+              <span className="text-[10px] text-white/40 flex-1">{aiResult.reason}</span>
+              <button onClick={applyAiDate} className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/20 hover:bg-green-500/25 transition-colors">✓ Apply</button>
+              <button onClick={e => { e.stopPropagation(); setAiResult(null) }} className="text-[10px] text-white/25 hover:text-white/55 transition-colors">✗</button>
+              {aiResult.parentRisk && (
+                <span className="basis-full text-[10px] text-yellow-400/70">⚠ {aiResult.parentRisk}</span>
               )}
             </div>
           )}
