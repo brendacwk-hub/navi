@@ -147,7 +147,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         })()}
 
         {/* Inbox + Habits */}
-        <div className="pt-4" />
+        <div className="mx-3 my-2 border-t border-white/8" />
         {otherLinks.filter(l => l.href !== '/work/calendar').map(({ label, href, icon: Icon }) => {
           const active = pathname === href
           const isInbox = href === '/work/inbox'
@@ -167,8 +167,6 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           )
         })}
 
-        {/* Divider + shared tabs */}
-        <div className="mx-3 my-2 border-t border-white/8" />
         {otherLinks.filter(l => l.href === '/work/calendar').map(({ label, href, icon: Icon }) => {
           const active = pathname === href
           return (
@@ -182,7 +180,10 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           )
         })}
 
-        {/* Analytics */}
+      </nav>
+
+      {/* Footer — Analytics + Settings */}
+      <div className="px-3 py-3 border-t border-white/6">
         {(() => {
           const active = pathname === '/work/analytics'
           return (
@@ -195,10 +196,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             </Link>
           )
         })()}
-      </nav>
 
-      {/* Footer */}
-      <div className="px-3 py-3 border-t border-white/6">
         {(() => {
           const active = pathname === '/work/settings'
           return (
