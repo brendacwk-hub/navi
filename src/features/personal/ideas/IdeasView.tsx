@@ -300,9 +300,12 @@ function ExpandedCard({ idea, onClose, onChange, onDelete }: ExpandedCardProps) 
   const [convertOpen, setConvertOpen] = useState(false)
   const [converting,  setConverting]  = useState(false)
 
-  const thoughtRef   = useRef<HTMLInputElement>(null)
-  const tagRef       = useRef<HTMLInputElement>(null)
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [savedFlash, setSavedFlash] = useState(false)
+
+  const thoughtRef    = useRef<HTMLInputElement>(null)
+  const tagRef        = useRef<HTMLInputElement>(null)
+  const saveTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Build the current idea state for saves
   const currentRef = useRef({ title, body, status, subThoughts, tags })
@@ -321,6 +324,9 @@ function ExpandedCard({ idea, onClose, onChange, onDelete }: ExpandedCardProps) 
     }
     onChange(updated)
     dbWrite({ table: 'personal_ideas', operation: 'upsert', data: updated })
+    setSavedFlash(true)
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current)
+    flashTimerRef.current = setTimeout(() => setSavedFlash(false), 1500)
   }, [idea, onChange])
 
   const scheduleSave = useCallback(() => {
@@ -328,7 +334,10 @@ function ExpandedCard({ idea, onClose, onChange, onDelete }: ExpandedCardProps) 
     saveTimerRef.current = setTimeout(() => flush(), 800)
   }, [flush])
 
-  useEffect(() => () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }, [])
+  useEffect(() => () => {
+    if (saveTimerRef.current)  clearTimeout(saveTimerRef.current)
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current)
+  }, [])
 
   const handleStatusChange = (s: string) => {
     setStatus(s)
@@ -403,6 +412,10 @@ function ExpandedCard({ idea, onClose, onChange, onDelete }: ExpandedCardProps) 
           style={{ fontSize: 15 }}
           placeholder="Idea title…"
         />
+        <span
+          className="flex-shrink-0 transition-opacity duration-700"
+          style={{ fontSize: 11, color: 'rgba(134,239,172,0.7)', opacity: savedFlash ? 1 : 0 }}
+        >Saved ✓</span>
       </div>
 
       {/* Scrollable body */}
