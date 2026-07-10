@@ -72,7 +72,7 @@ export function PersonalQuickAddButton() {
   }, [area])
 
   // Hide on pages that don't need an add button
-  const hidden = /^\/(personal\/calendar|personal\/settings|personal\/diary|personal\/analytics|personal\/habits)/.test(pathname)
+  const hidden = /^\/(personal\/calendar|personal\/settings|personal\/diary|personal\/analytics|personal\/habits|personal\/ideas)/.test(pathname)
   if (hidden) return null
 
   const showSubs = type === 'task+' || type === 'cycle'

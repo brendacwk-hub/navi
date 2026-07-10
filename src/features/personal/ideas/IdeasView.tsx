@@ -870,9 +870,9 @@ export function IdeasView({ cat: _cat }: { cat?: string } = {}) {
         )}
 
         {/* Input row */}
-        <div className="flex items-center gap-2 px-3 py-2.5">
+        <div className="flex items-center gap-2 px-3 py-3.5">
           <div
-            className="flex-1 flex items-center gap-2 px-3.5 py-2.5 rounded-2xl transition-all"
+            className="flex-1 flex items-center gap-2 px-3.5 py-3 rounded-2xl transition-all"
             style={{
               background: SURFACE,
               border:     captureFocused ? `1.5px solid ${PINK}` : `1px solid ${PINK}38`,
@@ -894,7 +894,7 @@ export function IdeasView({ cat: _cat }: { cat?: string } = {}) {
               onKeyDown={e => { if (e.key === 'Enter') handleCapture() }}
               placeholder="What's on your mind…"
               className="flex-1 bg-transparent text-white placeholder-white/25 outline-none"
-              style={{ fontSize: 13 }}
+              style={{ fontSize: 14 }}
             />
           </div>
           <button
