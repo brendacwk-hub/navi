@@ -17,9 +17,20 @@ function initWebPush() {
   )
 }
 
+interface SubRow {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  subscription: any
+  diary_reminder_hour: number | null
+}
+
+async function fetchSubs(): Promise<SubRow[]> {
+  const { data } = await supabase.from('push_subscriptions').select('subscription, diary_reminder_hour')
+  return (data ?? []) as SubRow[]
+}
+
 async function sendToAll(title: string, body: string, url: string, tag: string) {
-  const { data: subs } = await supabase.from('push_subscriptions').select('subscription')
-  if (!subs?.length) return 0
+  const subs = await fetchSubs()
+  if (!subs.length) return 0
   const payload = JSON.stringify({ title, body, url, tag })
   const results = await Promise.allSettled(subs.map(r => webPush.sendNotification(r.subscription, payload)))
   return results.filter(r => r.status === 'fulfilled').length
@@ -71,29 +82,31 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  // Diary reminder at 21:00 HKT on Sundays — only if today's entry is empty
-  if (nh === 21 && nm <= 5 && hktDay === 0) {
-    const todayKey = hktNow.toISOString().slice(0, 10) // YYYY-MM-DD in HKT
-    const { data: entry } = await supabase
-      .from('diary_entries')
-      .select('id, mood, body, prompts')
-      .eq('id', todayKey)
-      .single()
-
-    const hasContent = entry && (
-      entry.mood ||
-      entry.body?.trim() ||
-      (Array.isArray(entry.prompts) && entry.prompts.some((p: { answer?: string }) => p.answer?.trim()))
-    )
-
-    if (!hasContent) {
-      await sendToAll(
-        '📓 Diary',
-        'How was your day? A few lines before the day closes.',
-        '/personal/diary',
-        'diary-reminder',
+  // Diary reminder — daily at each subscription's configured hour (default 21 = 9pm HKT)
+  // Only sends if today's diary entry has no content yet
+  const allSubs = await fetchSubs()
+  for (const sub of allSubs) {
+    const reminderHour = sub.diary_reminder_hour ?? 21
+    if (nh === reminderHour && nm <= 5) {
+      const todayKey = hktNow.toISOString().slice(0, 10)
+      const { data: entry } = await supabase
+        .from('diary_entries')
+        .select('id, mood, body, prompts')
+        .eq('id', todayKey)
+        .single()
+      const hasContent = entry && (
+        (entry as { mood?: string }).mood ||
+        (entry as { body?: string }).body?.trim() ||
+        (Array.isArray((entry as { prompts?: unknown[] }).prompts) &&
+          (entry as { prompts: { answer?: string }[] }).prompts.some(p => p.answer?.trim()))
       )
-      fired.push('diary')
+      if (!hasContent) {
+        await webPush.sendNotification(
+          sub.subscription,
+          JSON.stringify({ title: '📓 Diary', body: 'How was your day? A few lines before the day closes.', url: '/personal/diary', tag: 'diary-reminder' }),
+        )
+        fired.push('diary')
+      }
     }
   }
 

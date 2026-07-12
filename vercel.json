@@ -1,9 +1,11 @@
 {
   "alias": ["navi-ruby.vercel.app"],
   "crons": [
-    {
-      "path": "/api/context/snapshot",
-      "schedule": "0 19 * * *"
-    }
+    { "path": "/api/context/snapshot", "schedule": "0 19 * * *" },
+    { "path": "/api/push/daily",       "schedule": "0 1 * * *"  },
+    { "path": "/api/push/daily",       "schedule": "0 12 * * *" },
+    { "path": "/api/push/daily",       "schedule": "0 13 * * *" },
+    { "path": "/api/push/daily",       "schedule": "0 14 * * *" },
+    { "path": "/api/push/daily",       "schedule": "0 15 * * *" }
   ]
 }

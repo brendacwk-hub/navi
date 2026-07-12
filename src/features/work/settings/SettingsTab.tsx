@@ -73,6 +73,13 @@ function resetItemStatuses(items: unknown): unknown {
   }))
 }
 
+const DIARY_HOURS = [
+  { hour: 20, label: '8 PM' },
+  { hour: 21, label: '9 PM' },
+  { hour: 22, label: '10 PM' },
+  { hour: 23, label: '11 PM' },
+]
+
 export function SettingsTab() {
   const { status: pushStatus, subscribe, unsubscribe } = usePushNotifications()
   const { fontScale, setFontScale } = usePreferences()
@@ -84,6 +91,8 @@ export function SettingsTab() {
   const [archive, setArchive]             = useState<CompletedTask[]>([])
   const [archiveLoading, setArchiveLoading] = useState(true)
   const [reopening, setReopening]         = useState<string | null>(null)
+  const [diaryReminderHour, setDiaryReminderHour] = useState<number>(21)
+  const [savingDiary, setSavingDiary]     = useState(false)
 
   // Manual calendar ID input
   const [customCalId, setCustomCalId]     = useState('')
@@ -207,12 +216,42 @@ export function SettingsTab() {
     }
   }
 
+  async function loadDiaryHour() {
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration()
+      const sub = await reg?.pushManager?.getSubscription()
+      if (!sub) return
+      const endpoint = encodeURIComponent(sub.endpoint)
+      const res = await fetch(`/api/push/settings?endpoint=${endpoint}`)
+      const { diaryReminderHour: h } = await res.json()
+      setDiaryReminderHour(h ?? 21)
+    } catch { /* not supported or no sub */ }
+  }
+
+  async function saveDiaryHour(hour: number) {
+    setSavingDiary(true)
+    setDiaryReminderHour(hour)
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration()
+      const sub = await reg?.pushManager?.getSubscription()
+      if (!sub) return
+      await fetch('/api/push/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: sub.endpoint, diaryReminderHour: hour }),
+      })
+    } finally {
+      setSavingDiary(false)
+    }
+  }
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('connected') === '1') setStatusMsg('Google Calendar connected!')
     if (params.get('error'))             setStatusMsg(`Connection failed: ${params.get('error')}`)
     loadStatus()
     loadArchive()
+    loadDiaryHour()
   }, [loadArchive])
 
   async function loadStatus() {
@@ -506,9 +545,33 @@ export function SettingsTab() {
           )}
 
           {pushStatus === 'subscribed' && (
-            <p className="mt-3 text-[11px] text-white/25 leading-relaxed">
-              You&apos;ll receive habit reminders at times set in the Habits tab, plus a morning summary at 9am.
-            </p>
+            <div className="mt-4 space-y-3">
+              <p className="text-[11px] text-white/25 leading-relaxed">
+                Habit reminders fire at times set in the Habits tab. Morning summary at 9am HKT.
+              </p>
+              <div>
+                <p className="text-[11px] text-white/40 mb-2 font-medium">Diary reminder time (HKT)</p>
+                <div className="flex gap-2">
+                  {DIARY_HOURS.map(({ hour, label }) => (
+                    <button
+                      key={hour}
+                      onClick={() => saveDiaryHour(hour)}
+                      disabled={savingDiary}
+                      className={`flex-1 py-2 rounded-xl border text-xs font-semibold transition-all ${
+                        diaryReminderHour === hour
+                          ? 'border-navi-blue bg-navi-blue/15 text-navi-blue'
+                          : 'border-white/10 text-white/40 hover:border-white/20 hover:text-white/60'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-white/20 mt-1.5 leading-relaxed">
+                  Sends daily if you haven&apos;t written in your diary yet.
+                </p>
+              </div>
+            </div>
           )}
         </div>
       </section>

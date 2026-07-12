@@ -4,6 +4,30 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-80 · Diary reminder hard-coded to Sunday 21:00 HKT, no settings UI
+**Symptom:** Push diary reminder only fired on Sunday nights at 21:00 HKT, with no way to change the time.
+**Root cause:** `/api/push/daily` used `if (nh === 21 && nm <= 5 && hktDay === 0)` — day-of-week and hour were constants. No column existed to store per-device preference.
+**Fix:** Added `diary_reminder_hour int` column to `push_subscriptions` (migration 009). `push/daily/route.ts` now iterates per subscription row, uses `diary_reminder_hour ?? 21`, and fires daily (not just Sundays). Created `/api/push/settings` GET+PATCH to read/write the hour. Added diary reminder time picker chips (8 PM / 9 PM / 10 PM / 11 PM) to SettingsTab under the Notifications section.
+**Lesson:** Notification schedules that are time-of-day constants should be user-configurable from day one. Store preferences per subscription row so multi-device users can set different times per device.
+
+---
+
+### B-79 · No notch / home-indicator safe-area compensation on iPhone PWA
+**Symptom:** On iPhone X+, the header content overlapped the Dynamic Island / notch, and the floating QuickAdd button was partially hidden behind the home indicator bar.
+**Root cause:** `viewport-fit=cover` was missing from the viewport meta tag, so `env(safe-area-inset-*)` returned 0. Even after adding it, the header used a fixed `h-14` with `items-center` rather than growing dynamically.
+**Fix:** Added `viewport-fit=cover` to `layout.tsx` viewport meta. Reworked `Header.tsx` to remove fixed height, use `items-end`, and apply `paddingTop: calc(env(safe-area-inset-top) + 0.75rem)` with `minHeight: calc(env(safe-area-inset-top) + 3.5rem)`. Both `QuickAddButton.tsx` and `PersonalQuickAddButton.tsx` changed `bottom-6` fixed to `bottom: calc(1.5rem + env(safe-area-inset-bottom))` inline style.
+**Lesson:** Any PWA targeting iPhone must set `viewport-fit=cover` and use `env(safe-area-inset-*)` for all edge-adjacent fixed elements (header, footer, floating buttons).
+
+---
+
+### B-78 · `/api/push/daily` not in Vercel cron — push notifications never fire
+**Symptom:** Habit reminders, morning summary, and diary reminder push notifications were never received — the route existed but was never called automatically.
+**Root cause:** `vercel.json` had no cron entry for `/api/push/daily`. The route was built but never wired into the scheduler.
+**Fix:** Added 5 targeted cron entries covering 09:00 HKT (morning summary, `0 1 * * *`) and 20:00–23:00 HKT (`0 12–15 * * *`) for diary reminder windows. All four configurable diary hours are now covered.
+**Lesson:** Any route that is designed to be called on a schedule must have its cron entry added to `vercel.json` in the same PR it is built. Never leave a scheduled route without a scheduler.
+
+---
+
 ### B-77 · Sub-area overflow ··· button hidden on mobile (Finance / HR / Ops)
 **Symptom:** On iPhone, the Finance (5 sub-areas), HR (7 sub-areas), and Ops (3 sub-areas) tab bars had no overflow indicator. Users could horizontally scroll but had no affordance that more tabs existed beyond the visible edge.
 **Root cause:** The gradient fade and ··· overflow button were wrapped in `hidden sm:flex` — intentionally desktop-only when first built, but never revisited when mobile support became important.

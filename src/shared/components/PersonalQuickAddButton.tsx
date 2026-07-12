@@ -128,8 +128,8 @@ export function PersonalQuickAddButton() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 w-12 h-12 rounded-full shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-40"
-        style={{ backgroundColor: PINK, boxShadow: `0 4px 24px ${PINK}4d` }}
+        className="fixed right-6 w-12 h-12 rounded-full shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-40"
+        style={{ backgroundColor: PINK, boxShadow: `0 4px 24px ${PINK}4d`, bottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
       >
         <Plus className="w-5 h-5 text-white" />
       </button>
