@@ -4,6 +4,14 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-81 · AI postpone suggestion had no way to pick a different date
+**Symptom:** When the AI suggested a postpone date the user disagreed with, there was no way to override it — only Apply or dismiss (✗).
+**Root cause:** The AI result row was built with only Apply and dismiss buttons; no date-editing affordance was added when the feature was first built.
+**Fix:** Added a Change button next to Apply. Tapping it swaps the suggestion chip for a `<input type="date">` pre-filled with the AI's suggestion. User picks any date and applies it. Both `CycleCard.tsx` and `ChecklistItem.tsx` updated.
+**Lesson:** Any AI suggestion UI must include an override path. Never ship "accept or reject" without a "modify" option.
+
+---
+
 ### B-80 · Diary reminder hard-coded to Sunday 21:00 HKT, no settings UI
 **Symptom:** Push diary reminder only fired on Sunday nights at 21:00 HKT, with no way to change the time.
 **Root cause:** `/api/push/daily` used `if (nh === 21 && nm <= 5 && hktDay === 0)` — day-of-week and hour were constants. No column existed to store per-device preference.
