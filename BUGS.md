@@ -4,6 +4,14 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-77 · Sub-area overflow ··· button hidden on mobile (Finance / HR / Ops)
+**Symptom:** On iPhone, the Finance (5 sub-areas), HR (7 sub-areas), and Ops (3 sub-areas) tab bars had no overflow indicator. Users could horizontally scroll but had no affordance that more tabs existed beyond the visible edge.
+**Root cause:** The gradient fade and ··· overflow button were wrapped in `hidden sm:flex` — intentionally desktop-only when first built, but never revisited when mobile support became important.
+**Fix:** Removed `hidden` from both divs in FinanceTab.tsx, HRTab.tsx, and OpsTab.tsx — changed `hidden sm:flex` → `flex` so the gradient and ··· button render on all screen sizes.
+**Lesson:** Any overflow affordance that is `hidden sm:X` is invisible on mobile. If a scrollable tab bar can overflow on mobile, the overflow indicator must render on mobile too.
+
+---
+
 ### B-76 · QuickAdd floating button showing on Ideas pages
 **Symptom:** The floating + button appeared on all `/personal/ideas/**` routes, overlapping the Ideas capture bar.
 **Root cause:** `PersonalQuickAddButton` hidden-path regex only excluded calendar, settings, diary, analytics, and habits — Ideas was never added when the Ideas route was built.
