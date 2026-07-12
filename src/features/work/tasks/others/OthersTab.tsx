@@ -6,7 +6,7 @@ import { useWorkData } from '@/shared/lib/work-data-context'
 import { useSearch } from '@/shared/lib/search-context'
 import { matchesCycle } from '@/shared/lib/search-utils'
 import { type CycleFilter, cycleHasMatchingItems, CADENCE_FILTERS } from '@/shared/lib/filter-utils'
-import { sortCycles } from '@/shared/lib/sort-utils'
+import { sortCycles, isRecurring } from '@/shared/lib/sort-utils'
 import { Package } from 'lucide-react'
 
 const filters: CycleFilter[] = ['All', 'Must', '⚠️ Urgent', 'Light', 'Medium', 'Heavy']
@@ -18,7 +18,8 @@ export function OthersTab() {
 
   const filtered = useMemo(() => sortCycles(
     othersCycles.filter(cycle => {
-      if (cycle.status === 'complete' || cycle.nextDueAt) return false
+      if (cycle.status === 'complete') return false
+      if (cycle.nextDueAt && !isRecurring(cycle.triggerLabel)) return false
       const chipMatch = (() => {
         if (active === 'All') return true
         return cycleHasMatchingItems(cycle, active)

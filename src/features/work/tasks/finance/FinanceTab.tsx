@@ -7,7 +7,7 @@ import { useWorkData } from '@/shared/lib/work-data-context'
 import { useSearch } from '@/shared/lib/search-context'
 import { matchesCycle } from '@/shared/lib/search-utils'
 import { type CycleFilter, cycleHasMatchingItems, CADENCE_FILTERS } from '@/shared/lib/filter-utils'
-import { computeSortDate, extractFlatItems, formatSortDate, sortCycles } from '@/shared/lib/sort-utils'
+import { computeSortDate, extractFlatItems, formatSortDate, sortCycles, isRecurring } from '@/shared/lib/sort-utils'
 import type { Cycle } from '@/shared/types'
 
 const CHIP_FILTERS: CycleFilter[] = ['All', 'Latest', '⚠️ Urgent', 'Light', 'Medium', 'Heavy', 'Weekly', 'Monthly']
@@ -81,7 +81,8 @@ function FinanceTabInner() {
 
   const sortedFiltered = useMemo(() => sortCycles(
     financeCycles.filter(cycle => {
-      if (cycle.status === 'complete' || cycle.nextDueAt) return false
+      if (cycle.status === 'complete') return false
+      if (cycle.nextDueAt && !isRecurring(cycle.triggerLabel)) return false
       if (activeSub && cycle.subArea !== activeSub) return false
       if (chipFilter === 'Latest') return matchesCycle(cycle, query)
       const chipMatch = (() => {

@@ -7,7 +7,7 @@ import { useWorkData } from '@/shared/lib/work-data-context'
 import { useSearch } from '@/shared/lib/search-context'
 import { matchesCycle } from '@/shared/lib/search-utils'
 import { type CycleFilter, cycleHasMatchingItems, CADENCE_FILTERS } from '@/shared/lib/filter-utils'
-import { computeSortDate, sortCycles } from '@/shared/lib/sort-utils'
+import { computeSortDate, sortCycles, isRecurring } from '@/shared/lib/sort-utils'
 import type { Cycle } from '@/shared/types'
 import { Settings } from 'lucide-react'
 
@@ -73,7 +73,8 @@ function OpsTabInner() {
 
   const sortedFiltered = useMemo(() => sortCycles(
     opsCycles.filter(cycle => {
-      if (cycle.status === 'complete' || cycle.nextDueAt) return false
+      if (cycle.status === 'complete') return false
+      if (cycle.nextDueAt && !isRecurring(cycle.triggerLabel)) return false
       if (activeSub && cycle.subArea !== activeSub) return false
       const chipMatch = (() => {
         if (chipFilter === 'All') return true

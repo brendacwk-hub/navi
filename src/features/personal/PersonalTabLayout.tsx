@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { CycleCard } from '@/shared/components/CycleCard'
 import { usePersonalData } from '@/shared/lib/personal-data-context'
 import { type CycleFilter, cycleHasMatchingItems } from '@/shared/lib/filter-utils'
-import { sortCycles, extractFlatItems, formatSortDate } from '@/shared/lib/sort-utils'
+import { sortCycles, extractFlatItems, formatSortDate, isRecurring } from '@/shared/lib/sort-utils'
 import type { Cycle, PersonalArea } from '@/shared/types'
 
 const CHIP_FILTERS: CycleFilter[] = ['All', 'Latest', '⚠️ Urgent', 'Light', 'Medium', 'Heavy']
@@ -46,7 +46,8 @@ export function PersonalTabLayout({ area, cycles, subAreaConfig }: Props) {
 
   const sortedFiltered = useMemo(() => sortCycles(
     cycles.filter(c => {
-      if (c.status === 'complete' || c.nextDueAt) return false
+      if (c.status === 'complete') return false
+      if (c.nextDueAt && !isRecurring(c.triggerLabel)) return false
       if (activeSub && c.subArea !== activeSub) return false
       if (chipFilter === 'All' || chipFilter === 'Latest') return true
       return cycleHasMatchingItems(c, chipFilter)
