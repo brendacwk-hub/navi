@@ -38,8 +38,14 @@ async function sendToAll(title: string, body: string, url: string, tag: string) 
 
 export async function GET(req: NextRequest) {
   initWebPush()
+  // Accept either: NAVI_API_KEY (x-api-key header or query param) for manual calls,
+  // OR Vercel cron's automatic Authorization: Bearer CRON_SECRET
   const apiKey = req.headers.get('x-api-key') ?? req.nextUrl.searchParams.get('apiKey')
-  if (apiKey !== process.env.NAVI_API_KEY) {
+  const authHeader = req.headers.get('authorization') ?? ''
+  const cronSecret = process.env.CRON_SECRET
+  const validCron = cronSecret && authHeader === `Bearer ${cronSecret}`
+  const validApiKey = apiKey && apiKey === process.env.NAVI_API_KEY
+  if (!validCron && !validApiKey) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
