@@ -18,7 +18,7 @@ const SUB_AREAS: Partial<Record<WorkArea, string[]>> = {
 }
 
 const TYPE_CYCLE_ALL: TaskType[] = ['task', 'task+', 'cycle']
-const TYPE_CYCLE_TODAY: TaskType[] = ['task', 'task+']
+const TYPE_CYCLE_TODAY: TaskType[] = ['task', 'task+', 'cycle']
 const TYPE_LABEL: Record<TaskType, string> = { task: 'Task', 'task+': 'Task+', cycle: 'Cycle' }
 const TYPE_HINT: Record<TaskType, string> = {
   task: 'What needs to be done?',
