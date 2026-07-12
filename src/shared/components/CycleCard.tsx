@@ -445,41 +445,6 @@ export function CycleCard({ cycle, filter = 'All', defaultExpanded = false }: Pr
               isOverdue ? (
                 <>
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/20 font-medium">{dueLabelDisplay}</span>
-                  <button
-                    onClick={e => {
-                      e.stopPropagation()
-                      const d = new Date(); d.setDate(d.getDate() + 1)
-                      updateCycle(area, cycle.id, { triggerLabel: d.toISOString().slice(0, 10) })
-                    }}
-                    className="text-[10px] text-white/30 hover:text-white/60 transition-colors"
-                    title="Push to tomorrow"
-                  >
-                    → Tomorrow
-                  </button>
-                  <button
-                    onClick={e => {
-                      e.stopPropagation()
-                      const d = new Date()
-                      const daysToFri = (5 - d.getDay() + 7) % 7 || 7
-                      d.setDate(d.getDate() + daysToFri)
-                      updateCycle(area, cycle.id, { triggerLabel: d.toISOString().slice(0, 10) })
-                    }}
-                    className="text-[10px] text-white/30 hover:text-white/60 transition-colors"
-                    title="Push to this Friday"
-                  >
-                    → This Fri
-                  </button>
-                  <button
-                    onClick={e => {
-                      e.stopPropagation()
-                      const d = new Date(); d.setDate(d.getDate() + 7)
-                      updateCycle(area, cycle.id, { triggerLabel: d.toISOString().slice(0, 10) })
-                    }}
-                    className="text-[10px] text-white/30 hover:text-white/60 transition-colors"
-                    title="Push one week"
-                  >
-                    → Next wk
-                  </button>
                   {aiLoading
                     ? <span className="text-[10px] text-white/25 animate-pulse">✦</span>
                     : <button onClick={askCycleAI} className="text-[10px] text-white/25 hover:text-blue-400/80 transition-colors" title="AI suggest new date">✦</button>
