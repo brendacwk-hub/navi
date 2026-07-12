@@ -53,6 +53,8 @@ export function ChecklistItem({ item, depth = 0, parentCycleContext, onToggle, o
 
   const [aiLoading, setAiLoading] = useState(false)
   const [aiResult, setAiResult] = useState<{ suggestedDate: string; reason: string; parentRisk?: string } | null>(null)
+  const [aiCustomDate, setAiCustomDate] = useState('')
+  const [showAiDatePicker, setShowAiDatePicker] = useState(false)
 
   const saveEdit = () => {
     const trimmed = draft.trim()
@@ -211,12 +213,35 @@ export function ChecklistItem({ item, depth = 0, parentCycleContext, onToggle, o
           )}
           {!editing && aiResult && (
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/20">
-                ✦ → {fmtShortDate(aiResult.suggestedDate)}
-              </span>
-              <span className="text-[10px] text-white/40 flex-1">{aiResult.reason}</span>
-              <button onClick={applyAiDate} className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/20 hover:bg-green-500/25 transition-colors">✓ Apply</button>
-              <button onClick={e => { e.stopPropagation(); setAiResult(null) }} className="text-[10px] text-white/25 hover:text-white/55 transition-colors">✗</button>
+              {!showAiDatePicker ? (
+                <>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/20">
+                    ✦ → {fmtShortDate(aiResult.suggestedDate)}
+                  </span>
+                  <span className="text-[10px] text-white/40 flex-1">{aiResult.reason}</span>
+                  <button onClick={applyAiDate} className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/20 hover:bg-green-500/25 transition-colors">✓ Apply</button>
+                  <button
+                    onClick={e => { e.stopPropagation(); setAiCustomDate(aiResult.suggestedDate); setShowAiDatePicker(true) }}
+                    className="text-[10px] px-1.5 py-0.5 rounded bg-white/6 text-white/40 border border-white/10 hover:text-white/70 transition-colors"
+                  >Change</button>
+                  <button onClick={e => { e.stopPropagation(); setAiResult(null); setShowAiDatePicker(false) }} className="text-[10px] text-white/25 hover:text-white/55 transition-colors">✗</button>
+                </>
+              ) : (
+                <>
+                  <input
+                    type="date"
+                    value={aiCustomDate}
+                    onChange={e => setAiCustomDate(e.target.value)}
+                    onClick={e => e.stopPropagation()}
+                    className="text-[11px] px-2 py-0.5 rounded bg-white/6 border border-white/15 text-white/80 focus:outline-none focus:border-navi-blue/50"
+                  />
+                  <button
+                    onClick={e => { e.stopPropagation(); if (aiCustomDate) { onDueChange?.(item.id, aiCustomDate); setAiResult(null); setShowAiDatePicker(false) } }}
+                    className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/20 hover:bg-green-500/25 transition-colors"
+                  >✓ Apply</button>
+                  <button onClick={e => { e.stopPropagation(); setShowAiDatePicker(false) }} className="text-[10px] text-white/25 hover:text-white/55 transition-colors">✗</button>
+                </>
+              )}
               {aiResult.parentRisk && (
                 <span className="basis-full text-[10px] text-yellow-400/70">⚠ {aiResult.parentRisk}</span>
               )}
