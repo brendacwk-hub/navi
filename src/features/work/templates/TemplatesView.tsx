@@ -60,7 +60,7 @@ const DUE_PRESETS = ['Today', 'Tomorrow', 'In 2 Days', 'Next Mon', 'End of Month
 
 export async function loadTemplates(area: WorkArea): Promise<WorkTemplate[]> {
   try {
-    const res = await fetch(`/api/db?table=template_collections&eqCol=id&eqVal=${area}`)
+    const res = await fetch(`/api/db?table=template_collections&eqCol=id&eqVal=${area}`, { headers: { 'x-api-key': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' } })
     const json = await res.json()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (json.data?.[0] as any)?.templates ?? []
@@ -70,7 +70,7 @@ export async function loadTemplates(area: WorkArea): Promise<WorkTemplate[]> {
 export function saveTemplates(area: WorkArea, templates: WorkTemplate[]) {
   fetch('/api/db', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' },
     body: JSON.stringify({ table: 'template_collections', operation: 'upsert', data: { id: area, templates } }),
   }).catch(() => {})
 }

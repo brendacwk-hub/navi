@@ -99,7 +99,7 @@ function normaliseIdea(raw: Record<string, unknown>): Idea {
 async function dbWrite(payload: object) {
   return fetch('/api/db', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' },
     body: JSON.stringify(payload),
   })
 }
@@ -626,7 +626,7 @@ export function IdeasView({ cat: _cat }: { cat?: string } = {}) {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res  = await fetch('/api/db?table=personal_ideas', { cache: 'no-store' })
+      const res  = await fetch('/api/db?table=personal_ideas', { cache: 'no-store', headers: { 'x-api-key': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' } })
       const json = await res.json()
       if (Array.isArray(json.data)) {
         setIdeas(

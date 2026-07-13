@@ -26,7 +26,7 @@ async function dbRead(table: string, eq?: { col: string; val: string }): Promise
   const p = new URLSearchParams({ table })
   if (eq) { p.set('eqCol', eq.col); p.set('eqVal', eq.val) }
   try {
-    const res = await fetch(`/api/db?${p}`, { cache: 'no-store' })
+    const res = await fetch(`/api/db?${p}`, { cache: 'no-store', headers: { 'x-api-key': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' } })
     const json = await res.json()
     return json.data ?? []
   } catch { return [] }
@@ -174,7 +174,7 @@ export function DiaryView() {
     try {
       await fetch('/api/db', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' },
         body: JSON.stringify({
           table: 'diary_entries',
           operation: 'upsert',

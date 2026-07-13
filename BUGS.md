@@ -4,6 +4,12 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-84 · `/api/db` route had no authentication — any caller could read/write any table
+**Symptom:** Any HTTP client could call `GET /api/db?table=cycles` or `POST /api/db` with any table name and the service-role Supabase key would execute the query, bypassing RLS completely.
+**Root cause:** The route was built for speed and never had an auth check added. Because all callers are first-party client-side code, there was no visible symptom — but any attacker with the URL could read or corrupt all data.
+**Fix:** Added `isAuthorized()` to `route.ts` — checks `x-api-key` header against `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Added that header to every caller: `work-data-context.tsx`, `personal-data-context.tsx`, `inbox-context.tsx`, `habit-context.tsx` (helpers + standalone `fetchHabitData`), `use-weekly-review.ts`, `SettingsTab.tsx`, `IdeasView.tsx`, `DiaryView.tsx`, `TemplatesView.tsx`.
+**Lesson:** Any internal API route that uses service-role credentials must have a secret check even if it's only called by first-party code. `NEXT_PUBLIC_SUPABASE_ANON_KEY` is already in the client bundle, so no new env vars are needed.
+
 ### B-81 · AI postpone suggestion had no way to pick a different date
 **Symptom:** When the AI suggested a postpone date the user disagreed with, there was no way to override it — only Apply or dismiss (✗).
 **Root cause:** The AI result row was built with only Apply and dismiss buttons; no date-editing affordance was added when the feature was first built.

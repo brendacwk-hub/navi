@@ -30,14 +30,14 @@ type DbOp = { table: string; operation: 'upsert' | 'insert' | 'delete'; data?: u
 function dbWrite(op: DbOp) {
   fetch('/api/db', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' },
     body: JSON.stringify(op),
   }).catch(e => console.error('[dbWrite]', e))
 }
 
 async function dbRead(table: string): Promise<unknown[]> {
   try {
-    const res = await fetch(`/api/db?table=${table}`)
+    const res = await fetch(`/api/db?table=${table}`, { headers: { 'x-api-key': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' } })
     const json = await res.json()
     return json.data ?? []
   } catch (e) {
@@ -60,9 +60,10 @@ const DEFAULT_PERSONAL_HABITS: WorkHabit[] = [
 export async function fetchHabitData(mode: HabitMode): Promise<{ habits: WorkHabit[]; weekLogs: Record<string, HabitLog> }> {
   const prefix = `${mode}-`
   try {
+    const apiKey = { 'x-api-key': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' }
     const [defRes, logRes] = await Promise.all([
-      fetch('/api/db?table=habit_definitions'),
-      fetch('/api/db?table=habit_logs'),
+      fetch('/api/db?table=habit_definitions', { headers: apiKey }),
+      fetch('/api/db?table=habit_logs', { headers: apiKey }),
     ])
     const defJson = await defRes.json()
     const logJson = await logRes.json()

@@ -15,7 +15,7 @@ type DbOp = { table: string; operation: 'upsert' | 'insert' | 'delete'; data?: u
 function dbWrite(op: DbOp) {
   fetch('/api/db', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' },
     body: JSON.stringify(op),
   }).catch(e => console.error('[dbWrite]', e))
 }
@@ -24,7 +24,7 @@ async function dbRead(table: string, eq?: { col: string; val: string }): Promise
   const params = new URLSearchParams({ table })
   if (eq) { params.set('eqCol', eq.col); params.set('eqVal', eq.val) }
   try {
-    const res = await fetch(`/api/db?${params}`, { cache: 'no-store' })
+    const res = await fetch(`/api/db?${params}`, { cache: 'no-store', headers: { 'x-api-key': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' } })
     const json = await res.json()
     return json.data ?? []
   } catch (e) {

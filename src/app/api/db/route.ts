@@ -9,9 +9,15 @@ const admin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
+function isAuthorized(req: NextRequest): boolean {
+  return req.headers.get('x-api-key') === process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+}
+
 // GET /api/db?table=cycles
 // GET /api/db?table=today_tasks&eqCol=id&eqVal=singleton
 export async function GET(req: NextRequest) {
+  if (!isAuthorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const { searchParams } = new URL(req.url)
   const table  = searchParams.get('table')
   const eqCol  = searchParams.get('eqCol')
@@ -33,6 +39,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/db  { table, operation, data?, matchId? }
 export async function POST(req: NextRequest) {
+  if (!isAuthorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json() as {
     table: string
     operation: 'upsert' | 'insert' | 'delete'

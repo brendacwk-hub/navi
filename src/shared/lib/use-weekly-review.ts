@@ -43,7 +43,7 @@ export function useWeeklyReview() {
       try {
         const weekStart = getMondayStr()
         const params = new URLSearchParams({ table: 'weekly_reviews', eqCol: 'week_start', eqVal: weekStart })
-        const res = await fetch(`/api/db?${params}`)
+        const res = await fetch(`/api/db?${params}`, { headers: { 'x-api-key': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' } })
         const json = await res.json() as { data?: Record<string, unknown>[] }
         const rows = json.data ?? []
         if (rows[0]) {
@@ -81,7 +81,7 @@ export function useWeeklyReview() {
 
     await fetch('/api/db', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' },
       body: JSON.stringify({
         table: 'weekly_reviews',
         operation: 'upsert',

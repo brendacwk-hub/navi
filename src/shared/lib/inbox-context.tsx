@@ -10,14 +10,14 @@ type DbOp = { table: string; operation: 'upsert' | 'insert' | 'delete'; data?: u
 function dbWrite(op: DbOp) {
   fetch('/api/db', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' },
     body: JSON.stringify(op),
   }).catch(e => console.error('[dbWrite]', e))
 }
 
 async function dbRead(table: string): Promise<unknown[]> {
   try {
-    const res = await fetch(`/api/db?table=${table}`)
+    const res = await fetch(`/api/db?table=${table}`, { headers: { 'x-api-key': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' } })
     const json = await res.json()
     return json.data ?? []
   } catch (e) {

@@ -102,10 +102,11 @@ export function SettingsTab() {
   const loadArchive = useCallback(async () => {
     setArchiveLoading(true)
     try {
+      const apiKey = { 'x-api-key': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' }
       const [workCyclesRes, personalCyclesRes, tasksRes] = await Promise.all([
-        fetch('/api/db?table=cycles&eqCol=status&eqVal=complete'),
-        fetch('/api/db?table=completed_tasks'),
-        fetch('/api/db?table=task_completions'),
+        fetch('/api/db?table=cycles&eqCol=status&eqVal=complete', { headers: apiKey }),
+        fetch('/api/db?table=completed_tasks', { headers: apiKey }),
+        fetch('/api/db?table=task_completions', { headers: apiKey }),
       ])
       const [workCyclesJson, personalCyclesJson, tasksJson] = await Promise.all([
         workCyclesRes.json(), personalCyclesRes.json(), tasksRes.json(),
@@ -157,12 +158,13 @@ export function SettingsTab() {
   async function reopenTask(task: CompletedTask) {
     setReopening(task.id)
     try {
+      const dbHeaders = { 'Content-Type': 'application/json', 'x-api-key': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' }
       if (task.type === 'task') {
         // Delete the completion log entry; task had no persistent home to restore to
         if (task.rawId) {
           await fetch('/api/db', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: dbHeaders,
             body: JSON.stringify({ table: 'task_completions', operation: 'delete', matchId: task.rawId }),
           })
         }
@@ -172,7 +174,7 @@ export function SettingsTab() {
         await Promise.all([
           fetch('/api/db', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: dbHeaders,
             body: JSON.stringify({
               table: 'cycles', operation: 'upsert',
               data: {
@@ -187,7 +189,7 @@ export function SettingsTab() {
           }),
           fetch('/api/db', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: dbHeaders,
             body: JSON.stringify({ table: 'completed_tasks', operation: 'delete', matchId: task.id }),
           }),
         ])
@@ -196,7 +198,7 @@ export function SettingsTab() {
         const resetItems = resetItemStatuses(task.items)
         await fetch('/api/db', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: dbHeaders,
           body: JSON.stringify({
             table: 'cycles', operation: 'upsert',
             data: {
