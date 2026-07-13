@@ -4,6 +4,12 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-87 · `/api/ai/postpone` had no authentication
+**Symptom:** Same as B-84 — any HTTP client could call the AI postpone endpoint and consume Gemini API credits or read user context data without authentication.
+**Root cause:** Auth check was added to `/api/db` but not to the AI route which was built later.
+**Fix:** Added inline auth check at the top of POST handler in `route.ts`. Updated `CycleCard.tsx` and `ChecklistItem.tsx` callers to include `x-api-key` header.
+**Lesson:** Every new API route needs an auth check before it ships.
+
 ### B-86 · `computeSkipDate` used `.toISOString().slice(0,10)` — HKT off-by-one
 **Symptom:** In HKT (UTC+8), skipping a recurring cycle sets `nextDueAt` to yesterday's date. The cycle then resurfaces immediately instead of staying hidden until the next occurrence.
 **Root cause:** `toISOString()` converts a local Date to UTC string. At midnight HKT the UTC time is 4 PM the previous day, so `toISOString().slice(0,10)` returns the previous calendar date.

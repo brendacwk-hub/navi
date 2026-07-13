@@ -76,7 +76,7 @@ export function ChecklistItem({ item, depth = 0, parentCycleContext, onToggle, o
     try {
       const res = await fetch('/api/ai/postpone', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' },
         body: JSON.stringify({
           itemType: 'subtask',
           item: { label: item.label, effort: item.effort, due: item.due },

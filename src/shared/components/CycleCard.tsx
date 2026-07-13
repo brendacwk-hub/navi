@@ -190,7 +190,7 @@ export function CycleCard({ cycle, filter = 'All', defaultExpanded = false }: Pr
     try {
       const res = await fetch('/api/ai/postpone', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' },
         body: JSON.stringify({
           itemType: 'cycle',
           item: {

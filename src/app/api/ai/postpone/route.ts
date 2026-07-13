@@ -46,6 +46,9 @@ async function callGemini(prompt: string): Promise<string> {
 }
 
 export async function POST(req: Request) {
+  if (req.headers.get('x-api-key') !== process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
   try {
     const body = await req.json()
     const { itemType, item, parentCycle } = body
