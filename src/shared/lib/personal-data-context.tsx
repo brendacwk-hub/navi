@@ -235,10 +235,18 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
   }, [cycleSetter]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const addCycleItem = useCallback((area: PersonalArea, cycleId: string, label: string) => {
+    const newItem: ChecklistItem = { id: `i-${Date.now()}`, label, status: 'todo' }
     cycleSetter(area)(prev => {
-      const next = prev.map(c => c.id === cycleId
-        ? { ...c, items: [...(c.items ?? []), { id: `i-${Date.now()}`, label, status: 'todo' as const }] }
-        : c)
+      const next = prev.map(c => {
+        if (c.id !== cycleId) return c
+        // Task+ form: first item's label matches cycle title → add as subItem (indented)
+        const firstItem = c.items?.[0]
+        if (firstItem && firstItem.label === c.title) {
+          const updated = { ...firstItem, subItems: [...(firstItem.subItems ?? []), newItem] }
+          return { ...c, items: [updated, ...(c.items?.slice(1) ?? [])] }
+        }
+        return { ...c, items: [...(c.items ?? []), newItem] }
+      })
       const changed = next.find(c => c.id === cycleId); if (changed) syncCycle(changed)
       return next
     })

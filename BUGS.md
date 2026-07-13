@@ -4,6 +4,12 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-89 · Personal `addCycleItem` always appended flat, ignoring Task+ hierarchy
+**Symptom:** In personal mode, adding a step to a Task+ cycle (where the first item's label matches the cycle title) would create a flat sibling item instead of an indented sub-step under the parent item.
+**Root cause:** `personal-data-context.tsx addCycleItem` was a simplified version that always appended to `c.items` flat — it never had the Task+ sub-item logic ported from the work context.
+**Fix:** Added the same Task+ guard as the work version: if `c.items[0].label === c.title`, the new item is added as a `subItem` of the first item rather than a flat sibling.
+**Lesson:** When the work and personal contexts diverge, always check every function for missing logic.
+
 ### B-88 · Personal Today `isStickyActive` missing `c.must` guard
 **Symptom:** Any recurring personal cycle (not just Must ones) would stay pinned to the Personal Today view after some items were checked — even light optional cycles that are just in progress.
 **Root cause:** `PersonalTodayView.tsx` copied the sticky logic from the work version but dropped the `c.must &&` guard. Work version has it; personal version didn't.
