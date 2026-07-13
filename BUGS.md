@@ -4,6 +4,12 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-86 · `computeSkipDate` used `.toISOString().slice(0,10)` — HKT off-by-one
+**Symptom:** In HKT (UTC+8), skipping a recurring cycle sets `nextDueAt` to yesterday's date. The cycle then resurfaces immediately instead of staying hidden until the next occurrence.
+**Root cause:** `toISOString()` converts a local Date to UTC string. At midnight HKT the UTC time is 4 PM the previous day, so `toISOString().slice(0,10)` returns the previous calendar date.
+**Fix:** Added `localIso(d: Date)` helper that formats `YYYY-MM-DD` using `getFullYear/getMonth/getDate` (local time). Replaced all 9 `.toISOString().slice(0,10)` calls in `computeSkipDate` with `localIso(...)`.
+**Lesson:** Never use `.toISOString()` when you need a local calendar date. Use `getFullYear/getMonth/getDate` explicitly.
+
 ### B-85 · Conditional hook calls in CycleCard — Rules of Hooks violation
 **Symptom:** React's linter/runtime warns about hooks called conditionally; in development mode React throws "rendered fewer hooks than expected" if the first context returns a value (short-circuits the second call).
 **Root cause:** `useContext(WorkDataContext) ?? useContext(PersonalDataContext)` — the `??` operator means the second `useContext` is only evaluated when the first is `null`. That's a conditional hook call, violating React's rules.

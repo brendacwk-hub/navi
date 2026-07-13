@@ -14,6 +14,11 @@ export interface FlatItem {
   sortDate: number
 }
 
+// Formats a local Date as YYYY-MM-DD without UTC conversion (toISOString shifts by timezone offset)
+function localIso(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 // ── New recurrence pattern: "every [N] unit [on spec] from YYYY-MM-DD" ───────
 // spec: weekdays "mon,thu" | month day "15" | "last"
 const RECURR_RE = /^every (?:(\d+) )?(days?|weeks?|months?|years?)(?:\s+on\s+([a-z0-9,]+))?\s+from (\d{4}-\d{2}-\d{2})$/i
@@ -350,34 +355,34 @@ export function computeSkipDate(triggerLabel: string | undefined): string | null
 
     if (unit === 'week' && on) {
       const wds = on.split(',').map(d => DAY_ABBR.indexOf(d)).filter(d => d !== -1)
-      if (wds.length > 0) return nextWeekdayStrictlyAfter(today, n, start, wds).toISOString().slice(0, 10)
+      if (wds.length > 0) return localIso(nextWeekdayStrictlyAfter(today, n, start, wds))
     }
     if (unit === 'month' && on) {
-      return nextMonthDayStrictlyAfter(today, n, start, on).toISOString().slice(0, 10)
+      return localIso(nextMonthDayStrictlyAfter(today, n, start, on))
     }
 
     if (unit === 'day') {
       const daysDiff = Math.round((today.getTime() - start.getTime()) / 86400000)
       const rem = daysDiff % n
       const skip = rem === 0 ? n : (n - rem)
-      return addDays(today, skip).toISOString().slice(0, 10)
+      return localIso(addDays(today, skip))
     }
     if (unit === 'week') {
       const period = n * 7
       const daysDiff = Math.round((today.getTime() - start.getTime()) / 86400000)
       const rem = daysDiff % period
       const skip = rem === 0 ? period : (period - rem)
-      return addDays(today, skip).toISOString().slice(0, 10)
+      return localIso(addDays(today, skip))
     }
     if (unit === 'month') {
       let d = new Date(start)
       while (d <= today) d = new Date(d.getFullYear(), d.getMonth() + n, start.getDate())
-      return d.toISOString().slice(0, 10)
+      return localIso(d)
     }
     if (unit === 'year') {
       let yr = start.getFullYear()
       while (new Date(yr, start.getMonth(), start.getDate()) <= today) yr += n
-      return new Date(yr, start.getMonth(), start.getDate()).toISOString().slice(0, 10)
+      return localIso(new Date(yr, start.getMonth(), start.getDate()))
     }
   }
 
@@ -386,7 +391,7 @@ export function computeSkipDate(triggerLabel: string | undefined): string | null
   for (let i = 0; i < weekdays.length; i++) {
     if (label.includes(weekdays[i])) {
       const d = new Date(today); d.setDate(d.getDate() + 7)
-      return d.toISOString().slice(0, 10)
+      return localIso(d)
     }
   }
 
@@ -399,16 +404,16 @@ export function computeSkipDate(triggerLabel: string | undefined): string | null
     // If next occurrence is today or past, add 28+ days to get next month's
     if (next <= today) {
       const nm = new Date(today.getFullYear(), today.getMonth() + 1, 1)
-      return nm.toISOString().slice(0, 10)
+      return localIso(nm)
     }
     // next is already in the future — add one month to be safe
     nextMonth.setDate(next.getDate())
-    return `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`
+    return localIso(nextMonth)
   }
 
   // Fallback: 30 days
   const d = new Date(today); d.setDate(d.getDate() + 30)
-  return d.toISOString().slice(0, 10)
+  return localIso(d)
 }
 
 export function isRecurring(triggerLabel: string | undefined): boolean {
