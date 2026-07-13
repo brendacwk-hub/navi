@@ -4,6 +4,12 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-85 · Conditional hook calls in CycleCard — Rules of Hooks violation
+**Symptom:** React's linter/runtime warns about hooks called conditionally; in development mode React throws "rendered fewer hooks than expected" if the first context returns a value (short-circuits the second call).
+**Root cause:** `useContext(WorkDataContext) ?? useContext(PersonalDataContext)` — the `??` operator means the second `useContext` is only evaluated when the first is `null`. That's a conditional hook call, violating React's rules.
+**Fix:** Split into two unconditional calls (`const workCtx = useContext(WorkDataContext)` / `const personalCtx = useContext(PersonalDataContext)`), then combine the results with `??`. Applied in both `PhaseSection` and `CycleCard` in `CycleCard.tsx`.
+**Lesson:** Never put hook calls inside conditional expressions (&&, ||, ??). Always call hooks at the top level unconditionally, then combine the results.
+
 ### B-84 · `/api/db` route had no authentication — any caller could read/write any table
 **Symptom:** Any HTTP client could call `GET /api/db?table=cycles` or `POST /api/db` with any table name and the service-role Supabase key would execute the query, bypassing RLS completely.
 **Root cause:** The route was built for speed and never had an auth check added. Because all callers are first-party client-side code, there was no visible symptom — but any attacker with the URL could read or corrupt all data.

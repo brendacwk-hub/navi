@@ -92,7 +92,11 @@ function PhaseSection({ phase, cycle, filter, forceOpen = false }: { phase: Cycl
   const allDone = total > 0 && done === total
   const [open, setOpen] = useState(forceOpen || (phase.status === 'active' && !allDone))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ctx = (useContext(WorkDataContext) ?? useContext(PersonalDataContext)) as any
+  const workCtxP = useContext(WorkDataContext)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const personalCtxP = useContext(PersonalDataContext)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ctx = (workCtxP ?? personalCtxP) as any
   const { toggleItem, setItemLabel, setItemNote, setItemUrgent, setItemDue, deleteItem } = ctx
   const area = cycle.area as WorkAreaLocal
   const cycleId = cycle.id
@@ -170,7 +174,11 @@ export function CycleCard({ cycle, filter = 'All', defaultExpanded = false }: Pr
   const newStepRef = useRef<HTMLInputElement>(null)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ctx = (useContext(WorkDataContext) ?? useContext(PersonalDataContext)) as any
+  const workCtx = useContext(WorkDataContext)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const personalCtx = useContext(PersonalDataContext)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ctx = (workCtx ?? personalCtx) as any
   const { updateCycle, deleteCycle, deleteItem, toggleItem, setItemLabel, setItemNote, setItemUrgent, setItemDue, addCycleItem } = ctx
   const { showToast } = useToast()
   const area = cycle.area as WorkAreaLocal
