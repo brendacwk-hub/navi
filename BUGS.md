@@ -4,6 +4,12 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-88 · Personal Today `isStickyActive` missing `c.must` guard
+**Symptom:** Any recurring personal cycle (not just Must ones) would stay pinned to the Personal Today view after some items were checked — even light optional cycles that are just in progress.
+**Root cause:** `PersonalTodayView.tsx` copied the sticky logic from the work version but dropped the `c.must &&` guard. Work version has it; personal version didn't.
+**Fix:** Added `c.must &&` at the start of the `isStickyActive` condition in `PersonalTodayView.tsx` line 167, matching the work version exactly.
+**Lesson:** When porting logic from work → personal, do a side-by-side diff before shipping.
+
 ### B-87 · `/api/ai/postpone` had no authentication
 **Symptom:** Same as B-84 — any HTTP client could call the AI postpone endpoint and consume Gemini API credits or read user context data without authentication.
 **Root cause:** Auth check was added to `/api/db` but not to the AI route which was built later.

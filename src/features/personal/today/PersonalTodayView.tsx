@@ -164,7 +164,7 @@ export function PersonalTodayView() {
         if (allHaveDue) return allItems.some(i => i.status !== 'done' && i.due! <= todayStr)
 
         const hasStarted = allItems.some(i => i.status === 'done')
-        const isStickyActive = isRecurring(trigger) && !c.nextDueAt &&
+        const isStickyActive = c.must && isRecurring(trigger) && !c.nextDueAt &&
           hasStarted && hasTriggerFiredThisPeriod(trigger, todayDate)
 
         if (noneHaveDue) return isTriggerDueToday(trigger, todayDate) || isStickyActive
