@@ -37,26 +37,51 @@ export function usePushNotifications() {
     setStatus('loading')
     setSubscribeError(null)
     if (!VAPID_PUBLIC) {
-      setSubscribeError('Push not configured (missing VAPID key). Contact support.')
+      setSubscribeError('Step 0 failed: VAPID key missing from build.')
       setStatus('unsubscribed')
       return
     }
     try {
-      const perm = await Notification.requestPermission()
+      // Step 1: permission
+      let perm: NotificationPermission
+      try {
+        perm = await Notification.requestPermission()
+      } catch (e) {
+        throw new Error(`Step 1 (permission): ${e instanceof Error ? e.message : String(e)}`)
+      }
       if (perm !== 'granted') { setStatus('denied'); return }
 
-      const reg = await navigator.serviceWorker.ready
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC) as Uint8Array<ArrayBuffer>,
-      })
+      // Step 2: SW ready
+      let reg: ServiceWorkerRegistration
+      try {
+        reg = await navigator.serviceWorker.ready
+      } catch (e) {
+        throw new Error(`Step 2 (SW ready): ${e instanceof Error ? e.message : String(e)}`)
+      }
 
-      const res = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sub.toJSON()),
-      })
-      if (!res.ok) throw new Error(`Server error ${res.status}`)
+      // Step 3: pushManager.subscribe
+      let sub: PushSubscription
+      try {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC) as Uint8Array<ArrayBuffer>,
+        })
+      } catch (e) {
+        throw new Error(`Step 3 (subscribe): ${e instanceof Error ? e.message : String(e)}`)
+      }
+
+      // Step 4: save to server
+      try {
+        const res = await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sub.toJSON()),
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      } catch (e) {
+        throw new Error(`Step 4 (save): ${e instanceof Error ? e.message : String(e)}`)
+      }
+
       setStatus('subscribed')
     } catch (e) {
       console.error('[push subscribe]', e)

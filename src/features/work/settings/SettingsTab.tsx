@@ -546,6 +546,10 @@ export function SettingsTab() {
           {subscribeError && (
             <p className="text-xs text-red-400 mb-3 break-all">{subscribeError}</p>
           )}
+          {process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+            ? <p className="text-[10px] text-white/20 mb-2">VAPID: {process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY.slice(0, 8)}…</p>
+            : <p className="text-[10px] text-red-400/50 mb-2">VAPID: NOT LOADED</p>
+          }
 
           {(pushStatus === 'subscribed' || pushStatus === 'unsubscribed') && (
             <div className="flex items-center gap-3">
