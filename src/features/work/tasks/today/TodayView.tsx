@@ -117,7 +117,16 @@ function TodayTaskCard({ task }: { task: TodayTaskData }) {
     <div className={`rounded-xl border border-l-4 overflow-hidden transition-all group/task ${areaColor[task.area]}`}>
       <div className="px-4 py-3 cursor-pointer select-none" onClick={() => setExpanded(e => !e)}>
         <div className="flex items-center gap-2">
-          {subItems.length > 0 ? (
+          {task.pinned ? (
+            <>
+              <span className="flex-shrink-0 text-sm leading-none select-none">📌</span>
+              {subItems.length > 0 && (
+                <span className="flex-shrink-0 text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded bg-white/8 text-white/40">
+                  {doneCount}/{subItems.length}
+                </span>
+              )}
+            </>
+          ) : subItems.length > 0 ? (
             <span className={`flex-shrink-0 text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded ${
               allDone ? 'bg-green-500/20 text-green-400' : 'bg-white/8 text-white/40'
             }`}>
@@ -137,7 +146,7 @@ function TodayTaskCard({ task }: { task: TodayTaskData }) {
               )}
             </div>
           )}
-          <div className={`flex-1 min-w-0 text-sm font-bold ${allDone ? 'line-through text-white/35' : 'text-white/85'}`}>
+          <div className={`flex-1 min-w-0 text-sm font-bold ${!task.pinned && allDone ? 'line-through text-white/35' : 'text-white/85'}`}>
             <EditableText value={task.label} onSave={v => updateTodayTaskLabel(task.id, v)} showIcon={false} />
           </div>
           <button
@@ -151,8 +160,8 @@ function TodayTaskCard({ task }: { task: TodayTaskData }) {
         </div>
 
         <div className="flex items-center gap-2 mt-1.5 ml-0.5">
-          {task.urgent && <span className="text-[10px] text-orange-400 font-bold">⚠</span>}
-          {task.must && (
+          {!task.pinned && task.urgent && <span className="text-[10px] text-orange-400 font-bold">⚠</span>}
+          {!task.pinned && task.must && (
             <span className="text-[10px] text-red-400 flex items-center gap-1">
               <Zap className="w-2.5 h-2.5" /> Must
             </span>
@@ -161,9 +170,11 @@ function TodayTaskCard({ task }: { task: TodayTaskData }) {
             <span className={`w-1.5 h-1.5 rounded-full ${effortDot[task.effort] ?? 'bg-white/30'}`} />
             {effortLabel[task.effort]}
           </span>
-          <span className="text-[11px] text-white/30 flex items-center gap-1">
-            <Clock className="w-3 h-3" /> {task.due}
-          </span>
+          {!task.pinned && task.due && (
+            <span className="text-[11px] text-white/30 flex items-center gap-1">
+              <Clock className="w-3 h-3" /> {task.due}
+            </span>
+          )}
           <button
             onClick={e => { e.stopPropagation(); setEditingTags(t => !t) }}
             className="opacity-20 hover:opacity-70 p-0.5 rounded text-white/50 hover:text-white/80 transition-all ml-auto"
@@ -625,10 +636,11 @@ export function TodayView() {
     [financeCycles, hrCycles, opsCycles, othersCycles]
   )
 
-  // Build unified item list in default order (priority cycles → tasks → normal cycles)
+  // Build unified item list in default order (pinned → priority cycles → tasks → normal cycles)
   const defaultItems: TodayItem[] = useMemo(() => [
+    ...visibleTasks.filter(t => t.pinned).map(t => ({ kind: 'task' as const, id: t.id, task: t })),
     ...cyclesToday.filter(c => c.must || c.urgent).map(c => ({ kind: 'cycle' as const, id: c.id, cycle: c })),
-    ...visibleTasks.map(t => ({ kind: 'task' as const, id: t.id, task: t })),
+    ...visibleTasks.filter(t => !t.pinned).map(t => ({ kind: 'task' as const, id: t.id, task: t })),
     ...cyclesToday.filter(c => !c.must && !c.urgent).map(c => ({ kind: 'cycle' as const, id: c.id, cycle: c })),
   ], [cyclesToday, visibleTasks])
 

@@ -4,6 +4,14 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### F-1 · Pinned today tasks (standing list feature)
+**Feature:** Users can create a permanently pinned task on the Today tab that never disappears and always accepts new sub-items (e.g. a "Budget items" running list).
+**Implementation:**
+- `data.ts`: added `pinned?: boolean` to `TodayTaskData`; made `due` optional (pinned tasks have no due date)
+- `work-data-context.tsx`: `toggleTodayTask` skips `task_completions` insert for pinned tasks (they never count as "done")
+- `TodayView.tsx`: pinned tasks sort to the very top of `defaultItems`; `TodayTaskCard` shows 📌 instead of checkbox, no strikethrough on title, no must/urgent/clock badges
+- `QuickAddButton.tsx`: added `'pinned'` type to `TYPE_CYCLE_TODAY`; `handleSave` routes to `addTodayTask` (not `addCycle`) with `pinned: true` and no `due`; Date toolbar button hidden for pinned type
+
 ### B-92 · IdeasView `handleConvert` created cycles with missing `id` and wrong `status`
 **Symptom:** Converting an idea to a personal cycle either silently fails (DB rejects a row with no primary key) or creates a cycle that never appears in any area tab because `status: 'open'` is not a valid value (valid: `'active'`, `'complete'`).
 **Root cause:** The `handleConvert` function in `IdeasView.tsx` used `status: 'open'` (copied from the ideas table schema) and forgot to generate an `id`.

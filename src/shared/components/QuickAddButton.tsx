@@ -9,7 +9,7 @@ import { RecurrencePicker, fmtRecurrDisplay } from './RecurrencePicker'
 import { useInbox } from '@/shared/lib/inbox-context'
 import type { WorkArea, Effort } from '@/shared/types'
 
-type TaskType = 'task' | 'task+' | 'cycle'
+type TaskType = 'task' | 'task+' | 'cycle' | 'pinned'
 
 const SUB_AREAS: Partial<Record<WorkArea, string[]>> = {
   finance: ['Payments', 'Budgets', 'Administrative', 'Records', 'AI'],
@@ -18,14 +18,15 @@ const SUB_AREAS: Partial<Record<WorkArea, string[]>> = {
 }
 
 const TYPE_CYCLE_ALL: TaskType[] = ['task', 'task+', 'cycle']
-const TYPE_CYCLE_TODAY: TaskType[] = ['task', 'task+', 'cycle']
-const TYPE_LABEL: Record<TaskType, string> = { task: 'Task', 'task+': 'Task+', cycle: 'Cycle' }
+const TYPE_CYCLE_TODAY: TaskType[] = ['task', 'task+', 'cycle', 'pinned']
+const TYPE_LABEL: Record<TaskType, string> = { task: 'Task', 'task+': 'Task+', cycle: 'Cycle', pinned: '📌 Pinned' }
 const TYPE_HINT: Record<TaskType, string> = {
   task: 'What needs to be done?',
   'task+': 'Task title...',
   cycle: 'Cycle name...',
+  pinned: 'Name this standing list...',
 }
-const SUB_HINT: Record<TaskType, string> = { task: '', 'task+': 'Sub-task', cycle: 'Step' }
+const SUB_HINT: Record<TaskType, string> = { task: '', 'task+': 'Sub-task', cycle: 'Step', pinned: 'Item' }
 
 const areaColors: Record<WorkArea, string> = {
   finance: 'bg-finance/20 text-finance border-finance/40',
@@ -43,7 +44,7 @@ function pathnameArea(p: string): WorkArea {
 
 export function QuickAddButton() {
   const pathname = usePathname()
-  const { addCycle, financeCycles, hrCycles, opsCycles, othersCycles, completedTitles } = useWorkData()
+  const { addCycle, addTodayTask, financeCycles, hrCycles, opsCycles, othersCycles, completedTitles } = useWorkData()
   const { addItem: addInboxItem } = useInbox()
 
   const isToday  = pathname === '/work'
@@ -118,7 +119,7 @@ export function QuickAddButton() {
 
   if (pathname === '/work/inbox') return null
 
-  const showSubs = type === 'task+' || type === 'cycle'
+  const showSubs = type === 'task+' || type === 'cycle' || type === 'pinned'
 
   const handleSubChange = (idx: number, val: string) => {
     const next = [...subs]
@@ -151,7 +152,17 @@ export function QuickAddButton() {
       notes: notes.trim() || undefined,
     }
 
-    if (type === 'task') {
+    if (type === 'pinned') {
+      addTodayTask({
+        label: title.trim(),
+        area,
+        effort,
+        must: false,
+        urgent: false,
+        pinned: true,
+        subItems: filled.map((s, i) => ({ id: `sub-${ts}-${i}`, label: s, done: false })),
+      })
+    } else if (type === 'task') {
       addCycle(area, {
         ...base,
         items: [{ id: `item-${ts}`, label: title.trim(), status: 'todo', effort, must }],
@@ -319,12 +330,14 @@ export function QuickAddButton() {
                       Urgent
                     </button>
 
-                    <button onClick={() => togglePanel('due')}
-                      className={toolbarBtn(!!(dueLabel || recurrLabel), 'bg-navi-blue/20 border-navi-blue/40 text-navi-blue')}
-                    >
-                      <Calendar className="w-3.5 h-3.5" />
-                      {recurrLabel ? fmtRecurrDisplay(recurrLabel) : dueLabel || 'Date'}
-                    </button>
+                    {type !== 'pinned' && (
+                      <button onClick={() => togglePanel('due')}
+                        className={toolbarBtn(!!(dueLabel || recurrLabel), 'bg-navi-blue/20 border-navi-blue/40 text-navi-blue')}
+                      >
+                        <Calendar className="w-3.5 h-3.5" />
+                        {recurrLabel ? fmtRecurrDisplay(recurrLabel) : dueLabel || 'Date'}
+                      </button>
+                    )}
 
                     {(SUB_AREAS[area]?.length ?? 0) > 0 && (
                       <button onClick={() => togglePanel('subarea')}

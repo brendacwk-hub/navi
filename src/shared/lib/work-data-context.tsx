@@ -548,8 +548,8 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
   const toggleTodayTask = useCallback((taskId: string) => {
     setTodayTasks(prev => {
       const next = patchTodayTask(prev, taskId, t => {
-        if (!t.done) {
-          // Completing (false → true): log permanently for analytics
+        if (!t.done && !t.pinned) {
+          // Completing (false → true): log permanently for analytics (skip for pinned — they never truly "complete")
           dbWrite({
             table: 'task_completions',
             operation: 'insert',

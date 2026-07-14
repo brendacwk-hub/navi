@@ -12,10 +12,11 @@ export interface TodayTaskData {
   effort: 'quick' | 'medium' | 'heavy'
   must: boolean
   urgent?: boolean
-  due: string
+  due?: string
   notes?: string
   subItems?: TodaySubItem[]
   done: boolean
+  pinned?: boolean
 }
 
 // Hardcoded seed data removed — Today tasks are driven entirely by DB (today_tasks singleton)
