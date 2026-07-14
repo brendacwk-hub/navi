@@ -36,6 +36,11 @@ export function usePushNotifications() {
   const subscribe = async () => {
     setStatus('loading')
     setSubscribeError(null)
+    if (!VAPID_PUBLIC) {
+      setSubscribeError('Push not configured (missing VAPID key). Contact support.')
+      setStatus('unsubscribed')
+      return
+    }
     try {
       const perm = await Notification.requestPermission()
       if (perm !== 'granted') { setStatus('denied'); return }
