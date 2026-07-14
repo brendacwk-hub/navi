@@ -526,7 +526,7 @@ export function SettingsTab() {
         <div className="px-5 py-4">
           <h3 className="text-sm font-semibold text-white mb-1">Notifications</h3>
           <p className="text-xs text-white/40 mb-4 leading-relaxed">
-            Receive habit reminders and daily summaries on this device. Must be installed as a PWA (Add to Home Screen) on iPhone.
+            Habit reminders fire at times set per habit. Diary reminder sends at 9 PM HKT if you haven&apos;t written yet.
           </p>
 
           {pushStatus === 'unsupported' && (
@@ -546,10 +546,6 @@ export function SettingsTab() {
           {subscribeError && (
             <p className="text-xs text-red-400 mb-3 break-all">{subscribeError}</p>
           )}
-          {process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-            ? <p className="text-[10px] text-white/20 mb-2">VAPID: {process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY.slice(0, 8)}…</p>
-            : <p className="text-[10px] text-red-400/50 mb-2">VAPID: NOT LOADED</p>
-          }
 
           {(pushStatus === 'subscribed' || pushStatus === 'unsubscribed') && (
             <div className="flex items-center gap-3">
@@ -577,32 +573,6 @@ export function SettingsTab() {
 
           {pushStatus === 'subscribed' && (
             <div className="mt-4 space-y-3">
-              <p className="text-[11px] text-white/25 leading-relaxed">
-                Habit reminders fire at times set in the Habits tab. Morning summary at 9am HKT.
-              </p>
-              <div>
-                <p className="text-[11px] text-white/40 mb-2 font-medium">Diary reminder time (HKT)</p>
-                <div className="flex gap-2">
-                  {DIARY_HOURS.map(({ hour, label }) => (
-                    <button
-                      key={hour}
-                      onClick={() => saveDiaryHour(hour)}
-                      disabled={savingDiary}
-                      className={`flex-1 py-2 rounded-xl border text-xs font-semibold transition-all ${
-                        diaryReminderHour === hour
-                          ? 'border-navi-blue bg-navi-blue/15 text-navi-blue'
-                          : 'border-white/10 text-white/40 hover:border-white/20 hover:text-white/60'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-[10px] text-white/20 mt-1.5 leading-relaxed">
-                  Sends daily if you haven&apos;t written in your diary yet.
-                </p>
-              </div>
-
               <div className="pt-1">
                 <div className="flex items-center gap-3">
                   <button

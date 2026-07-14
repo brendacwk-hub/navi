@@ -83,16 +83,6 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Morning summary at 09:00 HKT
-  if (nh === 9 && nm <= 5) {
-    await sendToAll(
-      '☀️ Good morning',
-      'Your Navi daily summary is ready. Tap to see what\'s due today.',
-      '/work',
-      'daily-summary',
-    )
-  }
-
   // Diary reminder — daily at each subscription's configured hour (default 21 = 9pm HKT)
   // Only sends if today's diary entry has no content yet
   const allSubs = await fetchSubs()
