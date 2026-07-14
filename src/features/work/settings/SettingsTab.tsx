@@ -81,7 +81,7 @@ const DIARY_HOURS = [
 ]
 
 export function SettingsTab() {
-  const { status: pushStatus, subscribe, unsubscribe } = usePushNotifications()
+  const { status: pushStatus, subscribe, unsubscribe, subscribeError } = usePushNotifications()
   const { fontScale, setFontScale } = usePreferences()
   const [conn, setConn]                   = useState<ConnectionState | null>(null)
   const [calendars, setCalendars]         = useState<CalendarItem[]>([])
@@ -541,6 +541,10 @@ export function SettingsTab() {
             <div className="flex items-center gap-2 text-xs text-white/30">
               <Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking...
             </div>
+          )}
+
+          {subscribeError && (
+            <p className="text-xs text-red-400 mb-3 break-all">{subscribeError}</p>
           )}
 
           {(pushStatus === 'subscribed' || pushStatus === 'unsubscribed') && (

@@ -15,6 +15,7 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
 
 export function usePushNotifications() {
   const [status, setStatus] = useState<PushStatus>('loading')
+  const [subscribeError, setSubscribeError] = useState<string | null>(null)
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -34,6 +35,7 @@ export function usePushNotifications() {
 
   const subscribe = async () => {
     setStatus('loading')
+    setSubscribeError(null)
     try {
       const perm = await Notification.requestPermission()
       if (perm !== 'granted') { setStatus('denied'); return }
@@ -44,14 +46,17 @@ export function usePushNotifications() {
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC) as Uint8Array<ArrayBuffer>,
       })
 
-      await fetch('/api/push/subscribe', {
+      const res = await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sub.toJSON()),
       })
+      if (!res.ok) throw new Error(`Server error ${res.status}`)
       setStatus('subscribed')
     } catch (e) {
       console.error('[push subscribe]', e)
+      const msg = e instanceof Error ? e.message : String(e)
+      setSubscribeError(msg)
       setStatus('unsubscribed')
     }
   }
@@ -76,5 +81,5 @@ export function usePushNotifications() {
     }
   }
 
-  return { status, subscribe, unsubscribe }
+  return { status, subscribe, unsubscribe, subscribeError }
 }
