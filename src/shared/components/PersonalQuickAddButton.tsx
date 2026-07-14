@@ -11,7 +11,7 @@ import type { PersonalArea, Effort } from '@/shared/types'
 const PINK = '#f0a8c8'
 
 const AREA_CONFIG: { value: PersonalArea; label: string; color: string }[] = [
-  { value: 'housework',        label: 'Housework', color: '#fb7185' },
+  { value: 'housework',        label: 'Home',      color: '#fb7185' },
   { value: 'personal-finance', label: 'Finance',   color: '#22d3ee' },
   { value: 'sidoi',            label: 'Sidoi',     color: '#f9a8d4' },
   { value: 'tobuy',            label: 'To Buy',    color: '#fcd34d' },

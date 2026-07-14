@@ -11,7 +11,7 @@ import {
 const PINK = '#f0a8c8'
 
 const areaLinks = [
-  { label: 'Housework', href: '/personal/housework', icon: Home,        color: 'text-[#fb7185]', bg: 'bg-[#fb7185]/15' },
+  { label: 'Home',      href: '/personal/housework', icon: Home,        color: 'text-[#fb7185]', bg: 'bg-[#fb7185]/15' },
   { label: 'Sidoi',     href: '/personal/sidoi',     icon: Scissors,    color: 'text-[#f9a8d4]', bg: 'bg-[#f9a8d4]/15' },
   { label: 'To Buy',    href: '/personal/tobuy',     icon: ShoppingBag,    color: 'text-[#fcd34d]', bg: 'bg-[#fcd34d]/15' },
   { label: 'Others',   href: '/personal/others',    icon: MoreHorizontal, color: 'text-[#fbbf24]', bg: 'bg-[#fbbf24]/15' },

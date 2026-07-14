@@ -18,7 +18,7 @@ const AREA_COLOR: Record<PersonalArea, string> = {
 }
 
 const AREA_LABEL: Record<PersonalArea, string> = {
-  housework:          'Housework',
+  housework:          'Home',
   'personal-finance': 'Finance',
   sidoi:              'Sidoi',
   tobuy:              'To Buy',

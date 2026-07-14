@@ -9,7 +9,7 @@ export function HouseworkTab() {
   const [activeSub, setActiveSub] = useState<string | null>(null)
 
   const merged = useMemo(() => [
-    ...houseworkCycles,
+    ...houseworkCycles.map(c => ({ ...c, subArea: c.subArea ?? 'Housework' })),
     ...personalFinanceCycles.map(c => ({ ...c, subArea: 'Finance' })),
   ], [houseworkCycles, personalFinanceCycles])
 
@@ -17,7 +17,7 @@ export function HouseworkTab() {
     <PersonalTabLayout
       area="housework"
       cycles={merged}
-      subAreaConfig={{ subAreas: ['Finance'], activeSub, onSubChange: setActiveSub }}
+      subAreaConfig={{ subAreas: ['Housework', 'Finance'], activeSub, onSubChange: setActiveSub }}
     />
   )
 }
