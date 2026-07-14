@@ -124,7 +124,7 @@ function PersonalHabitStrip() {
 // ── Main view ─────────────────────────────────────────────────────────────────
 
 export function PersonalTodayView() {
-  const { houseworkCycles, personalFinanceCycles, sidoiCycles, tobuyCycles } = usePersonalData()
+  const { houseworkCycles, personalFinanceCycles, sidoiCycles, tobuyCycles, personalOthersCycles } = usePersonalData()
   const { query } = useSearch()
   const router = useRouter()
   const [sheetCycle, setSheetCycle] = useState<Cycle | null>(null)
@@ -134,14 +134,15 @@ export function PersonalTodayView() {
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
   const allCycles = useMemo(
-    () => [...houseworkCycles, ...personalFinanceCycles, ...sidoiCycles, ...tobuyCycles] as Cycle[],
-    [houseworkCycles, personalFinanceCycles, sidoiCycles, tobuyCycles]
+    () => [...houseworkCycles, ...personalFinanceCycles, ...sidoiCycles, ...tobuyCycles, ...personalOthersCycles] as Cycle[],
+    [houseworkCycles, personalFinanceCycles, sidoiCycles, tobuyCycles, personalOthersCycles]
   )
 
   const dueToday = useMemo(() => {
     const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate())
     return allCycles
       .filter(c => {
+        if (c.pinned) return c.status !== 'complete'
         if (c.status === 'complete') return false
         if (allCycleDone(c)) return false
         const trigger = c.triggerLabel ?? ''
@@ -175,6 +176,9 @@ export function PersonalTodayView() {
       })
       .filter(c => !query.trim() || fuzzyMatch(c.title, query))
       .sort((a, b) => {
+        const aPin = a.pinned ? 0 : 1
+        const bPin = b.pinned ? 0 : 1
+        if (aPin !== bPin) return aPin - bPin
         const aRec = isRecurring(a.triggerLabel) ? 1 : 0
         const bRec = isRecurring(b.triggerLabel) ? 1 : 0
         if (aRec !== bRec) return aRec - bRec

@@ -14,6 +14,7 @@ const AREA_COLOR: Record<PersonalArea, string> = {
   'personal-finance': '#22d3ee',
   sidoi:              '#f9a8d4',
   tobuy:              '#fcd34d',
+  'personal-others':  '#fbbf24',
 }
 
 const AREA_LABEL: Record<PersonalArea, string> = {
@@ -21,6 +22,7 @@ const AREA_LABEL: Record<PersonalArea, string> = {
   'personal-finance': 'Finance',
   sidoi:              'Sidoi',
   tobuy:              'To Buy',
+  'personal-others':  'Others',
 }
 
 interface SubAreaConfig {

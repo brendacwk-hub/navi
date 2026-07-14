@@ -1,6 +1,6 @@
 export type Area = 'finance' | 'hr' | 'ops' | 'others'
 export type WorkArea = 'finance' | 'hr' | 'ops' | 'others'
-export type PersonalArea = 'housework' | 'personal-finance' | 'sidoi' | 'tobuy'
+export type PersonalArea = 'housework' | 'personal-finance' | 'sidoi' | 'tobuy' | 'personal-others'
 export type Mode = 'work' | 'personal'
 export type Effort = 'quick' | 'medium' | 'heavy'
 export type TaskStatus = 'active' | 'snoozed' | 'waiting' | 'blocked' | 'done' | 'urgent'
@@ -48,6 +48,7 @@ export interface Cycle {
   location?: 'hk' | 'abu-dhabi'
   lastCompletedAt?: string
   nextDueAt?: string
+  pinned?: boolean
 }
 
 export interface Task {

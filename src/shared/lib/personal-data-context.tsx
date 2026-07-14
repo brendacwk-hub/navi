@@ -42,6 +42,7 @@ function fromRow(r: any): Cycle {
     notes: r.notes ?? undefined,
     lastCompletedAt: r.last_completed_at ?? undefined,
     nextDueAt: r.next_due_at ?? undefined,
+    pinned: r.pinned ?? undefined,
   }
 }
 
@@ -55,6 +56,7 @@ function toRow(c: Cycle) {
     last_completed_at: c.lastCompletedAt ?? null,
     next_due_at: c.nextDueAt ?? null,
     mode: 'personal',
+    pinned: c.pinned ?? false,
   }
   if (c.notes !== undefined) row.notes = c.notes
   return row
@@ -124,9 +126,10 @@ interface PersonalDataCtx {
   personalFinanceCycles: Cycle[]
   sidoiCycles: Cycle[]
   tobuyCycles: Cycle[]
+  personalOthersCycles: Cycle[]
   completedTitles: string[]
   addCycle: (area: PersonalArea, cycle: Cycle) => void
-  updateCycle: (area: PersonalArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes' | 'nextDueAt' | 'items'>>) => void
+  updateCycle: (area: PersonalArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes' | 'nextDueAt' | 'items' | 'pinned'>>) => void
   deleteCycle: (area: PersonalArea, id: string) => void
   deleteItem: (area: PersonalArea, cycleId: string, itemId: string) => void
   addCycleItem: (area: PersonalArea, cycleId: string, label: string) => void
@@ -145,6 +148,7 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
   const [personalFinanceCycles, setPersonalFinanceCycles] = useState<Cycle[]>([])
   const [sidoiCycles,           setSidoiCycles]           = useState<Cycle[]>([])
   const [tobuyCycles,           setTobuyCycles]           = useState<Cycle[]>([])
+  const [personalOthersCycles,  setPersonalOthersCycles]  = useState<Cycle[]>([])
   const [completedTitles,       setCompletedTitles]       = useState<string[]>([])
   const sbReady = useRef(false)
   const { showToast } = useToast()
@@ -154,7 +158,8 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
     if (area === 'housework')         return setHouseworkCycles
     if (area === 'personal-finance')  return setPersonalFinanceCycles
     if (area === 'sidoi')             return setSidoiCycles
-    return setTobuyCycles
+    if (area === 'tobuy')             return setTobuyCycles
+    return setPersonalOthersCycles
   }, [])
 
   function syncCycle(cycle: Cycle) {
@@ -191,6 +196,7 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
       setPersonalFinanceCycles(active.filter(c => c.area === 'personal-finance'))
       setSidoiCycles(active.filter(c => c.area === 'sidoi'))
       setTobuyCycles(active.filter(c => c.area === 'tobuy'))
+      setPersonalOthersCycles(active.filter(c => c.area === 'personal-others'))
     } catch (e) {
       console.error('[personal refreshData]', e)
     }
@@ -340,7 +346,7 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
 
   return (
     <PersonalDataContext.Provider value={{
-      houseworkCycles, personalFinanceCycles, sidoiCycles, tobuyCycles, completedTitles,
+      houseworkCycles, personalFinanceCycles, sidoiCycles, tobuyCycles, personalOthersCycles, completedTitles,
       addCycle, updateCycle, deleteCycle, deleteItem, addCycleItem,
       toggleItem, setItemLabel, setItemNote, setItemUrgent, setItemDue,
       refreshData: loadFromSupabase,

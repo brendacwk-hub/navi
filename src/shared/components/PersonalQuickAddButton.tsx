@@ -15,23 +15,26 @@ const AREA_CONFIG: { value: PersonalArea; label: string; color: string }[] = [
   { value: 'personal-finance', label: 'Finance',   color: '#22d3ee' },
   { value: 'sidoi',            label: 'Sidoi',     color: '#f9a8d4' },
   { value: 'tobuy',            label: 'To Buy',    color: '#fcd34d' },
+  { value: 'personal-others',  label: 'Others',    color: '#fbbf24' },
 ]
 
 const SIDOI_SUB_AREAS = ['Orders', 'Marketing', 'Planning']
 
-type TaskType = 'task' | 'task+' | 'cycle'
-const TYPE_LABEL: Record<TaskType, string> = { task: 'Task', 'task+': 'Task+', cycle: 'Cycle' }
+type TaskType = 'task' | 'task+' | 'cycle' | 'pinned'
+const TYPE_LABEL: Record<TaskType, string> = { task: 'Task', 'task+': 'Task+', cycle: 'Cycle', pinned: '📌 Pinned' }
 const TYPE_HINT: Record<TaskType, string> = {
   task:    'What needs to be done?',
   'task+': 'Task title...',
   cycle:   'Cycle name...',
+  pinned:  'Name this standing list...',
 }
-const SUB_HINT: Record<TaskType, string> = { task: '', 'task+': 'Sub-task', cycle: 'Step' }
+const SUB_HINT: Record<TaskType, string> = { task: '', 'task+': 'Sub-task', cycle: 'Step', pinned: 'Item' }
 
 function pathnameArea(p: string): PersonalArea {
   if (p.startsWith('/personal/finance'))   return 'personal-finance'
   if (p.startsWith('/personal/sidoi'))     return 'sidoi'
   if (p.startsWith('/personal/tobuy'))     return 'tobuy'
+  if (p.startsWith('/personal/others'))    return 'personal-others'
   return 'housework'
 }
 
@@ -75,7 +78,7 @@ export function PersonalQuickAddButton() {
   const hidden = /^\/(personal\/calendar|personal\/settings|personal\/diary|personal\/analytics|personal\/habits|personal\/ideas)/.test(pathname)
   if (hidden) return null
 
-  const showSubs = type === 'task+' || type === 'cycle'
+  const showSubs = type === 'task+' || type === 'cycle' || type === 'pinned'
 
   const reset = () => {
     setTitle(''); setSubs(['']); setType('task')
@@ -101,7 +104,16 @@ export function PersonalQuickAddButton() {
       notes: notes.trim() || undefined,
     }
 
-    if (type === 'task') {
+    if (type === 'pinned') {
+      addCycle(area, {
+        ...base,
+        triggerLabel: undefined,
+        pinned: true,
+        items: filled.length > 0
+          ? filled.map((s, i) => ({ id: `item-${ts}-${i}`, label: s, status: 'todo' as const, effort, must: false }))
+          : [],
+      })
+    } else if (type === 'task') {
       addCycle(area, { ...base, items: [{ id: `item-${ts}`, label: title.trim(), status: 'todo', effort, must }] })
     } else if (type === 'task+') {
       addCycle(area, {
@@ -147,7 +159,10 @@ export function PersonalQuickAddButton() {
                 {/* Type tabs + close */}
                 <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-white/8">
                   <div className="flex items-center gap-1">
-                    {(['task', 'task+', 'cycle'] as TaskType[]).map(t => (
+                    {(pathname === '/personal/today'
+                      ? (['task', 'task+', 'cycle', 'pinned'] as TaskType[])
+                      : (['task', 'task+', 'cycle'] as TaskType[])
+                    ).map(t => (
                       <button key={t} onClick={() => setType(t)}
                         className={`text-xs px-2.5 py-1 rounded-lg font-semibold transition-all border ${
                           type === t
@@ -221,6 +236,7 @@ export function PersonalQuickAddButton() {
                       <AlertTriangle className="w-3.5 h-3.5" /> Urgent
                     </button>
 
+                    {type !== 'pinned' && (
                     <button
                       onClick={() => setActivePanel(p => p === 'due' ? null : 'due')}
                       className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border ${
@@ -232,6 +248,7 @@ export function PersonalQuickAddButton() {
                       <Calendar className="w-3.5 h-3.5" />
                       {recurrLabel ? fmtRecurrDisplay(recurrLabel) : dueLabel || 'Date'}
                     </button>
+                    )}
 
                     {area === 'sidoi' && (
                       <button
