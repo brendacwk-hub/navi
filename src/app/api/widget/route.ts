@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { isTriggerDueToday } from '@/shared/lib/sort-utils'
+import { isTriggerDueToday, daysSinceLastOccurrence } from '@/shared/lib/sort-utils'
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -32,10 +32,13 @@ export async function GET(req: NextRequest) {
   function shapeCycles(rows: CycleRow[], todayDate: Date) {
     return rows
       .filter(c => {
-        // Future due date: not yet time — skip
         if (c.next_due_at && c.next_due_at > today) return false
-        // null OR past/today nextDueAt: app would have reset these, check trigger
-        return isTriggerDueToday(c.trigger_label ?? undefined, todayDate)
+        if (isTriggerDueToday(c.trigger_label ?? undefined, todayDate)) return true
+        // Show overdue recurring: trigger fired ≤7 days ago, or already started
+        const items = c.items ?? []
+        const hasStarted = items.some(i => i.status === 'done')
+        const daysSince = daysSinceLastOccurrence(c.trigger_label ?? undefined, todayDate)
+        return daysSince !== null && (hasStarted || daysSince <= 7)
       })
       .map(c => {
         const items = c.items ?? []

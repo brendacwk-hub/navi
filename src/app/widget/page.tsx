@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { google } from 'googleapis'
-import { isTriggerDueToday } from '@/shared/lib/sort-utils'
+import { isTriggerDueToday, daysSinceLastOccurrence } from '@/shared/lib/sort-utils'
 import { getAuthClient, getStoredAuth } from '@/shared/lib/google-auth'
 
 export const dynamic = 'force-dynamic'
@@ -27,7 +27,12 @@ function filterDueTodayCycles(cycles: any[], today: Date) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return cycles.filter((c: any) => {
     if (c.next_due_at) return false
-    return isTriggerDueToday(c.trigger_label ?? undefined, today)
+    if (isTriggerDueToday(c.trigger_label ?? undefined, today)) return true
+    // Show overdue recurring: trigger fired ≤7 days ago, or already started
+    const items: Array<{ status: string }> = c.items ?? []
+    const hasStarted = items.some(i => i.status === 'done')
+    const daysSince = daysSinceLastOccurrence(c.trigger_label ?? undefined, today)
+    return daysSince !== null && (hasStarted || daysSince <= 7)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   }).sort((a: any, b: any) => (b.must ? 1 : 0) - (a.must ? 1 : 0) || (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0))
 }
