@@ -93,6 +93,8 @@ export function SettingsTab() {
   const [reopening, setReopening]         = useState<string | null>(null)
   const [diaryReminderHour, setDiaryReminderHour] = useState<number>(21)
   const [savingDiary, setSavingDiary]     = useState(false)
+  const [testingPush, setTestingPush]     = useState(false)
+  const [testPushMsg, setTestPushMsg]     = useState<{ ok: boolean; text: string } | null>(null)
 
   // Manual calendar ID input
   const [customCalId, setCustomCalId]     = useState('')
@@ -228,6 +230,25 @@ export function SettingsTab() {
       const { diaryReminderHour: h } = await res.json()
       setDiaryReminderHour(h ?? 21)
     } catch { /* not supported or no sub */ }
+  }
+
+  async function sendTestPush() {
+    setTestingPush(true)
+    setTestPushMsg(null)
+    try {
+      const res = await fetch('/api/push/test', { method: 'POST' })
+      const json = await res.json()
+      if (res.ok) {
+        setTestPushMsg({ ok: true, text: 'Sent! Check your device for the notification.' })
+      } else {
+        setTestPushMsg({ ok: false, text: json.error ?? 'Send failed' })
+      }
+    } catch {
+      setTestPushMsg({ ok: false, text: 'Network error' })
+    } finally {
+      setTestingPush(false)
+      setTimeout(() => setTestPushMsg(null), 6000)
+    }
   }
 
   async function saveDiaryHour(hour: number) {
@@ -572,6 +593,24 @@ export function SettingsTab() {
                 <p className="text-[10px] text-white/20 mt-1.5 leading-relaxed">
                   Sends daily if you haven&apos;t written in your diary yet.
                 </p>
+              </div>
+
+              <div className="pt-1">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={sendTestPush}
+                    disabled={testingPush}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-white/10 text-white/40 hover:text-white/70 hover:border-white/20 transition-all disabled:opacity-40"
+                  >
+                    {testingPush ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bell className="w-3.5 h-3.5" />}
+                    Send test notification
+                  </button>
+                  {testPushMsg && (
+                    <span className={`text-[11px] ${testPushMsg.ok ? 'text-green-400' : 'text-red-400'}`}>
+                      {testPushMsg.text}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           )}

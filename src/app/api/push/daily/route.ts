@@ -24,7 +24,12 @@ interface SubRow {
 }
 
 async function fetchSubs(): Promise<SubRow[]> {
-  const { data } = await supabase.from('push_subscriptions').select('subscription, diary_reminder_hour')
+  const { data, error } = await supabase.from('push_subscriptions').select('subscription, diary_reminder_hour')
+  if (error) {
+    // diary_reminder_hour column may not exist yet — fall back to subscription only
+    const { data: fallback } = await supabase.from('push_subscriptions').select('subscription')
+    return (fallback ?? []).map(r => ({ subscription: r.subscription, diary_reminder_hour: null }))
+  }
   return (data ?? []) as SubRow[]
 }
 
