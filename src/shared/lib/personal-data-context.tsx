@@ -332,7 +332,7 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
 
   const setItemDue = useCallback((area: PersonalArea, cycleId: string, itemId: string, due: string) => {
     cycleSetter(area)(prev => {
-      const next = prev.map(c => c.id === cycleId ? patchCycleItem(c, itemId, i => ({ ...i, due })) : c)
+      const next = prev.map(c => c.id === cycleId ? patchCycleItem(c, itemId, i => ({ ...i, due: due || undefined })) : c)
       const changed = next.find(c => c.id === cycleId); if (changed) syncCycle(changed)
       return next
     })

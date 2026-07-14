@@ -4,6 +4,24 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-92 · IdeasView `handleConvert` created cycles with missing `id` and wrong `status`
+**Symptom:** Converting an idea to a personal cycle either silently fails (DB rejects a row with no primary key) or creates a cycle that never appears in any area tab because `status: 'open'` is not a valid value (valid: `'active'`, `'complete'`).
+**Root cause:** The `handleConvert` function in `IdeasView.tsx` used `status: 'open'` (copied from the ideas table schema) and forgot to generate an `id`.
+**Fix:** Added `id: crypto.randomUUID()` and changed `status: 'open'` → `status: 'active'`.
+**Lesson:** When inserting into a table without a DB-generated default PK, always supply the `id` in the client payload.
+
+### B-91 · Work autocomplete suggested personal cycle titles
+**Symptom:** When typing in a work QuickAdd, completed personal cycle titles (housework, sidoi, etc.) appeared as suggestions alongside work titles.
+**Root cause:** `work-data-context.tsx` loaded completedTitles from `cycles` where `status='complete'` with no mode filter, pulling rows from both work and personal.
+**Fix:** Added `.filter(r => !r.mode || r.mode === 'work')` on the fetched rows before extracting titles.
+**Lesson:** Any cross-mode query must always filter by `mode` column before using results in a mode-specific context.
+
+### B-90 · `setItemDue('')` stored empty string in personal context — items show permanently overdue
+**Symptom:** Clearing a sub-task due date in personal mode stored `due: ""` in the DB. On next load, `"" <= todayStr` is true so the item always appeared overdue.
+**Root cause:** `personal-data-context.tsx setItemDue` stored the `due` string directly without normalising empty → `undefined`.
+**Fix:** Changed `{ ...i, due }` to `{ ...i, due: due || undefined }` so an empty string clears the field.
+**Lesson:** Always normalise empty string to `undefined` for optional date fields before persisting.
+
 ### B-89 · Personal `addCycleItem` always appended flat, ignoring Task+ hierarchy
 **Symptom:** In personal mode, adding a step to a Task+ cycle (where the first item's label matches the cycle title) would create a flat sibling item instead of an indented sub-step under the parent item.
 **Root cause:** `personal-data-context.tsx addCycleItem` was a simplified version that always appended to `c.items` flat — it never had the Task+ sub-item logic ported from the work context.

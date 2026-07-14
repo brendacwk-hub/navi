@@ -382,7 +382,7 @@ function ExpandedCard({ idea, onClose, onChange, onDelete }: ExpandedCardProps) 
     try {
       await dbWrite({
         table: 'cycles', operation: 'insert',
-        data: { title: idea.title, mode: 'personal', area: areaKey, status: 'open', effort: 'medium', must: false, urgent: false },
+        data: { id: crypto.randomUUID(), title: idea.title, mode: 'personal', area: areaKey, status: 'active', effort: 'medium', must: false, urgent: false },
       })
       await dbWrite({ table: 'personal_ideas', operation: 'upsert', data: { ...idea, status: 'converted' } })
       onChange({ ...idea, status: 'converted' })

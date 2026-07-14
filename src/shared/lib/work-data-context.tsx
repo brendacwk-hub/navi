@@ -301,8 +301,8 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
         .filter(Boolean) as string[]
       let allCompletedTitles = [...archiveTitles]
       try {
-        const completedRows = await dbRead('cycles', { col: 'status', val: 'complete' }) as { title: string }[]
-        const cyclesTitles = completedRows.map(r => r.title).filter(Boolean)
+        const completedRows = await dbRead('cycles', { col: 'status', val: 'complete' }) as { title: string; mode?: string }[]
+        const cyclesTitles = completedRows.filter(r => !r.mode || r.mode === 'work').map(r => r.title).filter(Boolean)
         if (cyclesTitles.length > 0) allCompletedTitles = [...new Set([...archiveTitles, ...cyclesTitles])]
       } catch { /* status column may not exist */ }
       setCompletedTitles(allCompletedTitles)
