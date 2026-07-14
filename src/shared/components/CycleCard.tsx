@@ -20,6 +20,41 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
+import type { ChecklistItem as CycleItem } from '@/shared/types'
+
+type CycleViewType = 'task' | 'task+' | 'cycle'
+
+function getCycleViewType(cycle: import('@/shared/types').Cycle): CycleViewType {
+  const items = cycle.items ?? []
+  if (items.length >= 1 && items[0].label === cycle.title) {
+    return (items[0].subItems ?? []).length > 0 ? 'task+' : 'task'
+  }
+  return 'cycle'
+}
+
+function convertItems(cycle: import('@/shared/types').Cycle, toType: CycleViewType): CycleItem[] {
+  const items = cycle.items ?? []
+  const ts = Date.now()
+  const main = items[0] ?? { id: `item-${ts}`, status: 'todo' as const, label: cycle.title }
+
+  if (toType === 'task') {
+    return [{ id: main.id, label: cycle.title, status: main.status, effort: cycle.effort, must: cycle.must }]
+  }
+  if (toType === 'task+') {
+    const existingSubs = main.subItems ?? []
+    const promoted = items.slice(1).map(i => ({ id: i.id, label: i.label, status: i.status }))
+    const allSubs = [...existingSubs, ...promoted]
+    return [{ id: main.id, label: cycle.title, status: main.status, effort: cycle.effort, must: cycle.must, ...(allSubs.length ? { subItems: allSubs } : {}) }]
+  }
+  // → cycle: sub-items become top-level items after the main item
+  const promoted = (main.subItems ?? []).map(s => ({ id: s.id, label: s.label, status: s.status, effort: cycle.effort, must: false as boolean }))
+  return [
+    { id: main.id, label: cycle.title, status: main.status, effort: cycle.effort, must: cycle.must },
+    ...promoted,
+    ...items.slice(1),
+  ]
+}
+
 const effortColors: Record<Effort, { bg: string; text: string; border: string }> = {
   quick:  { bg: 'bg-green-500/15',  text: 'text-green-400',  border: 'border-green-500/30' },
   medium: { bg: 'bg-yellow-500/15', text: 'text-yellow-400', border: 'border-yellow-500/30' },
@@ -155,6 +190,7 @@ export function CycleCard({ cycle, filter = 'All', defaultExpanded = false }: Pr
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [editingTitle, setEditingTitle] = useState(false)
   const [draft, setDraft] = useState(cycle.title)
+  const [editType, setEditType] = useState<CycleViewType>(() => getCycleViewType(cycle))
   const [editMust, setEditMust] = useState(cycle.must)
   const [editUrgent, setEditUrgent] = useState(cycle.urgent ?? false)
   const [editEffort, setEditEffort] = useState<Effort>(cycle.effort)
@@ -227,14 +263,20 @@ export function CycleCard({ cycle, filter = 'All', defaultExpanded = false }: Pr
 
   const saveTitle = () => {
     const trimmed = draft.trim()
+    const newTitle = trimmed || cycle.title
+    const currentType = getCycleViewType(cycle)
+    const newItems = !cycle.phases && editType !== currentType
+      ? convertItems({ ...cycle, title: newTitle }, editType)
+      : undefined
     updateCycle(area, cycle.id, {
-      title: trimmed || cycle.title,
+      title: newTitle,
       must: editMust,
       urgent: editUrgent,
       effort: editEffort,
       triggerLabel: editRecurr || resolveLabel(editDue),
       subArea: editSubArea || undefined,
       notes: editNotes.trim() || undefined,
+      ...(newItems !== undefined ? { items: newItems } : {}),
     })
     if (!trimmed) setDraft(cycle.title)
     setEditingTitle(false)
@@ -250,6 +292,7 @@ export function CycleCard({ cycle, filter = 'All', defaultExpanded = false }: Pr
     setEditRecurr(isRecurrString(trigger) ? trigger : '')
     setEditSubArea(cycle.subArea ?? '')
     setEditNotes(cycle.notes ?? '')
+    setEditType(getCycleViewType(cycle))
     setEditingTitle(true)
   }
 
@@ -317,6 +360,19 @@ export function CycleCard({ cycle, filter = 'All', defaultExpanded = false }: Pr
                 }}
                 className="w-full text-sm font-bold bg-white/8 border border-navi-blue/50 rounded px-2 py-0.5 text-white focus:outline-none"
               />
+              {/* Type switcher */}
+              {!cycle.phases && (
+                <div className="flex gap-1.5">
+                  {(['task', 'task+', 'cycle'] as CycleViewType[]).map(t => (
+                    <button key={t} onMouseDown={e => e.preventDefault()} onClick={() => setEditType(t)}
+                      className={`text-[10px] px-2 py-0.5 rounded border transition-all ${
+                        editType === t ? 'bg-navi-blue/20 text-navi-blue border-navi-blue/40' : 'border-white/15 text-white/30 hover:border-white/30 hover:text-white/55'
+                      }`}>
+                      {t === 'task' ? 'Task' : t === 'task+' ? 'Task+' : 'Cycle'}
+                    </button>
+                  ))}
+                </div>
+              )}
               {/* Effort */}
               <div className="flex gap-1.5 flex-wrap">
                 {(['quick', 'medium', 'heavy'] as Effort[]).map(e => (
