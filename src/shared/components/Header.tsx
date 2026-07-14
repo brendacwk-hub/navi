@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Search, Bell, X, Menu } from 'lucide-react'
+import { Search, X, Menu } from 'lucide-react'
 import { useSearch } from '@/shared/lib/search-context'
 import { GlobalSearchResults } from './GlobalSearchResults'
 import { usePathname, useRouter } from 'next/navigation'
+import { WorkAttentionBell } from './WorkAttentionBell'
+import { PersonalAttentionBell } from './PersonalAttentionBell'
 
 interface HeaderProps {
   onMenuClick: () => void
@@ -145,9 +147,9 @@ export function Header({ onMenuClick, onMenuHover }: HeaderProps) {
       {/* Search — work mode only */}
       {!isPersonal && <SearchBar />}
 
-      <button className="ml-auto flex-shrink-0 p-2 rounded-lg text-white/40 hover:text-white/70 hover:bg-white/6 transition-all">
-        <Bell className="w-4 h-4" />
-      </button>
+      <div className="ml-auto">
+        {isPersonal ? <PersonalAttentionBell /> : <WorkAttentionBell />}
+      </div>
     </header>
   )
 }
