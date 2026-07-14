@@ -44,7 +44,7 @@ function pathnameArea(p: string): WorkArea {
 
 export function QuickAddButton() {
   const pathname = usePathname()
-  const { addCycle, addTodayTask, financeCycles, hrCycles, opsCycles, othersCycles, completedTitles } = useWorkData()
+  const { addCycle, addTodayTask, financeCycles, hrCycles, opsCycles, othersCycles, completedTitles, topCompletedItems } = useWorkData()
   const { addItem: addInboxItem } = useInbox()
 
   const isToday  = pathname === '/work'
@@ -94,12 +94,20 @@ export function QuickAddButton() {
   }, [financeCycles, hrCycles, opsCycles, othersCycles, completedTitles])
 
   const suggestions = useMemo(() => {
-    if (!open || title.length < 2) return []
+    if (!open) return []
+    if (title.length === 0) {
+      // Show top frequent completions for the current area
+      return topCompletedItems
+        .filter(s => s.area === area)
+        .slice(0, 5)
+        .map(s => ({ label: s.label, area: s.area as WorkArea, subArea: undefined as string | undefined }))
+    }
+    if (title.length < 2) return []
     const q = title.toLowerCase()
     return corpus
       .filter(s => s.label.toLowerCase().includes(q) && s.label.toLowerCase() !== q)
       .slice(0, 5)
-  }, [title, corpus, open])
+  }, [title, corpus, open, topCompletedItems, area])
 
   useEffect(() => {
     if (open) setTimeout(() => titleRef.current?.focus(), 80)

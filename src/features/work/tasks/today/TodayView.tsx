@@ -577,6 +577,7 @@ export function TodayView() {
     const all = [...financeCycles, ...hrCycles, ...opsCycles, ...othersCycles]
     return all
       .filter(c => {
+        if (c.pinned) return c.status !== 'complete'
         const trigger = c.triggerLabel ?? ''
         if (c.nextDueAt) {
           if (isRecurring(trigger)) {
@@ -639,9 +640,10 @@ export function TodayView() {
   // Build unified item list in default order (pinned → priority cycles → tasks → normal cycles)
   const defaultItems: TodayItem[] = useMemo(() => [
     ...visibleTasks.filter(t => t.pinned).map(t => ({ kind: 'task' as const, id: t.id, task: t })),
-    ...cyclesToday.filter(c => c.must || c.urgent).map(c => ({ kind: 'cycle' as const, id: c.id, cycle: c })),
+    ...cyclesToday.filter(c => c.pinned).map(c => ({ kind: 'cycle' as const, id: c.id, cycle: c })),
+    ...cyclesToday.filter(c => !c.pinned && (c.must || c.urgent)).map(c => ({ kind: 'cycle' as const, id: c.id, cycle: c })),
     ...visibleTasks.filter(t => !t.pinned).map(t => ({ kind: 'task' as const, id: t.id, task: t })),
-    ...cyclesToday.filter(c => !c.must && !c.urgent).map(c => ({ kind: 'cycle' as const, id: c.id, cycle: c })),
+    ...cyclesToday.filter(c => !c.pinned && !c.must && !c.urgent).map(c => ({ kind: 'cycle' as const, id: c.id, cycle: c })),
   ], [cyclesToday, visibleTasks])
 
   const defaultItemIds = defaultItems.map(i => i.id)

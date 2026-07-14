@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useContext } from 'react'
-import { ChevronDown, ChevronRight, Zap, Lock, Pencil, X, FileText, Check, Plus, GripVertical } from 'lucide-react'
+import { ChevronDown, ChevronRight, Zap, Lock, Pencil, X, FileText, Check, Plus, GripVertical, Pin, PinOff } from 'lucide-react'
 import type { Cycle, CyclePhase, Effort } from '@/shared/types'
 import { ChecklistItem } from './ChecklistItem'
 import { WorkDataContext } from '@/shared/lib/work-data-context'
@@ -488,6 +488,13 @@ export function CycleCard({ cycle, filter = 'All', defaultExpanded = false }: Pr
                   <Check className="w-3 h-3" />
                 </button>
               )}
+              <button
+                onClick={e => { e.stopPropagation(); updateCycle(area, cycle.id, { pinned: !cycle.pinned }) }}
+                className={`opacity-30 sm:opacity-0 sm:group-hover/card:opacity-100 p-0.5 rounded transition-all ${cycle.pinned ? 'text-amber-400 opacity-100 sm:opacity-100' : 'text-white/35 hover:text-amber-400'}`}
+                title={cycle.pinned ? 'Unpin from Today' : 'Pin to Today'}
+              >
+                {cycle.pinned ? <PinOff className="w-3 h-3" /> : <Pin className="w-3 h-3" />}
+              </button>
               <button
                 onClick={e => { e.stopPropagation(); startEditing() }}
                 className="opacity-30 sm:opacity-0 sm:group-hover/card:opacity-100 p-0.5 rounded text-white/35 hover:text-white/70 transition-all"

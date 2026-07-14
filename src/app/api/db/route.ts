@@ -25,9 +25,15 @@ export async function GET(req: NextRequest) {
 
   if (!table) return NextResponse.json({ error: 'table required' }, { status: 400 })
 
+  const limit    = searchParams.get('limit')
+  const orderCol = searchParams.get('orderCol')
+  const orderDir = searchParams.get('orderDir')
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query: any = admin.from(table).select('*')
   if (eqCol && eqVal) query = query.eq(eqCol, eqVal)
+  if (orderCol) query = query.order(orderCol, { ascending: orderDir !== 'desc' })
+  if (limit) query = query.limit(parseInt(limit, 10))
 
   const { data, error } = await query
   if (error) {

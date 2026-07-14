@@ -20,9 +20,11 @@ function dbWrite(op: DbOp) {
   }).catch(e => console.error('[dbWrite]', e))
 }
 
-async function dbRead(table: string, eq?: { col: string; val: string }): Promise<unknown[]> {
+async function dbRead(table: string, eq?: { col: string; val: string }, opts?: { limit?: number; orderCol?: string; orderDir?: 'asc' | 'desc' }): Promise<unknown[]> {
   const params = new URLSearchParams({ table })
   if (eq) { params.set('eqCol', eq.col); params.set('eqVal', eq.val) }
+  if (opts?.limit) params.set('limit', String(opts.limit))
+  if (opts?.orderCol) { params.set('orderCol', opts.orderCol); params.set('orderDir', opts.orderDir ?? 'asc') }
   try {
     const res = await fetch(`/api/db?${params}`, { cache: 'no-store', headers: { 'x-api-key': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' } })
     const json = await res.json()
@@ -45,6 +47,7 @@ function fromRow(r: any): Cycle {
     notes: r.notes ?? undefined,
     lastCompletedAt: r.last_completed_at ?? undefined,
     nextDueAt: r.next_due_at ?? undefined,
+    pinned: r.pinned ?? undefined,
   }
 }
 
@@ -57,6 +60,7 @@ function toRow(c: Cycle) {
     items: c.items ?? null, phases: c.phases ?? null,
     last_completed_at: c.lastCompletedAt ?? null,
     next_due_at: c.nextDueAt ?? null,
+    pinned: c.pinned ?? false,
     mode: 'work',
   }
   if (c.notes !== undefined) row.notes = c.notes
@@ -176,8 +180,9 @@ function patchTodaySub(tasks: TodayTaskData[], taskId: string, subId: string, fn
 interface WorkDataCtx {
   financeCycles: Cycle[]; hrCycles: Cycle[]; opsCycles: Cycle[]; othersCycles: Cycle[]
   completedTitles: string[]
+  topCompletedItems: { label: string; area: WorkArea; count: number }[]
   addCycle: (area: WorkArea, cycle: Cycle) => void
-  updateCycle: (area: WorkArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes' | 'nextDueAt' | 'items'>>) => void
+  updateCycle: (area: WorkArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes' | 'nextDueAt' | 'items' | 'pinned'>>) => void
   deleteCycle: (area: WorkArea, id: string) => void
   deleteItem: (area: WorkArea, cycleId: string, itemId: string) => void
   addCycleItem: (area: WorkArea, cycleId: string, label: string) => void
@@ -211,6 +216,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
   const [todayTasks,      setTodayTasks]      = useState<TodayTaskData[]>(initToday)
   const [todayLoaded,     setTodayLoaded]     = useState(false)
   const [completedTitles, setCompletedTitles] = useState<string[]>([])
+  const [topCompletedItems, setTopCompletedItems] = useState<{ label: string; area: WorkArea; count: number }[]>([])
   const sbReady = useRef(false)
   const { showToast } = useToast()
   const pendingCompletions = useRef<Map<string, { cycle: Cycle; area: WorkArea; timerId: ReturnType<typeof setTimeout>; archiveId: string; completionId: string }>>(new Map())
@@ -307,6 +313,18 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
       } catch { /* status column may not exist */ }
       setCompletedTitles(allCompletedTitles)
 
+      // Completion frequency for smart suggestions
+      try {
+        const recent = await dbRead('cycle_completions', { col: 'mode', val: 'work' }, { limit: 200, orderCol: 'completed_at', orderDir: 'desc' }) as { title: string; area: string }[]
+        const freq = new Map<string, { label: string; area: WorkArea; count: number }>()
+        for (const c of recent) {
+          const key = `${c.title}|${c.area}`
+          const existing = freq.get(key)
+          if (existing) { existing.count++ } else { freq.set(key, { label: c.title, area: c.area as WorkArea, count: 1 }) }
+        }
+        setTopCompletedItems([...freq.values()].sort((a, b) => b.count - a.count).slice(0, 20))
+      } catch { /* table may not exist yet */ }
+
       // Today tasks — use already-read allTodayRows (avoids a second round-trip)
       const singletonRow = allTodayRows.find(r => r.id === 'singleton')
       if (singletonRow) {
@@ -385,7 +403,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
     dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(cycle) })
   }, [cycleSetter])
 
-  const updateCycle = useCallback((area: WorkArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes' | 'nextDueAt' | 'items'>>) => {
+  const updateCycle = useCallback((area: WorkArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes' | 'nextDueAt' | 'items' | 'pinned'>>) => {
     cycleSetter(area)(prev => {
       const target = prev.find(c => c.id === id)
       // Mark non-recurring cycles complete — archive immediately in today_tasks
@@ -609,7 +627,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <WorkDataContext.Provider value={{
-      financeCycles, hrCycles, opsCycles, othersCycles, completedTitles,
+      financeCycles, hrCycles, opsCycles, othersCycles, completedTitles, topCompletedItems,
       addCycle, updateCycle, deleteCycle, deleteItem, addCycleItem, toggleItem, setItemLabel, setItemNote, setItemUrgent, setItemDue,
       todayTasks, todayLoaded, addTodayTask, addTodaySubItem, toggleTodayTask, deleteTodayTask,
       toggleTodaySubItem, deleteTodaySubItem, updateTodayTaskLabel, updateTodaySubItemLabel,
