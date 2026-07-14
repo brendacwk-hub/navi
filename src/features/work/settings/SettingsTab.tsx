@@ -360,6 +360,58 @@ export function SettingsTab() {
     <div className="flex-1 overflow-y-auto px-6 pt-5 pb-8">
       <h2 className="text-lg font-semibold text-white mb-6">Settings</h2>
 
+      {/* ── Completed Tasks Archive ───────────────────────────── */}
+      <section className="rounded-2xl border border-white/8 bg-white/2 overflow-hidden mb-4">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/6">
+          <div>
+            <h3 className="text-sm font-semibold text-white">Completed Tasks</h3>
+            <p className="text-[11px] text-white/35 mt-0.5">All finished cycles & tasks — work and personal</p>
+          </div>
+          <button onClick={loadArchive} disabled={archiveLoading} className="text-white/25 hover:text-white/55 transition-colors disabled:opacity-40">
+            {archiveLoading
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <RefreshCw className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+
+        <div className="px-5 py-3">
+          {archiveLoading ? (
+            <div className="flex items-center gap-2 text-xs text-white/30 py-2">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…
+            </div>
+          ) : archive.length > 0 ? (
+            <div className="space-y-1 max-h-80 overflow-y-auto pr-1">
+              {archive.map(task => (
+                <div key={task.id} className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
+                  <span className="text-[9px] text-white/20 flex-shrink-0 w-3">
+                    {task.mode === 'personal' ? '🏠' : '💼'}
+                  </span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium flex-shrink-0 capitalize ${AREA_BADGE[task.area] ?? AREA_BADGE.others}`}>
+                    {task.area === 'hr' ? 'HR' : task.area === 'personal-finance' ? 'Finance' : task.area}
+                  </span>
+                  <span className="flex-1 text-xs text-white/70 truncate">{task.title}</span>
+                  <span className="text-[10px] text-white/25 flex-shrink-0">
+                    {new Date(task.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                  </span>
+                  <button
+                    onClick={() => reopenTask(task)}
+                    disabled={reopening === task.id}
+                    className="flex-shrink-0 flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-white/10 text-white/35 hover:text-navi-blue hover:border-navi-blue/30 transition-all disabled:opacity-40"
+                  >
+                    {reopening === task.id
+                      ? <Loader2 className="w-3 h-3 animate-spin" />
+                      : <RotateCcw className="w-3 h-3" />}
+                    Reopen
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-white/25 py-2">Nothing completed yet.</p>
+          )}
+        </div>
+      </section>
+
       {/* ── Google Calendar ──────────────────────────────── */}
       <section className="border border-white/10 rounded-2xl overflow-hidden">
         {/* Header */}
@@ -595,57 +647,6 @@ export function SettingsTab() {
         </div>
       </section>
 
-      {/* ── Completed Tasks Archive ───────────────────────────── */}
-      <section className="rounded-2xl border border-white/8 bg-white/2 overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/6">
-          <div>
-            <h3 className="text-sm font-semibold text-white">Completed Tasks</h3>
-            <p className="text-[11px] text-white/35 mt-0.5">All finished cycles & tasks — work and personal</p>
-          </div>
-          <button onClick={loadArchive} disabled={archiveLoading} className="text-white/25 hover:text-white/55 transition-colors disabled:opacity-40">
-            {archiveLoading
-              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              : <RefreshCw className="w-3.5 h-3.5" />}
-          </button>
-        </div>
-
-        <div className="px-5 py-3">
-          {archiveLoading ? (
-            <div className="flex items-center gap-2 text-xs text-white/30 py-2">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…
-            </div>
-          ) : archive.length > 0 ? (
-            <div className="space-y-1 max-h-80 overflow-y-auto pr-1">
-              {archive.map(task => (
-                <div key={task.id} className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
-                  <span className="text-[9px] text-white/20 flex-shrink-0 w-3">
-                    {task.mode === 'personal' ? '🏠' : '💼'}
-                  </span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium flex-shrink-0 capitalize ${AREA_BADGE[task.area] ?? AREA_BADGE.others}`}>
-                    {task.area === 'hr' ? 'HR' : task.area === 'personal-finance' ? 'Finance' : task.area}
-                  </span>
-                  <span className="flex-1 text-xs text-white/70 truncate">{task.title}</span>
-                  <span className="text-[10px] text-white/25 flex-shrink-0">
-                    {new Date(task.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                  </span>
-                  <button
-                    onClick={() => reopenTask(task)}
-                    disabled={reopening === task.id}
-                    className="flex-shrink-0 flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-white/10 text-white/35 hover:text-navi-blue hover:border-navi-blue/30 transition-all disabled:opacity-40"
-                  >
-                    {reopening === task.id
-                      ? <Loader2 className="w-3 h-3 animate-spin" />
-                      : <RotateCcw className="w-3 h-3" />}
-                    Reopen
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-white/25 py-2">Nothing completed yet.</p>
-          )}
-        </div>
-      </section>
     </div>
   )
 }
