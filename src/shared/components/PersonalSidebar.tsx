@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  LayoutDashboard, Home, Wallet, ShoppingBag, BookOpen, CalendarDays,
+  LayoutDashboard, Home, ShoppingBag, BookOpen, CalendarDays,
   BarChart3, SlidersHorizontal, Scissors, Activity, Lightbulb, ChevronDown, MoreHorizontal,
 } from 'lucide-react'
 
@@ -12,7 +12,6 @@ const PINK = '#f0a8c8'
 
 const areaLinks = [
   { label: 'Housework', href: '/personal/housework', icon: Home,        color: 'text-[#fb7185]', bg: 'bg-[#fb7185]/15' },
-  { label: 'Finance',   href: '/personal/finance',   icon: Wallet,      color: 'text-[#22d3ee]', bg: 'bg-[#22d3ee]/15' },
   { label: 'Sidoi',     href: '/personal/sidoi',     icon: Scissors,    color: 'text-[#f9a8d4]', bg: 'bg-[#f9a8d4]/15' },
   { label: 'To Buy',    href: '/personal/tobuy',     icon: ShoppingBag,    color: 'text-[#fcd34d]', bg: 'bg-[#fcd34d]/15' },
   { label: 'Others',   href: '/personal/others',    icon: MoreHorizontal, color: 'text-[#fbbf24]', bg: 'bg-[#fbbf24]/15' },
