@@ -4,6 +4,30 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-97 · 'Housework' label persisted in three places after rename to 'Home'
+**Symptom:** After renaming the personal Housework area to "Home", users still saw "Housework" in Personal Today area chips, the personal analytics breakdown, and Gemini diary prompt context.
+**Root cause:** Three label maps were not updated: `AREA_META` in `PersonalTodayView.tsx`, `HISTORY_AREA_NAMES` in `personal/analytics/page.tsx`, and `AREA_LABELS` in `api/diary/prompts/route.ts`. The component files that rendered the sidebar and tab header were updated, but these internal maps were missed.
+**Fix:** Updated `housework: 'Housework'` → `housework: 'Home'` in all three files.
+**Lesson:** When renaming an area/label, grep for the old string across the whole codebase before committing — there will always be more places than the ones you remember touching.
+
+### B-96 · PersonalQuickAdd suggestions corpus excluded Others cycles
+**Symptom:** When searching in the personal QuickAdd, existing cycles from the Others area never appeared as suggestions.
+**Root cause:** The `allActive` array in `PersonalQuickAdd.tsx` was built from `houseworkCycles, personalFinanceCycles, sidoiCycles, tobuyCycles` but `personalOthersCycles` was never added, and it wasn't in the `usePersonalData` destructure either.
+**Fix:** Added `personalOthersCycles` to both the destructure and the `allActive` array.
+**Lesson:** When adding a new personal area, check every place that iterates all personal area arrays — context destructures, suggestion corpora, analytics aggregators.
+
+### B-95 · personal-others cycles rendered with wrong (work-finance) colour on CycleCard
+**Symptom:** Any cycle in the Others personal area rendered with a blue border and background (the work Finance colour) instead of amber.
+**Root cause:** `personalAreaColor` map in `CycleCard.tsx` only listed `housework`, `personal-finance`, `sidoi`, `tobuy`. When the area was `personal-others`, the lookup returned `undefined`, and the fallback was `areaStyle.finance` (work blue).
+**Fix:** Added `'personal-others': '#fbbf24'` to `personalAreaColor`.
+**Lesson:** `personalAreaColor` and `PersonalArea` type must be kept in sync. Adding a new `PersonalArea` value requires updating this map.
+
+### B-94 · personal-data-context updateCycle implementation missing 'pinned' in Pick type
+**Symptom:** Calling `updateCycle` to set `pinned` on a personal cycle would silently pass TypeScript at the call site (via the exported interface type) but the implementation's own Pick type rejected it — the two were out of sync.
+**Root cause:** When `'pinned'` was added to the `WorkDataCtx` / `PersonalDataCtx` interface's `updateCycle` signature, it was also added to the `work-data-context.tsx` implementation but missed in `personal-data-context.tsx`'s `useCallback`.
+**Fix:** Added `'pinned'` to the Pick type on `personal-data-context.tsx` line 214.
+**Lesson:** When changing both the interface and its useCallback implementation, check both the exported interface AND the `useCallback` signature — they are separate strings that TypeScript does not enforce must match.
+
 ### B-93 · Recurring cycles vanish from Today tab the day after their trigger fires
 **Symptom:** A recurring cycle (e.g. "Bank statement – weekly") disappears from the Today tab the day after its scheduled day, even if the user hasn't completed it.
 **Root cause:** Two compounding issues:
@@ -736,5 +760,5 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 - Add a new entry immediately after each fix, while context is fresh.
 - Each entry must include: **symptom**, **root cause**, **fix**, **lesson**.
-- Number sequentially (next is B-74).
+- Number sequentially (next is B-98).
 - Before building a new feature that touches an area — re-read relevant entries to avoid repeating past mistakes.
