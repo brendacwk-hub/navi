@@ -351,6 +351,17 @@ export function hasTriggerFiredThisPeriod(triggerLabel: string | undefined, toda
   return false
 }
 
+// How many days ago the most recent occurrence fired (1 = yesterday, 2 = two days ago, etc.)
+// Returns null if trigger hasn't fired in the past 60 days.
+export function daysSinceLastOccurrence(triggerLabel: string | undefined, today: Date): number | null {
+  if (!isRecurring(triggerLabel)) return null
+  for (let i = 1; i <= 60; i++) {
+    const d = new Date(today.getTime() - i * 86400000)
+    if (isTriggerDueToday(triggerLabel, d)) return i
+  }
+  return null
+}
+
 // Returns the next YYYY-MM-DD date AFTER today for a recurring trigger.
 // Used by "Skip this occurrence" — sets nextDueAt so the cycle resurfaces next time.
 export function computeSkipDate(triggerLabel: string | undefined): string | null {

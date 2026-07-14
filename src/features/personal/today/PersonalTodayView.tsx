@@ -5,7 +5,7 @@ import { Minus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { usePersonalData } from '@/shared/lib/personal-data-context'
 import { useHabits, getHabitCount, type WorkHabit } from '@/shared/lib/habit-context'
-import { isTriggerDueToday, isRecurring, hasTriggerFiredThisPeriod, allCycleDone } from '@/shared/lib/sort-utils'
+import { isTriggerDueToday, isRecurring, hasTriggerFiredThisPeriod, daysSinceLastOccurrence, allCycleDone } from '@/shared/lib/sort-utils'
 import { useSearch } from '@/shared/lib/search-context'
 import { fuzzyMatch } from '@/shared/lib/search-utils'
 import { CycleCard } from '@/shared/components/CycleCard'
@@ -163,8 +163,10 @@ export function PersonalTodayView() {
 
         if (allHaveDue) return allItems.some(i => i.status !== 'done' && i.due! <= todayStr)
 
+        const hasStarted = allItems.some(i => i.status === 'done')
+        const daysSince = daysSinceLastOccurrence(trigger, todayDate)
         const isStickyActive = isRecurring(trigger) && !c.nextDueAt &&
-          hasTriggerFiredThisPeriod(trigger, todayDate)
+          daysSince !== null && (hasStarted || daysSince <= 7)
 
         if (noneHaveDue) return isTriggerDueToday(trigger, todayDate) || isStickyActive
         return isTriggerDueToday(trigger, todayDate) ||

@@ -14,7 +14,7 @@ import { useToast } from '@/shared/lib/toast-context'
 import { useHabits, getHabitCount, type WorkHabit, type HabitLog } from '@/shared/lib/habit-context'
 import { useWeeklyReview } from '@/shared/lib/use-weekly-review'
 import { fuzzyMatch } from '@/shared/lib/search-utils'
-import { isTriggerDueToday, hasTriggerFiredThisPeriod, allCycleDone, isRecurring, computeSortDate } from '@/shared/lib/sort-utils'
+import { isTriggerDueToday, hasTriggerFiredThisPeriod, daysSinceLastOccurrence, allCycleDone, isRecurring, computeSortDate } from '@/shared/lib/sort-utils'
 import { CycleCard } from '@/shared/components/CycleCard'
 import { WeeklyReview } from '@/shared/components/WeeklyReview'
 import { WeeklyFocusStrip } from '@/shared/components/WeeklyFocusStrip'
@@ -601,9 +601,12 @@ export function TodayView() {
         // All sub-tasks have due dates → ignore header trigger, sub-task dates govern entirely
         if (allHaveDue) return allItems.some(i => i.status !== 'done' && i.due! <= todayStr)
 
-        // "overdue recurring": trigger fired earlier in the current period, task not yet done
+        // Show if trigger fired ≤7 days ago (catches "missed yesterday"), or if already started.
+        // 7-day cap prevents monthly tasks from appearing every day when never touched.
+        const hasStarted = allItems.some(i => i.status === 'done')
+        const daysSince = daysSinceLastOccurrence(trigger, todayDate)
         const isStickyActive = isRecurring(trigger) && !c.nextDueAt &&
-          hasTriggerFiredThisPeriod(trigger, todayDate)
+          daysSince !== null && (hasStarted || daysSince <= 7)
 
         // No sub-tasks have due dates → header trigger governs
         if (noneHaveDue) return isTriggerDueToday(trigger, todayDate) || isStickyActive

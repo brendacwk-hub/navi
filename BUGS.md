@@ -7,12 +7,13 @@ A living document. Update after every fix session to avoid repeating the same mi
 ### B-93 · Recurring cycles vanish from Today tab the day after their trigger fires
 **Symptom:** A recurring cycle (e.g. "Bank statement – weekly") disappears from the Today tab the day after its scheduled day, even if the user hasn't completed it.
 **Root cause:** Two compounding issues:
-1. `hasTriggerFiredThisPeriod` in `sort-utils.ts` returned `false` unconditionally for all new-format recurrence strings (`every week on mon from ...`) — line 317 had an early-return for new patterns with no actual lookback logic.
-2. The `isStickyActive` condition in both `TodayView.tsx` and `PersonalTodayView.tsx` required `c.must && hasStarted` (at least one item done and the Must flag set), so even old-format patterns would only stick if both conditions were true.
-**Fix:**
-- `hasTriggerFiredThisPeriod`: replaced the early `return false` for new patterns with a backward walk of up to one full period (e.g. 7 days for weekly), calling `isTriggerDueToday` on each prior day to detect the most recent occurrence.
-- `TodayView.tsx` and `PersonalTodayView.tsx`: removed `c.must && hasStarted &&` from `isStickyActive` — any unfinished recurring cycle whose trigger has fired in the current period now stays visible.
-**Lesson:** `hasTriggerFiredThisPeriod` must be kept in sync with `isTriggerDueToday` — whenever a new recurrence format is added, both functions need updating together. Don't gate "sticky" visibility on must/urgency flags; if a recurring task fired and isn't done, it belongs on Today regardless.
+1. `hasTriggerFiredThisPeriod` in `sort-utils.ts` returned `false` unconditionally for all new-format recurrence strings (`every week on mon from ...`) — had an early-return for new patterns with no lookback logic.
+2. The `isStickyActive` condition required `c.must && hasStarted` (must flag + at least one item done). This was intentional (ed78f8e) to stop monthly tasks appearing every day when never started, but it over-corrected: weekly tasks also disappeared.
+**Fix (refined after initial over-fix):**
+- Added `daysSinceLastOccurrence(label, today)` to `sort-utils.ts`: walks back up to 60 days calling `isTriggerDueToday` to find how long ago the trigger last fired.
+- `hasTriggerFiredThisPeriod`: fixed the early-return for new patterns using the same backward walk.
+- `TodayView.tsx` and `PersonalTodayView.tsx`: replaced `c.must && hasStarted` with `daysSince <= 7 || hasStarted`. Rule: show if trigger fired ≤7 days ago (catches "missed yesterday" for weekly tasks) **or** user has started work. Monthly tasks that are never touched still disappear after 7 days; weekly tasks always stay visible for their entire 7-day window.
+**Lesson:** "Sticky" visibility needs separate thresholds for short-period (weekly) vs long-period (monthly) recurrences. The 7-day cap cleanly handles both: covers the full weekly period while capping monthly nagging.
 
 ### F-1 · Pinned today tasks (standing list feature)
 **Feature:** Users can create a permanently pinned task on the Today tab that never disappears and always accepts new sub-items (e.g. a "Budget items" running list).
