@@ -305,7 +305,7 @@ export function isTriggerDueToday(triggerLabel: string | undefined, today: Date)
 }
 
 // Returns true if the trigger has already fired at some point in the current period
-// (this month for monthly, this week for weekly). Used to keep Must recurring cycles
+// (this month for monthly, this week for weekly). Used to keep recurring cycles
 // visible after the exact trigger day while items are still unfinished.
 export function hasTriggerFiredThisPeriod(triggerLabel: string | undefined, today: Date): boolean {
   if (!isRecurring(triggerLabel)) return false
@@ -313,8 +313,18 @@ export function hasTriggerFiredThisPeriod(triggerLabel: string | undefined, toda
   const dom   = today.getDate()
   const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
 
-  // New recurrence patterns fire on exact days — no "sticky" period
-  if (parseRecurrFields(triggerLabel ?? '')) return false
+  // New recurrence patterns: walk backward up to one full period to find last occurrence
+  const rp = parseRecurrFields(triggerLabel ?? '')
+  if (rp) {
+    const { n, unit } = rp
+    const maxLookback = unit === 'day' ? n : unit === 'week' ? n * 7 : unit === 'month' ? n * 32 : n * 367
+    for (let i = 1; i <= maxLookback; i++) {
+      const d = new Date(today.getTime() - i * 86400000)
+      if (d < rp.start) break
+      if (isTriggerDueToday(triggerLabel, d)) return true
+    }
+    return false
+  }
 
   // Phase trigger — use Phase 1 ordinal as the start-of-period marker
   const phaseMatch = label.match(/phase\s*1\D+?(\d{1,2})/)

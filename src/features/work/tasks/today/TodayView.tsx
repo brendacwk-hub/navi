@@ -601,12 +601,9 @@ export function TodayView() {
         // All sub-tasks have due dates → ignore header trigger, sub-task dates govern entirely
         if (allHaveDue) return allItems.some(i => i.status !== 'done' && i.due! <= todayStr)
 
-        // "sticky" helper: Must recurring cycle whose trigger already fired this period
-        // Only stick when the user has started work (≥1 item done) — prevents never-touched
-        // cycles from surfacing every day after an early-month trigger (e.g. "Every 2nd").
-        const hasStarted = allItems.some(i => i.status === 'done')
-        const isStickyActive = c.must && isRecurring(trigger) && !c.nextDueAt &&
-          hasStarted && hasTriggerFiredThisPeriod(trigger, todayDate)
+        // "overdue recurring": trigger fired earlier in the current period, task not yet done
+        const isStickyActive = isRecurring(trigger) && !c.nextDueAt &&
+          hasTriggerFiredThisPeriod(trigger, todayDate)
 
         // No sub-tasks have due dates → header trigger governs
         if (noneHaveDue) return isTriggerDueToday(trigger, todayDate) || isStickyActive
