@@ -16,7 +16,7 @@ const HISTORY_AREA_COLORS: Record<string, string> = {
 }
 const HISTORY_AREA_NAMES: Record<string, string> = {
   finance: 'Finance', hr: 'HR', ops: 'Ops', others: 'Others',
-  housework: 'Housework', 'personal-finance': 'P.Finance', sidoi: 'Sidoi', tobuy: 'To Buy',
+  housework: 'Home', 'personal-finance': 'P.Finance', sidoi: 'Sidoi', tobuy: 'To Buy',
 }
 
 function toHKDate(ts: string): string {

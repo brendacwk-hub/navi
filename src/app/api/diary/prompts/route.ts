@@ -64,7 +64,7 @@ function hkBracket(date: string): { from: string; to: string } {
 
 const AREA_LABELS: Record<string, string> = {
   finance: 'Finance', hr: 'HR', ops: 'Ops', others: 'Others',
-  housework: 'Housework', 'personal-finance': 'Personal Finance',
+  housework: 'Home', 'personal-finance': 'Personal Finance',
   sidoi: 'Sidoi', tobuy: 'To Buy',
 }
 

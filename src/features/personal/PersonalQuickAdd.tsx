@@ -32,7 +32,7 @@ interface Props {
 }
 
 export function PersonalQuickAdd({ area, defaultSubArea, onClose }: Props) {
-  const { addCycle, houseworkCycles, personalFinanceCycles, sidoiCycles, tobuyCycles, completedTitles } = usePersonalData()
+  const { addCycle, houseworkCycles, personalFinanceCycles, sidoiCycles, tobuyCycles, personalOthersCycles, completedTitles } = usePersonalData()
   const [title, setTitle] = useState('')
   const [subArea, setSubArea] = useState(defaultSubArea ?? '')
   const [dueDate, setDueDate] = useState('')
@@ -47,7 +47,7 @@ export function PersonalQuickAdd({ area, defaultSubArea, onClose }: Props) {
     const q = title.toLowerCase()
     const seen = new Set<string>()
     const results: string[] = []
-    const allActive = [...houseworkCycles, ...personalFinanceCycles, ...sidoiCycles, ...tobuyCycles]
+    const allActive = [...houseworkCycles, ...personalFinanceCycles, ...sidoiCycles, ...tobuyCycles, ...personalOthersCycles]
     for (const c of allActive) {
       if (c.title && !seen.has(c.title) && c.title.toLowerCase().includes(q) && c.title.toLowerCase() !== q) {
         seen.add(c.title); results.push(c.title)

@@ -211,7 +211,7 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
     dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(cycle) })
   }, [cycleSetter])
 
-  const updateCycle = useCallback((area: PersonalArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes' | 'nextDueAt' | 'items'>>) => {
+  const updateCycle = useCallback((area: PersonalArea, id: string, patch: Partial<Pick<Cycle, 'title' | 'must' | 'urgent' | 'effort' | 'triggerLabel' | 'subArea' | 'status' | 'notes' | 'nextDueAt' | 'items' | 'pinned'>>) => {
     cycleSetter(area)(prev => {
       const target = prev.find(c => c.id === id)
       if (patch.status === 'complete' && target && !isRecurring(target.triggerLabel)) {

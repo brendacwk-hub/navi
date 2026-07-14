@@ -15,7 +15,7 @@ import type { Cycle } from '@/shared/types'
 const PINK = '#f0a8c8'
 
 const AREA_META = [
-  { key: 'housework',        label: 'Housework', color: '#fb7185', href: '/personal/housework' },
+  { key: 'housework',        label: 'Home',      color: '#fb7185', href: '/personal/housework' },
   { key: 'personal-finance', label: 'Finance',   color: '#22d3ee', href: '/personal/finance'   },
   { key: 'sidoi',            label: 'Sidoi',     color: '#f9a8d4', href: '/personal/sidoi'     },
   { key: 'tobuy',            label: 'To Buy',    color: '#fcd34d', href: '/personal/tobuy'     },
