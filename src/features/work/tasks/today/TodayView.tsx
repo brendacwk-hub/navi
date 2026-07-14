@@ -637,13 +637,13 @@ export function TodayView() {
     [financeCycles, hrCycles, opsCycles, othersCycles]
   )
 
-  // Build unified item list in default order (pinned → priority cycles → tasks → normal cycles)
+  // Build unified item list in default order (priority cycles → tasks → normal cycles → pinned)
   const defaultItems: TodayItem[] = useMemo(() => [
-    ...visibleTasks.filter(t => t.pinned).map(t => ({ kind: 'task' as const, id: t.id, task: t })),
-    ...cyclesToday.filter(c => c.pinned).map(c => ({ kind: 'cycle' as const, id: c.id, cycle: c })),
     ...cyclesToday.filter(c => !c.pinned && (c.must || c.urgent)).map(c => ({ kind: 'cycle' as const, id: c.id, cycle: c })),
     ...visibleTasks.filter(t => !t.pinned).map(t => ({ kind: 'task' as const, id: t.id, task: t })),
     ...cyclesToday.filter(c => !c.pinned && !c.must && !c.urgent).map(c => ({ kind: 'cycle' as const, id: c.id, cycle: c })),
+    ...visibleTasks.filter(t => t.pinned).map(t => ({ kind: 'task' as const, id: t.id, task: t })),
+    ...cyclesToday.filter(c => c.pinned).map(c => ({ kind: 'cycle' as const, id: c.id, cycle: c })),
   ], [cyclesToday, visibleTasks])
 
   const defaultItemIds = defaultItems.map(i => i.id)

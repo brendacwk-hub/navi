@@ -176,8 +176,8 @@ export function PersonalTodayView() {
       })
       .filter(c => !query.trim() || fuzzyMatch(c.title, query))
       .sort((a, b) => {
-        const aPin = a.pinned ? 0 : 1
-        const bPin = b.pinned ? 0 : 1
+        const aPin = a.pinned ? 1 : 0
+        const bPin = b.pinned ? 1 : 0
         if (aPin !== bPin) return aPin - bPin
         const aRec = isRecurring(a.triggerLabel) ? 1 : 0
         const bRec = isRecurring(b.triggerLabel) ? 1 : 0
