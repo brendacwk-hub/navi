@@ -255,8 +255,9 @@ RULES:
   const q3Fallback = BASE_QUESTIONS[(dayOfYear + seed + 2) % BASE_QUESTIONS.length]
 
   const key = process.env.GEMINI_API_KEY
+  const debug = searchParams.get('debug') === '1'
   if (!key) {
-    return NextResponse.json({ prompts: [baseQuestion, q2Fallback, q3Fallback] })
+    return NextResponse.json({ prompts: [baseQuestion, q2Fallback, q3Fallback], _debug: 'no key' })
   }
 
   try {
@@ -272,14 +273,21 @@ RULES:
       }
     )
     const json = await res.json()
+    if (!res.ok) {
+      const errMsg = json?.error?.message ?? JSON.stringify(json)
+      if (debug) return NextResponse.json({ error: errMsg, status: res.status })
+      throw new Error(errMsg)
+    }
     const raw = json.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
     const match = raw.match(/\{[\s\S]*\}/)
-    if (!match) throw new Error('no JSON in response')
+    if (!match) throw new Error(`no JSON in response: ${raw.slice(0, 200)}`)
     const parsed = JSON.parse(match[0])
     const prompts: string[] = Array.isArray(parsed.prompts) ? parsed.prompts.slice(0, 3) : []
     if (prompts.length < 3) throw new Error('not enough prompts')
     return NextResponse.json({ prompts })
-  } catch {
+  } catch (e) {
+    const errMsg = e instanceof Error ? e.message : String(e)
+    if (debug) return NextResponse.json({ error: errMsg })
     return NextResponse.json({ prompts: [baseQuestion, q2Fallback, q3Fallback] })
   }
 }
