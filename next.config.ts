@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  experimental: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    outputFileTracingIncludes: {
+      '/api/diary/prompts': ['./personal/**/*'],
+    },
+  } as any,
 };
 
 export default nextConfig;
