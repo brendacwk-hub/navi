@@ -47,3 +47,4 @@ next-env.d.ts
 !tsconfig*.json
 !next.config.*.json
 !public/manifest.json
+!personal/diary-questions.json

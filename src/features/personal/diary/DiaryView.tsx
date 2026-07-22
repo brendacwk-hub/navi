@@ -58,9 +58,10 @@ export function DiaryView() {
   const [mood, setMood]               = useState('')
   const [questions, setQuestions]     = useState<string[]>([])
   const [answers, setAnswers]         = useState<string[]>([])
+  const [questionIds, setQuestionIds] = useState<number[]>([])
   const [body, setBody]               = useState('')
-  const [refreshSeed, setRefreshSeed]     = useState(0)
   const [loadingPrompts, setLoadingPrompts] = useState(false)
+  const [refreshingIdx, setRefreshingIdx]   = useState<number | null>(null)
   const [savedAt, setSavedAt]         = useState<string | null>(null)
   const [saving, setSaving]           = useState(false)
   const [hasEntry, setHasEntry]       = useState(false)
@@ -84,20 +85,42 @@ export function DiaryView() {
       .catch(() => setGoogleStatus('disconnected'))
   }, [])
 
-  // ── Fetch Gemini prompts ───────────────────────────────────────────────────
-  const fetchPrompts = useCallback(async (seed = 0) => {
+  // ── Question skip tracking (localStorage) ────────────────────────────────
+  function getSkipCounts(): Record<number, number> {
+    try { return JSON.parse(localStorage.getItem('diary_question_skips') ?? '{}') }
+    catch { return {} }
+  }
+  function incrementSkip(id: number) {
+    if (id < 0) return
+    const counts = getSkipCounts()
+    counts[id] = (counts[id] ?? 0) + 1
+    localStorage.setItem('diary_question_skips', JSON.stringify(counts))
+  }
+  function getExcludeIds(): number[] {
+    const counts = getSkipCounts()
+    return Object.entries(counts)
+      .filter(([, n]) => (n as number) >= 2)
+      .map(([id]) => Number(id))
+  }
+
+  // ── Fetch prompts from question bank ──────────────────────────────────────
+  const fetchPrompts = useCallback(async (extraExclude: number[] = []) => {
     if (promptsFetched.current) return
     promptsFetched.current = true
     setLoadingPrompts(true)
     try {
-      const res  = await fetch(`/api/diary/prompts?date=${today}&seed=${seed}`)
+      const exclude = [...new Set([...getExcludeIds(), ...extraExclude])]
+      const excludeParam = exclude.length ? `&exclude=${exclude.join(',')}` : ''
+      const res  = await fetch(`/api/diary/prompts?date=${today}${excludeParam}`)
       const json = await res.json()
       if (Array.isArray(json.prompts) && json.prompts.length > 0) {
         setQuestions(json.prompts)
         setAnswers(json.prompts.map(() => ''))
+        setQuestionIds(json.ids ?? json.prompts.map(() => -1))
       }
     } catch { /* fallback */ }
     setLoadingPrompts(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [today])
 
   // ── Load today + past entries ──────────────────────────────────────────────
@@ -116,6 +139,7 @@ export function DiaryView() {
         if (Array.isArray(entry.prompts) && entry.prompts.length > 0) {
           setQuestions(entry.prompts.map(p => p.question))
           setAnswers(entry.prompts.map(p => p.answer))
+          setQuestionIds(entry.prompts.map(p => (p as PromptEntry & { id?: number }).id ?? -1))
           promptsFetched.current = true
           setMode('prompt')
         } else {
@@ -167,7 +191,7 @@ export function DiaryView() {
     const savedEntry: DiaryEntry = {
       id: today,
       mood,
-      prompts: questions.map((q, i) => ({ question: q, answer: answers[i] ?? '' })),
+      prompts: questions.map((q, i) => ({ question: q, answer: answers[i] ?? '', ...(questionIds[i] !== undefined && questionIds[i] >= 0 ? { id: questionIds[i] } : {}) })),
       body,
       created_at: new Date().toISOString(),
     }
@@ -196,13 +220,35 @@ export function DiaryView() {
     setPhase('home')
   }
 
-  function refreshPrompts() {
-    const newSeed = refreshSeed + 1
-    setRefreshSeed(newSeed)
+  function refreshAllPrompts() {
+    questionIds.forEach(id => incrementSkip(id))
+    const exclude = [...questionIds]
     promptsFetched.current = false
     setQuestions([])
     setAnswers([])
-    fetchPrompts(newSeed)
+    setQuestionIds([])
+    fetchPrompts(exclude)
+  }
+
+  async function refreshQuestion(idx: number) {
+    const id = questionIds[idx]
+    incrementSkip(id)
+    setRefreshingIdx(idx)
+    try {
+      const exclude = [...new Set([...questionIds.filter(n => n >= 0), ...getExcludeIds()])]
+      const excludeParam = exclude.length ? `&exclude=${exclude.join(',')}` : ''
+      const res  = await fetch(`/api/diary/prompts?date=${today}&single=1${excludeParam}`)
+      const json = await res.json()
+      if (Array.isArray(json.prompts) && json.prompts[0]) {
+        const newQ = [...questions]; newQ[idx] = json.prompts[0]
+        const newA = [...answers];   newA[idx] = ''
+        const newIds = [...questionIds]; newIds[idx] = json.ids?.[0] ?? -1
+        setQuestions(newQ)
+        setAnswers(newA)
+        setQuestionIds(newIds)
+      }
+    } catch { /* ignore */ }
+    setRefreshingIdx(null)
   }
 
   // ── Google Docs sync ─────────────────────────────────────────────────────
@@ -392,7 +438,7 @@ export function DiaryView() {
             style={{ background: `linear-gradient(135deg, ${PINK}12, ${PINK}06)`, border: `1px solid ${PINK}35` }}>
             <div className="text-3xl mb-3">✨</div>
             <div className="text-base font-semibold mb-1" style={{ color: PINK }}>Prompt</div>
-            <div className="text-sm text-white/40 leading-relaxed">Gemini generates 2 personal questions to guide your reflection.</div>
+            <div className="text-sm text-white/40 leading-relaxed">3 personal questions picked from your question bank. Swap any you don&apos;t like.</div>
           </button>
         </div>
       </div>
@@ -412,7 +458,7 @@ export function DiaryView() {
           <h2 className="text-lg font-semibold text-white">Diary</h2>
         </div>
         {mode === 'prompt' ? (
-          <button onClick={refreshPrompts} disabled={loadingPrompts}
+          <button onClick={refreshAllPrompts} disabled={loadingPrompts}
             className="text-[11px] font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-40"
             style={{ backgroundColor: `${PINK}15`, border: `1px solid ${PINK}30`, color: PINK }}>
             ↻ New questions
@@ -457,7 +503,18 @@ export function DiaryView() {
             </>
           ) : questions.map((q, i) => (
             <div key={i}>
-              <p className="text-sm font-medium mb-2 leading-snug" style={{ color: PINK }}>{q}</p>
+              <div className="flex items-start gap-2 mb-2">
+                <p className="text-sm font-medium leading-snug flex-1" style={{ color: PINK }}>{q}</p>
+                <button
+                  onClick={() => refreshQuestion(i)}
+                  disabled={refreshingIdx === i || loadingPrompts}
+                  className="flex-shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-[13px] transition-all active:scale-95 disabled:opacity-30"
+                  style={{ color: `${PINK}70`, backgroundColor: `${PINK}12` }}
+                  aria-label="Replace this question"
+                >
+                  {refreshingIdx === i ? '…' : '↻'}
+                </button>
+              </div>
               <textarea value={answers[i] ?? ''}
                 onChange={e => { autoResize(e.target); handleAnswer(i, e.target.value) }}
                 placeholder="Write here…" rows={3}
