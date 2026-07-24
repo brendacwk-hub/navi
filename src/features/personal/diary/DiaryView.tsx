@@ -76,6 +76,7 @@ export function DiaryView() {
 
   const initialized    = useRef(false)
   const promptsFetched = useRef(false)
+  const skipCountsRef  = useRef<Record<number, number>>({})
 
   // ── Google Docs connection status ─────────────────────────────────────────
   useEffect(() => {
@@ -85,20 +86,19 @@ export function DiaryView() {
       .catch(() => setGoogleStatus('disconnected'))
   }, [])
 
-  // ── Question skip tracking (localStorage) ────────────────────────────────
-  function getSkipCounts(): Record<number, number> {
-    try { return JSON.parse(localStorage.getItem('diary_question_skips') ?? '{}') }
-    catch { return {} }
-  }
+  // ── Question skip tracking (Supabase, synced across devices) ────────────
   function incrementSkip(id: number) {
     if (id < 0) return
-    const counts = getSkipCounts()
-    counts[id] = (counts[id] ?? 0) + 1
-    localStorage.setItem('diary_question_skips', JSON.stringify(counts))
+    const next = { ...skipCountsRef.current, [id]: (skipCountsRef.current[id] ?? 0) + 1 }
+    skipCountsRef.current = next
+    fetch('/api/db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '' },
+      body: JSON.stringify({ table: 'user_context', operation: 'upsert', data: { id: 'singleton', diary_question_skips: next } }),
+    }).catch(() => {})
   }
   function getExcludeIds(): number[] {
-    const counts = getSkipCounts()
-    return Object.entries(counts)
+    return Object.entries(skipCountsRef.current)
       .filter(([, n]) => (n as number) >= 2)
       .map(([id]) => Number(id))
   }
@@ -127,6 +127,13 @@ export function DiaryView() {
   useEffect(() => {
     let cancelled = false
     async function init() {
+      // Load skip counts first so fetchPrompts has them ready
+      const ctxRows = await dbRead('user_context', { col: 'id', val: 'singleton' })
+      if (!cancelled) {
+        const skips = (ctxRows[0] as Record<string, unknown>)?.diary_question_skips ?? {}
+        skipCountsRef.current = skips as Record<number, number>
+      }
+
       const rows = await dbRead('diary_entries', { col: 'id', val: today })
       if (cancelled) return
 
