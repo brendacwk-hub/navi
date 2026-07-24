@@ -33,12 +33,28 @@ async function fetchSubs(): Promise<SubRow[]> {
   return (data ?? []) as SubRow[]
 }
 
+// Send to one subscription; delete from DB if it has expired (410/404)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function safeSend(subscription: any, payload: string): Promise<boolean> {
+  try {
+    await webPush.sendNotification(subscription, payload)
+    return true
+  } catch (e) {
+    const status = (e as { statusCode?: number }).statusCode
+    if (status === 410 || status === 404) {
+      // Subscription expired or no longer valid — remove stale record
+      await supabase.from('push_subscriptions').delete().eq('id', subscription.endpoint)
+    }
+    return false
+  }
+}
+
 async function sendToAll(title: string, body: string, url: string, tag: string) {
   const subs = await fetchSubs()
   if (!subs.length) return 0
   const payload = JSON.stringify({ title, body, url, tag })
-  const results = await Promise.allSettled(subs.map(r => webPush.sendNotification(r.subscription, payload)))
-  return results.filter(r => r.status === 'fulfilled').length
+  const results = await Promise.all(subs.map(r => safeSend(r.subscription, payload)))
+  return results.filter(Boolean).length
 }
 
 export async function GET(req: NextRequest) {
@@ -102,11 +118,11 @@ export async function GET(req: NextRequest) {
           (entry as { prompts: { answer?: string }[] }).prompts.some(p => p.answer?.trim()))
       )
       if (!hasContent) {
-        await webPush.sendNotification(
+        const sent = await safeSend(
           sub.subscription,
           JSON.stringify({ title: '📓 Diary', body: 'How was your day? A few lines before the day closes.', url: '/personal/diary', tag: 'diary-reminder' }),
         )
-        fired.push('diary')
+        if (sent) fired.push('diary')
       }
     }
   }

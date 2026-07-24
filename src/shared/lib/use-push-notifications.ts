@@ -22,14 +22,34 @@ export function usePushNotifications() {
       setStatus('unsupported')
       return
     }
-    // Register SW
     navigator.serviceWorker.register('/sw.js').then(async () => {
       const perm = Notification.permission
       if (perm === 'denied') { setStatus('denied'); return }
 
       const reg = await navigator.serviceWorker.ready
       const existing = await reg.pushManager.getSubscription()
-      setStatus(existing ? 'subscribed' : 'unsubscribed')
+
+      if (existing) {
+        setStatus('subscribed')
+      } else if (perm === 'granted' && VAPID_PUBLIC) {
+        // Permission already granted but subscription expired (common on iOS Safari) — silently renew
+        try {
+          const sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC) as Uint8Array<ArrayBuffer>,
+          })
+          await fetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sub.toJSON()),
+          })
+          setStatus('subscribed')
+        } catch {
+          setStatus('unsubscribed')
+        }
+      } else {
+        setStatus('unsubscribed')
+      }
     }).catch(() => setStatus('unsupported'))
   }, [])
 
