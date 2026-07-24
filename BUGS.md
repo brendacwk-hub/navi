@@ -754,11 +754,27 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-98 · Diary question skip counts not synced across devices
+**Symptom:** Questions skipped (↻) on laptop were not excluded when opening the diary on iPhone, and vice versa. Each device maintained its own independent skip list.
+**Root cause:** Skip counts were stored in `localStorage`, which is per-browser/device. The diary is used on both laptop and iPhone Safari, so the data never synced.
+**Fix:** Moved skip tracking to Supabase — stored in `user_context.diary_question_skips` (jsonb column, singleton row). On diary open, skip counts are loaded from DB; on ↻ tap, counts are written back via `/api/db` upsert. Requires migration: `ALTER TABLE user_context ADD COLUMN IF NOT EXISTS diary_question_skips jsonb DEFAULT '{}'::jsonb;`
+**Lesson:** Any preference or behavioural data that should persist across the user's devices must go in Supabase, not localStorage. localStorage is only appropriate for truly device-specific state (e.g. last visited page).
+
+### B-99 · Push notification subscription silently expires on iOS Safari
+**Symptom:** User enabled push notifications and received a successful test, but later found notifications disabled with no action taken. The Settings tab showed "Notifications off" and no notifications were being received.
+**Root cause:** iOS Safari periodically expires push subscriptions without notifying the app. `reg.pushManager.getSubscription()` returns null after expiry, so the hook set status to `'unsubscribed'`. The user had to manually re-enable each time. Additionally, the stale/expired subscription endpoint remained in Supabase `push_subscriptions`, so the cron kept attempting to send to dead endpoints (failing silently).
+**Fix:** Two changes in `use-push-notifications.ts` and `api/push/daily/route.ts`:
+1. Auto-resubscribe: if `Notification.permission === 'granted'` but no active subscription exists, silently renew the subscription on app open without requiring user action.
+2. Stale cleanup: replaced direct `webPush.sendNotification()` calls with `safeSend()` helper that catches 410/404 errors and deletes the stale row from `push_subscriptions`.
+**Lesson:** Never assume a push subscription persists indefinitely on mobile browsers, especially iOS Safari. Always handle the "permission granted but no subscription" state by auto-renewing. Always clean up expired endpoints on send failure.
+
+---
+
 ## How to use this doc
 
 **MANDATORY RULE:** Every bug fixed must be logged here. This is a build record, not optional cleanup.
 
 - Add a new entry immediately after each fix, while context is fresh.
 - Each entry must include: **symptom**, **root cause**, **fix**, **lesson**.
-- Number sequentially (next is B-98).
+- Number sequentially (next is B-100).
 - Before building a new feature that touches an area — re-read relevant entries to avoid repeating past mistakes.
