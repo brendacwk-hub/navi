@@ -4,32 +4,6 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
-### B-100 · Finance missing from personal sidebar
-**Symptom:** `/personal/finance` unreachable — no sidebar link existed.
-**Root cause:** Finance was omitted when `areaLinks` was built in `PersonalSidebar.tsx`.
-**Fix:** Added Finance entry (Banknote icon, cyan `#22d3ee`) between Home and Sidoi in `areaLinks`.
-**Lesson:** Every personal area defined in `AGENTS.md` must have a sidebar entry; check the spec list when adding/editing `areaLinks`.
-
-### B-101 · Ideas sidebar subcategories used wrong labels (AI/Art/Pending)
-**Symptom:** Ideas submenu showed "AI", "Art", "Pending" — none matching the actual tag vocabulary.
-**Root cause:** `IDEAS_SUBCATS` was written with placeholder labels that were never updated to match `AREA_CHIPS` (`sidoi`, `housework`, `personal-finance`, `tobuy`).
-**Fix:** Replaced with Sidoi / Home / Finance / To Buy entries whose `href` segments match the tag keys.
-**Lesson:** Sidebar filter links must be derived from or manually kept in sync with the tag constants in the feature component.
-
-### B-102 · Ideas subcategory URLs showed unfiltered list
-**Symptom:** Navigating to `/personal/ideas/sidoi` (or any subcat) showed all ideas, not filtered.
-**Root cause:** `IdeasView` received `cat` prop but immediately aliased it to `_cat` and never used it.
-**Fix:** Removed the alias, added `catFiltered` step before search filtering using `i.tags.includes(cat)`.
-**Lesson:** Never accept a prop with an `_` alias unless filtering is implemented; leave a `TODO` comment if deferring.
-
-### B-103 · Ideas tag chips showed raw DB keys instead of human labels
-**Symptom:** Tag pills on idea cards displayed `personal-finance`, `housework`, `tobuy` instead of Finance / Home / To Buy.
-**Root cause:** Tag rendering used `{t}` directly (the raw key) rather than looking up the human label from `AREA_CHIPS`.
-**Fix:** Added `areaLabel()` helper alongside `areaColor()`; replaced all `{t}` in chip renders with `{areaLabel(t)}`.
-**Lesson:** Always go through a label lookup for display; never render a DB key directly to the user.
-
----
-
 ### B-97 · 'Housework' label persisted in three places after rename to 'Home'
 **Symptom:** After renaming the personal Housework area to "Home", users still saw "Housework" in Personal Today area chips, the personal analytics breakdown, and Gemini diary prompt context.
 **Root cause:** Three label maps were not updated: `AREA_META` in `PersonalTodayView.tsx`, `HISTORY_AREA_NAMES` in `personal/analytics/page.tsx`, and `AREA_LABELS` in `api/diary/prompts/route.ts`. The component files that rendered the sidebar and tab header were updated, but these internal maps were missed.

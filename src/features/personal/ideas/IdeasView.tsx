@@ -83,10 +83,6 @@ function areaColor(key: string): string {
   return AREA_CHIPS.find(a => a.key === key)?.color ?? PINK
 }
 
-function areaLabel(key: string): string {
-  return AREA_CHIPS.find(a => a.key === key)?.label ?? key
-}
-
 function normaliseIdea(raw: Record<string, unknown>): Idea {
   return {
     id:           String(raw.id ?? ''),
@@ -189,7 +185,7 @@ function IdeaCard({ idea, onOpen, onShelve, onConvert, isJustAdded }: CardProps)
           <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
             {idea.tags.map(t => (
               <span key={t} className="font-medium px-1.5 py-0.5 rounded-md"
-                style={{ fontSize: 9.5, background: `${areaColor(t)}1a`, color: areaColor(t) }}>{areaLabel(t)}</span>
+                style={{ fontSize: 9.5, background: `${areaColor(t)}1a`, color: areaColor(t) }}>{t}</span>
             ))}
             <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.22)' }}>{fmtAge(idea.created_at)}</span>
           </div>
@@ -604,7 +600,8 @@ function PipelineSection({
 
 // ── Main view ─────────────────────────────────────────────────────────────────
 
-export function IdeasView({ cat }: { cat?: string } = {}) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function IdeasView({ cat: _cat }: { cat?: string } = {}) {
   const [ideas,       setIdeas]       = useState<Idea[]>([])
   const [loading,     setLoading]     = useState(true)
   const [openIdea,    setOpenIdea]    = useState<Idea | null>(null)
@@ -647,13 +644,12 @@ export function IdeasView({ cat }: { cat?: string } = {}) {
   useEffect(() => () => { if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current) }, [])
 
   // ── Derived sections ──
-  const catFiltered = cat ? ideas.filter(i => i.tags.includes(cat)) : ideas
   const filtered = searchQuery
-    ? catFiltered.filter(i =>
+    ? ideas.filter(i =>
         i.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (i.body ?? '').toLowerCase().includes(searchQuery.toLowerCase())
       )
-    : catFiltered
+    : ideas
 
   const readyIdeas      = filtered.filter(i => toSection(i.status) === 'ready')
   const developingIdeas = filtered.filter(i => toSection(i.status) === 'developing')
@@ -733,9 +729,7 @@ export function IdeasView({ cat }: { cat?: string } = {}) {
 
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-5 pb-2">
-        <h1 className="font-extrabold" style={{ fontSize: 17, color: 'rgba(255,255,255,0.9)' }}>
-          Ideas{cat ? <span className="font-semibold ml-2" style={{ fontSize: 13, color: areaColor(cat) }}>{areaLabel(cat)}</span> : null}
-        </h1>
+        <h1 className="font-extrabold" style={{ fontSize: 17, color: 'rgba(255,255,255,0.9)' }}>Ideas</h1>
         <button
           onClick={() => { setShowSearch(s => !s); if (showSearch) setSearchQuery('') }}
           className="w-8 h-8 rounded-full flex items-center justify-center"
@@ -888,7 +882,7 @@ export function IdeasView({ cat }: { cat?: string } = {}) {
             {captureTag && captureFocused && (
               <span className="font-medium px-1.5 py-0.5 rounded-md flex-shrink-0"
                 style={{ fontSize: 9.5, background: `${areaColor(captureTag)}1a`, color: areaColor(captureTag) }}>
-                {areaLabel(captureTag)}
+                {captureTag}
               </span>
             )}
             <input
