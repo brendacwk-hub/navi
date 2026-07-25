@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Home, ShoppingBag, BookOpen, CalendarDays,
-  BarChart3, SlidersHorizontal, Scissors, Activity, Lightbulb, ChevronDown, Package,
+  BarChart3, SlidersHorizontal, Scissors, Activity, Lightbulb, Package,
 } from 'lucide-react'
 
 const PINK = '#f0a8c8'
@@ -17,21 +17,9 @@ const areaLinks = [
   { label: 'Others',   href: '/personal/others',    icon: Package,        color: 'text-[#fbbf24]', bg: 'bg-[#fbbf24]/15' },
 ]
 
-const IDEAS_SUBCATS = [
-  { label: 'All',     href: '/personal/ideas' },
-  { label: 'AI',      href: '/personal/ideas/ai' },
-  { label: 'Art',     href: '/personal/ideas/art' },
-  { label: 'Pending', href: '/personal/ideas/pending' },
-]
-
 export function PersonalSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   const ideasActive = pathname.startsWith('/personal/ideas')
-  const [ideasExpanded, setIdeasExpanded] = useState(ideasActive)
-
-  useEffect(() => {
-    if (ideasActive) setIdeasExpanded(true)
-  }, [ideasActive])
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
 
@@ -105,40 +93,17 @@ export function PersonalSidebar({ onNavigate }: { onNavigate?: () => void }) {
           )
         })()}
 
-        {/* Ideas — expandable */}
-        <div
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold transition-all"
-          style={ideasActive ? { backgroundColor: `${PINK}20`, color: '#fff' } : { color: 'rgba(255,255,255,0.5)' }}
-        >
-          <Link href="/personal/ideas" onClick={() => { setIdeasExpanded(true); onNavigate?.() }}
-            className="flex items-center gap-3 flex-1 min-w-0">
-            <Lightbulb className="w-4 h-4 flex-shrink-0" style={{ color: ideasActive ? PINK : 'rgba(255,255,255,0.3)' }} />
-            <span>Ideas</span>
-          </Link>
-          <button onClick={() => setIdeasExpanded(e => !e)} className="p-0.5">
-            <ChevronDown
-              className={`w-3.5 h-3.5 transition-transform duration-200 ${ideasExpanded ? 'rotate-180' : ''}`}
-              style={{ color: ideasActive ? `${PINK}80` : 'rgba(255,255,255,0.2)' }}
-            />
-          </button>
-        </div>
-
-        {ideasExpanded && (
-          <div className="ml-4 space-y-0.5 pb-0.5">
-            {IDEAS_SUBCATS.map(({ label, href }) => {
-              const sub = label === 'All'
-                ? pathname === '/personal/ideas'
-                : pathname === href || pathname.startsWith(href + '/')
-              return (
-                <Link key={href} href={href} onClick={onNavigate}
-                  className="flex items-center gap-2 pl-5 pr-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                  style={sub ? { color: PINK } : { color: 'rgba(255,255,255,0.35)' }}>
-                  {label}
-                </Link>
-              )
-            })}
-          </div>
-        )}
+        {/* Ideas */}
+        {(() => {
+          return (
+            <Link href="/personal/ideas" onClick={onNavigate}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold transition-all"
+              style={ideasActive ? { backgroundColor: `${PINK}20`, color: '#fff' } : { color: 'rgba(255,255,255,0.5)' }}>
+              <Lightbulb className="w-4 h-4 flex-shrink-0" style={{ color: ideasActive ? PINK : 'rgba(255,255,255,0.3)' }} />
+              Ideas
+            </Link>
+          )
+        })()}
 
         {/* Calendar */}
         {(() => {

@@ -47,11 +47,12 @@ Never use a plain text `<input>` for scheduling. Never add a new date UI without
 | Area | Key | Sub-areas |
 |------|-----|-----------|
 | Housework | `housework` | none |
-| Finance (personal) | `personal-finance` | none |
 | Sidoi | `sidoi` | Orders, Marketing, Planning |
 | To Buy | `tobuy` | none |
 
-`PersonalArea = 'housework' | 'personal-finance' | 'sidoi' | 'tobuy'`
+`PersonalArea = 'housework' | 'sidoi' | 'tobuy'`
+
+> **Note:** Finance (personal) was merged into Housework. The `personal-finance` key no longer exists as a separate area.
 
 ## Mode switching
 - Header badge: single pill, 💼 Work / 🏠 Personal, tap to switch
@@ -61,18 +62,18 @@ Never use a plain text `<input>` for scheduling. Never add a new date UI without
 - Sidebar content swaps completely
 
 ## Personal sidebar order
-Today → Housework → Finance → Sidoi → To Buy → [divider] → Diary → Calendar → Analytics → Settings (footer)
+Today → Housework → Sidoi → To Buy → [divider] → Diary → Calendar → Analytics → Settings (footer)
 
 ## Visual theme (Personal)
 - Background: `#0e1628` (dark navy, from Stash app)
 - Primary accent: `#f0a8c8` (soft pink)
 - Borders/muted: `rgba(180,140,220,...)`
-- Area accent colors: Housework `#fb7185` (coral) · Finance `#22d3ee` (cyan) · Sidoi `#f9a8d4` (rose pink) · To Buy `#fcd34d` (amber)
+- Area accent colors: Housework `#fb7185` (coral) · Sidoi `#f9a8d4` (rose pink) · To Buy `#fcd34d` (amber)
 - NOTE: NO PURPLE anywhere in personal mode or any other UI. User explicitly hates purple.
 
 ## Data layer
 - All personal cycles stored in the same `cycles` table with `mode = 'personal'`
-- `template_collections` — personal areas use distinct keys (`housework`, `sidoi`, `tobuy`, `personal-finance`)
+- `template_collections` — personal areas use distinct keys (`housework`, `sidoi`, `tobuy`)
 - `diary_entries` table: `id` (YYYY-MM-DD PK), `mood` text, `prompts` jsonb, `body` text, `created_at` timestamptz
 - DB migration: `ALTER TABLE cycles ADD COLUMN IF NOT EXISTS mode text NOT NULL DEFAULT 'work';`
 
@@ -112,7 +113,7 @@ Header reads `usePathname()` to determine active mode for the badge pill.
 4. Personal sidebar (navy theme, area nav, shared tabs section with divider)
 5. Work sidebar: add divider before Calendar/Analytics/Settings
 6. `PersonalDataContext` (mirrors WorkDataContext, reads `mode='personal'`)
-7. Area tabs: Housework → Finance → Sidoi (Orders/Marketing/Planning) → To Buy
+7. Area tabs: Housework → Sidoi (Orders/Marketing/Planning) → To Buy
 8. Personal Today (today's personal tasks, Weekly Review modal, no focus strip, no Coming Up)
 9. Diary tab (Gemini prompts, mood picker, history, push reminder)
 10. Templates for personal areas
@@ -120,7 +121,7 @@ Header reads `usePathname()` to determine active mode for the badge pill.
 
 ## QuickAdd in Personal mode
 - Same Task / Task+ / Cycle types as Work mode
-- Area selector shows: Housework / Finance / Sidoi / To Buy
+- Area selector shows: Housework / Sidoi / To Buy
 - Calendar tab: no QuickAdd button
 
 ## Sidoi MVP

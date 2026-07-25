@@ -10,10 +10,9 @@ const BG      = '#0e1628'
 const SURFACE = '#111e35'
 
 const AREA_CHIPS = [
-  { key: 'sidoi',            label: 'Sidoi',   color: '#f9a8d4' },
-  { key: 'housework',        label: 'Home',    color: '#fb7185' },
-  { key: 'personal-finance', label: 'Finance', color: '#22d3ee' },
-  { key: 'tobuy',            label: 'To Buy',  color: '#fcd34d' },
+  { key: 'housework', label: 'Home',    color: '#fb7185' },
+  { key: 'sidoi',     label: 'Sidoi',  color: '#f9a8d4' },
+  { key: 'tobuy',     label: 'To Buy', color: '#fcd34d' },
 ] as const
 
 const PERSONAL_AREAS = AREA_CHIPS
@@ -81,6 +80,10 @@ function fmtAge(iso: string): string {
 
 function areaColor(key: string): string {
   return AREA_CHIPS.find(a => a.key === key)?.color ?? PINK
+}
+
+function areaLabel(key: string): string {
+  return AREA_CHIPS.find(a => a.key === key)?.label ?? key
 }
 
 function normaliseIdea(raw: Record<string, unknown>): Idea {
@@ -185,7 +188,7 @@ function IdeaCard({ idea, onOpen, onShelve, onConvert, isJustAdded }: CardProps)
           <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
             {idea.tags.map(t => (
               <span key={t} className="font-medium px-1.5 py-0.5 rounded-md"
-                style={{ fontSize: 9.5, background: `${areaColor(t)}1a`, color: areaColor(t) }}>{t}</span>
+                style={{ fontSize: 9.5, background: `${areaColor(t)}1a`, color: areaColor(t) }}>{areaLabel(t)}</span>
             ))}
             <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.22)' }}>{fmtAge(idea.created_at)}</span>
           </div>
@@ -412,10 +415,14 @@ function ExpandedCard({ idea, onClose, onChange, onDelete }: ExpandedCardProps) 
           style={{ fontSize: 15 }}
           placeholder="Idea title…"
         />
-        <span
-          className="flex-shrink-0 transition-opacity duration-700"
-          style={{ fontSize: 11, color: 'rgba(134,239,172,0.7)', opacity: savedFlash ? 1 : 0 }}
-        >Saved ✓</span>
+        <button
+          onClick={() => flush()}
+          className="font-semibold flex-shrink-0 px-2.5 py-1 rounded-lg transition-all"
+          style={savedFlash
+            ? { fontSize: 11, background: 'rgba(134,239,172,0.12)', color: 'rgba(134,239,172,0.8)', border: '1px solid rgba(134,239,172,0.25)' }
+            : { fontSize: 11, background: `${PINK}18`, color: PINK, border: `1px solid ${PINK}30` }
+          }
+        >{savedFlash ? 'Saved ✓' : 'Save'}</button>
       </div>
 
       {/* Scrollable body */}
@@ -600,7 +607,6 @@ function PipelineSection({
 
 // ── Main view ─────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function IdeasView({ cat: _cat }: { cat?: string } = {}) {
   const [ideas,       setIdeas]       = useState<Idea[]>([])
   const [loading,     setLoading]     = useState(true)
@@ -609,6 +615,7 @@ export function IdeasView({ cat: _cat }: { cat?: string } = {}) {
   const [shelvedOpen, setShelvedOpen] = useState(false)
   const [showSearch,  setShowSearch]  = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedTag, setSelectedTag] = useState<string | null>(null)
 
   // Capture bar
   const [capture,        setCapture]        = useState('')
@@ -644,12 +651,13 @@ export function IdeasView({ cat: _cat }: { cat?: string } = {}) {
   useEffect(() => () => { if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current) }, [])
 
   // ── Derived sections ──
+  const tagFiltered = selectedTag ? ideas.filter(i => i.tags.includes(selectedTag)) : ideas
   const filtered = searchQuery
-    ? ideas.filter(i =>
+    ? tagFiltered.filter(i =>
         i.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (i.body ?? '').toLowerCase().includes(searchQuery.toLowerCase())
       )
-    : ideas
+    : tagFiltered
 
   const readyIdeas      = filtered.filter(i => toSection(i.status) === 'ready')
   const developingIdeas = filtered.filter(i => toSection(i.status) === 'developing')
@@ -755,6 +763,29 @@ export function IdeasView({ cat: _cat }: { cat?: string } = {}) {
           />
         </div>
       )}
+
+      {/* Filter bar */}
+      <div className="flex items-center gap-1.5 px-4 pb-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+        <button
+          onClick={() => setSelectedTag(null)}
+          className="px-3 py-1 rounded-xl font-semibold flex-shrink-0 transition-all"
+          style={!selectedTag
+            ? { fontSize: 12, background: `${PINK}20`, color: PINK, border: `1px solid ${PINK}40` }
+            : { fontSize: 12, background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.1)' }
+          }
+        >All</button>
+        {AREA_CHIPS.map(a => (
+          <button
+            key={a.key}
+            onClick={() => setSelectedTag(selectedTag === a.key ? null : a.key)}
+            className="px-3 py-1 rounded-xl font-semibold flex-shrink-0 transition-all"
+            style={selectedTag === a.key
+              ? { fontSize: 12, background: `${a.color}20`, color: a.color, border: `1px solid ${a.color}40` }
+              : { fontSize: 12, background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.1)' }
+            }
+          >{a.label}</button>
+        ))}
+      </div>
 
       {/* Summary bar */}
       {!loading && totalActive > 0 && (
@@ -882,7 +913,7 @@ export function IdeasView({ cat: _cat }: { cat?: string } = {}) {
             {captureTag && captureFocused && (
               <span className="font-medium px-1.5 py-0.5 rounded-md flex-shrink-0"
                 style={{ fontSize: 9.5, background: `${areaColor(captureTag)}1a`, color: areaColor(captureTag) }}>
-                {captureTag}
+                {areaLabel(captureTag)}
               </span>
             )}
             <input
