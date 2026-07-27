@@ -4,6 +4,12 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-106 · Pinned tasks appeared on the mobile widget
+**Symptom:** Pinned tasks (running collectors for ongoing sub-task additions) showed up on the iPhone widget daily, cluttering the widget with tasks that are never meant to be "done today".
+**Root cause:** `api/widget/route.ts` passed `today_tasks.data` straight through with no `pinned` filter. `widget/page.tsx` only filtered `status !== 'done'`, also ignoring `pinned`.
+**Fix:** Added `.filter(t => !t.pinned)` to both `api/widget/route.ts` (feeds the Scriptable widget) and `widget/page.tsx` (web widget view).
+**Lesson:** Pinned tasks are persistent collectors, not daily to-dos. Any surface that renders "today's tasks" should exclude pinned tasks by default.
+
 ### B-105 · All sub-item checkboxes ticked — parent task not completed and not removed
 **Symptom:** When all sub-items on a Today task were ticked, the parent task stayed on screen with no visual completion and no removal. The counter showed `N/N` done but nothing happened.
 **Root cause:** Three separate issues: (1) `toggleTodaySubItem` patched the sub-item's `done` flag but never checked if all subs were now done — no parent auto-complete logic existed. (2) Even if `task.done` had been set to `true`, `visibleTasks` filtered only by search query — there was no `!t.done` guard so done tasks were always visible. (3) `toggleTodayTask` for plain checkbox tasks marked `done: true` but left the task in the array, causing the same visibility issue.
