@@ -4,6 +4,18 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-105 · All sub-item checkboxes ticked — parent task not completed and not removed
+**Symptom:** When all sub-items on a Today task were ticked, the parent task stayed on screen with no visual completion and no removal. The counter showed `N/N` done but nothing happened.
+**Root cause:** Three separate issues: (1) `toggleTodaySubItem` patched the sub-item's `done` flag but never checked if all subs were now done — no parent auto-complete logic existed. (2) Even if `task.done` had been set to `true`, `visibleTasks` filtered only by search query — there was no `!t.done` guard so done tasks were always visible. (3) `toggleTodayTask` for plain checkbox tasks marked `done: true` but left the task in the array, causing the same visibility issue.
+**Fix:** (1) `toggleTodaySubItem` in `work-data-context.tsx` now checks after patching whether all subs are done and the parent is non-pinned — if so, logs to `task_completions` and removes the parent from the array. (2) `toggleTodayTask` now removes the task from the array on completion instead of toggling `done: true`. (3) Added `if (t.done && !t.pinned) return false` guard to `visibleTasks` in `TodayView.tsx` as safety net for any tasks already persisted with `done: true`.
+**Lesson:** Pinned tasks are exempt from auto-complete: always check `!parent.pinned` before auto-completing. Done tasks must be removed from `todayTasks` state (not just hidden) to keep the `today_tasks` singleton DB row lean.
+
+### B-104 · Pinned task cannot be unpinned
+**Symptom:** The 📌 pin icon on a pinned Today task was a static, non-interactive element. Tapping it did nothing. There was no way to remove the pin flag from the UI.
+**Root cause:** `TodayTaskCard` rendered `📌` as a plain `<span select-none>` with no `onClick`. The `editingTags` section only showed Must/Urgent toggles — no Pin toggle existed. No `setTodayTaskPinned` function existed in `work-data-context.tsx`; `setTodayTaskTags` only handled `must` and `urgent`.
+**Fix:** Added `setTodayTaskPinned(taskId, pinned)` to `work-data-context.tsx` (and `WorkDataCtx` interface). Made the 📌 span clickable (`onClick → setTodayTaskPinned(id, false)`) with hover dimming. Added a "Pin" toggle button to the `editingTags` panel in `TodayTaskCard` so users can also pin/unpin from there.
+**Lesson:** Every state flag that can be set must have a UI path to clear it. Before adding a feature (pin) always wire up the reverse (unpin) in the same commit.
+
 ### B-97 · 'Housework' label persisted in three places after rename to 'Home'
 **Symptom:** After renaming the personal Housework area to "Home", users still saw "Housework" in Personal Today area chips, the personal analytics breakdown, and Gemini diary prompt context.
 **Root cause:** Three label maps were not updated: `AREA_META` in `PersonalTodayView.tsx`, `HISTORY_AREA_NAMES` in `personal/analytics/page.tsx`, and `AREA_LABELS` in `api/diary/prompts/route.ts`. The component files that rendered the sidebar and tab header were updated, but these internal maps were missed.

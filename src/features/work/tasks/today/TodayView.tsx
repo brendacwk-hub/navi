@@ -105,8 +105,8 @@ function TodayTaskCard({ task }: { task: TodayTaskData }) {
 
   const {
     toggleTodayTask, deleteTodayTask, toggleTodaySubItem, deleteTodaySubItem,
-    updateTodayTaskLabel, updateTodaySubItemLabel, setTodayTaskTags, toggleTodaySubItemUrgent,
-    addTodaySubItem,
+    updateTodayTaskLabel, updateTodaySubItemLabel, setTodayTaskTags, setTodayTaskPinned,
+    toggleTodaySubItemUrgent, addTodaySubItem,
   } = useWorkData()
 
   const subItems = task.subItems ?? []
@@ -119,7 +119,11 @@ function TodayTaskCard({ task }: { task: TodayTaskData }) {
         <div className="flex items-center gap-2">
           {task.pinned ? (
             <>
-              <span className="flex-shrink-0 text-sm leading-none select-none">📌</span>
+              <span
+                className="flex-shrink-0 text-sm leading-none cursor-pointer opacity-80 hover:opacity-50 transition-opacity"
+                title="Unpin task"
+                onClick={e => { e.stopPropagation(); setTodayTaskPinned(task.id, false) }}
+              >📌</span>
               {subItems.length > 0 && (
                 <span className="flex-shrink-0 text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded bg-white/8 text-white/40">
                   {doneCount}/{subItems.length}
@@ -185,7 +189,7 @@ function TodayTaskCard({ task }: { task: TodayTaskData }) {
         </div>
 
         {editingTags && (
-          <div className="flex gap-2 mt-1.5">
+          <div className="flex gap-2 mt-1.5 flex-wrap">
             <button
               onClick={e => { e.stopPropagation(); setTodayTaskTags(task.id, !task.must, task.urgent ?? false) }}
               className={`text-[10px] px-2 py-0.5 rounded border transition-all ${
@@ -201,6 +205,14 @@ function TodayTaskCard({ task }: { task: TodayTaskData }) {
               }`}
             >
               {task.urgent ? '⚠ Urgent (on)' : '○ Urgent'}
+            </button>
+            <button
+              onClick={e => { e.stopPropagation(); setTodayTaskPinned(task.id, !task.pinned) }}
+              className={`text-[10px] px-2 py-0.5 rounded border transition-all ${
+                task.pinned ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' : 'border-white/15 text-white/30 hover:border-white/30 hover:text-white/55'
+              }`}
+            >
+              {task.pinned ? '📌 Pinned (on)' : '○ Pin'}
             </button>
           </div>
         )}
@@ -561,6 +573,7 @@ export function TodayView() {
 
   const visibleTasks = todayTasks
     .filter(t => {
+      if (t.done && !t.pinned) return false
       if (!query.trim()) return true
       return fuzzyMatch(t.label, query) || (t.subItems ?? []).some(s => fuzzyMatch(s.label, query))
     })

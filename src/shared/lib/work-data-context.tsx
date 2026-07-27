@@ -202,6 +202,7 @@ interface WorkDataCtx {
   updateTodayTaskLabel: (taskId: string, label: string) => void
   updateTodaySubItemLabel: (taskId: string, subId: string, label: string) => void
   setTodayTaskTags: (taskId: string, must: boolean, urgent: boolean) => void
+  setTodayTaskPinned: (taskId: string, pinned: boolean) => void
   toggleTodaySubItemUrgent: (taskId: string, subId: string) => void
   refreshData: () => Promise<void>
 }
@@ -565,17 +566,20 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
 
   const toggleTodayTask = useCallback((taskId: string) => {
     setTodayTasks(prev => {
-      const next = patchTodayTask(prev, taskId, t => {
-        if (!t.done && !t.pinned) {
-          // Completing (false → true): log permanently for analytics (skip for pinned — they never truly "complete")
-          dbWrite({
-            table: 'task_completions',
-            operation: 'insert',
-            data: { task_id: t.id, title: t.label, area: t.area, effort: t.effort, must: t.must, urgent: t.urgent ?? false, mode: 'work' },
-          })
-        }
-        return { ...t, done: !t.done }
-      })
+      const task = prev.find(t => t.id === taskId)
+      if (!task || task.pinned) return prev
+      if (!task.done) {
+        // Completing a non-pinned task: log to analytics and remove from today list
+        dbWrite({
+          table: 'task_completions',
+          operation: 'insert',
+          data: { task_id: task.id, title: task.label, area: task.area, effort: task.effort, must: task.must, urgent: task.urgent ?? false, mode: 'work' },
+        })
+        const next = prev.filter(t => t.id !== taskId)
+        syncToday(next)
+        return next
+      }
+      const next = patchTodayTask(prev, taskId, t => ({ ...t, done: false }))
       syncToday(next)
       return next
     })
@@ -586,7 +590,26 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleTodaySubItem = useCallback((taskId: string, subId: string) => {
-    setTodayTasks(prev => { const next = patchTodaySub(prev, taskId, subId, s => ({ ...s, done: !s.done })); syncToday(next); return next })
+    setTodayTasks(prev => {
+      const patched = patchTodaySub(prev, taskId, subId, s => ({ ...s, done: !s.done }))
+      const parent = patched.find(t => t.id === taskId)
+      if (parent && !parent.pinned) {
+        const subs = parent.subItems ?? []
+        if (subs.length > 0 && subs.every(s => s.done)) {
+          // All sub-items done: log completion and remove parent task
+          dbWrite({
+            table: 'task_completions',
+            operation: 'insert',
+            data: { task_id: parent.id, title: parent.label, area: parent.area, effort: parent.effort, must: parent.must, urgent: parent.urgent ?? false, mode: 'work' },
+          })
+          const next = patched.filter(t => t.id !== taskId)
+          syncToday(next)
+          return next
+        }
+      }
+      syncToday(patched)
+      return patched
+    })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const deleteTodaySubItem = useCallback((taskId: string, subId: string) => {
@@ -606,6 +629,10 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
 
   const setTodayTaskTags = useCallback((taskId: string, must: boolean, urgent: boolean) => {
     setTodayTasks(prev => { const next = patchTodayTask(prev, taskId, t => ({ ...t, must, urgent })); syncToday(next); return next })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const setTodayTaskPinned = useCallback((taskId: string, pinned: boolean) => {
+    setTodayTasks(prev => { const next = patchTodayTask(prev, taskId, t => ({ ...t, pinned })); syncToday(next); return next })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleTodaySubItemUrgent = useCallback((taskId: string, subId: string) => {
@@ -631,7 +658,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
       addCycle, updateCycle, deleteCycle, deleteItem, addCycleItem, toggleItem, setItemLabel, setItemNote, setItemUrgent, setItemDue,
       todayTasks, todayLoaded, addTodayTask, addTodaySubItem, toggleTodayTask, deleteTodayTask,
       toggleTodaySubItem, deleteTodaySubItem, updateTodayTaskLabel, updateTodaySubItemLabel,
-      setTodayTaskTags, toggleTodaySubItemUrgent, refreshData,
+      setTodayTaskTags, setTodayTaskPinned, toggleTodaySubItemUrgent, refreshData,
     }}>
       {children}
     </WorkDataContext.Provider>
