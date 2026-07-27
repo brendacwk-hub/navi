@@ -69,7 +69,8 @@ export async function GET(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const habits = shapeHabits((habitDefRes.data as { habits: unknown[] } | null)?.habits ?? [], (habitLogRes.data as { logs: unknown } | null)?.logs as Record<string, number> ?? {})
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rawTasks: any[] = (todayTasksRes.data as { data: unknown[] } | null)?.data ?? []
+    const rawTasks: any[] = ((todayTasksRes.data as { data: unknown[] } | null)?.data ?? [])
+      .filter((t: any) => !t.pinned)
     const cycles = shapeCycles((cyclesRes.data ?? []) as CycleRow[], todayDate)
 
     return NextResponse.json({ mode: 'work', date: today, habits, tasks: rawTasks, cycles })

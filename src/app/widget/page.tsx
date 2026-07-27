@@ -220,7 +220,7 @@ export default async function WidgetPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const workTasks: any[] = (((workTasksRes.data as { data: unknown[] } | null)?.data ?? []) as any[])
-    .filter((t: { status?: string }) => t.status !== 'done')
+    .filter((t: { status?: string; pinned?: boolean }) => t.status !== 'done' && !t.pinned)
 
   const PINK = '#f0a8c8'
   const BLUE = '#3b82f6'
