@@ -4,6 +4,15 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-107 · Payroll/MPF recurring cycles never refreshed and could not be ticked
+**Symptom:** The HR Payroll, MPF Filing and HR Overhead Cost cycles did not come back for the new period. They sat with every item still ticked from the previous month and the checkboxes were inert — there was no way to start this month's payroll.
+**Root cause:** `computeSkipDate` in `sort-utils.ts` had a legacy branch (for non-`every … from …` labels) that computed the next due date *independently* of `isTriggerDueToday`, and the two disagreed:
+1. **Monthly labels lost a whole period.** When the upcoming occurrence was still in the future, the code did `nextMonth.setDate(next.getDate())` — "add one month to be safe" — pushing it a month past the occurrence that hadn't happened yet. Completing on 3 Jul with `Last 5 days of month` stored `next_due_at = 2026-08-27` instead of `2026-07-27`. Same for `Every 17th of month` (→ Aug 17 instead of Jul 17) and the payroll phase label.
+2. **Weekday labels skipped to the wrong day.** `Every Monday` returned `today + 7`, which is only a Monday if today already is one. The live `bank-statements-weekly` row held `2026-08-05` — a Wednesday.
+Because `next_due_at` was a month away, `applyRecurrenceResets` (which only resets when `nextDueAt <= today`) never ran, so items were never unticked; and `CycleCard`'s `isDone = status === 'complete' || !!cycle.nextDueAt` was true, which is what disabled the checkboxes.
+**Fix:** Replaced both legacy branches with a forward walk that asks `isTriggerDueToday` day by day — the same idiom already used by `daysSinceLastOccurrence`/`hasTriggerFiredThisPeriod`. Windowed triggers (`Last 5 days of month` fires on 5 consecutive days) first step over the remainder of the current run so completing on day 1 of the window rolls to the *next* period rather than to tomorrow. Also repaired the 6 already-corrupted DB rows: `payroll`/`mpf`/`hr-overhead-cost` were put through `resetCycle` (items+subItems → todo, phases → upcoming, `next_due_at`/`last_completed_at` → null) and `finance-china-budget` (Aug 2→1), `personal-finance-1781890144845` (Aug 9→10), `bank-statements-weekly` (Aug 5→3) had their dates corrected.
+**Lesson:** Two functions that answer "when does this recur?" will drift apart. `isTriggerDueToday` is the single source of truth for *whether* a trigger fires; anything computing the *next* fire date must be derived from it by walking the calendar, never by reimplementing the pattern arithmetic. Also: a code fix does not unstick already-persisted bad state — always check what the buggy version wrote to the DB and repair those rows too.
+
 ### B-106 · Pinned tasks appeared on the mobile widget
 **Symptom:** Pinned tasks (running collectors for ongoing sub-task additions) showed up on the iPhone widget daily, cluttering the widget with tasks that are never meant to be "done today".
 **Root cause:** `api/widget/route.ts` passed `today_tasks.data` straight through with no `pinned` filter. `widget/page.tsx` only filtered `status !== 'done'`, also ignoring `pinned`.

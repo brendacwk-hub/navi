@@ -366,7 +366,6 @@ export function daysSinceLastOccurrence(triggerLabel: string | undefined, today:
 // Used by "Skip this occurrence" — sets nextDueAt so the cycle resurfaces next time.
 export function computeSkipDate(triggerLabel: string | undefined): string | null {
   if (!isRecurring(triggerLabel)) return null
-  const label = (triggerLabel ?? '').toLowerCase().trim()
   const today = new Date(); today.setHours(0, 0, 0, 0)
 
   // New recurrence pattern — next occurrence strictly AFTER today
@@ -407,34 +406,26 @@ export function computeSkipDate(triggerLabel: string | undefined): string | null
     }
   }
 
-  // Weekday patterns → skip 1 week
-  const weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-  for (let i = 0; i < weekdays.length; i++) {
-    if (label.includes(weekdays[i])) {
-      const d = new Date(today); d.setDate(d.getDate() + 7)
-      return localIso(d)
-    }
+  // Legacy patterns ("Every Monday", "Every 17th of month", "Last 5 days of month",
+  // "1st work day of next month", "Phase 1: 20th · ...") — walk forward day by day
+  // asking isTriggerDueToday. Deriving the skip date from the same predicate that
+  // decides visibility is what keeps the two from disagreeing (see B-107).
+  let d = addDays(today, 1)
+
+  // Windowed triggers fire on several consecutive days ("Last 5 days of month" fires
+  // on all 5). If today is inside such a window, the next due date is the next
+  // period's window — not tomorrow — so step over the rest of the current run.
+  if (isTriggerDueToday(triggerLabel, today)) {
+    while (isTriggerDueToday(triggerLabel, d)) d = addDays(d, 1)
   }
 
-  // Monthly patterns (ordinal day, phase, last-5, 1st-workday) → skip to next month
-  const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, today.getDate())
-  // Re-run computeSortDate from next-month perspective by shifting today
-  const ts = computeSortDate(triggerLabel)
-  if (isFinite(ts)) {
-    const next = new Date(ts)
-    // If next occurrence is today or past, add 28+ days to get next month's
-    if (next <= today) {
-      const nm = new Date(today.getFullYear(), today.getMonth() + 1, 1)
-      return localIso(nm)
-    }
-    // next is already in the future — add one month to be safe
-    nextMonth.setDate(next.getDate())
-    return localIso(nextMonth)
+  for (let i = 0; i < 400; i++) {
+    if (isTriggerDueToday(triggerLabel, d)) return localIso(d)
+    d = addDays(d, 1)
   }
 
-  // Fallback: 30 days
-  const d = new Date(today); d.setDate(d.getDate() + 30)
-  return localIso(d)
+  // Fallback: 30 days (unparseable label)
+  return localIso(addDays(today, 30))
 }
 
 export function isRecurring(triggerLabel: string | undefined): boolean {
