@@ -4,6 +4,12 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-107 · Clickable 📌 caused accidental unpinning → visual regression + task deletion
+**Symptom:** After B-104 fix, newly created pinned tasks would (a) show as normal tasks (checkbox instead of 📌) and (b) sometimes disappear entirely. Existing pinned tasks also appeared visually identical to regular tasks after a single tap.
+**Root cause:** Making 📌 a clickable unpin button was mobile-hostile. A tap on the left side of the card header — a natural interaction — would hit 📌 first and call `setTodayTaskPinned(id, false)`. The task lost its pinned state and gained a checkbox. A second accidental tap on the checkbox then called `toggleTodayTask`, which (per the B-105 fix) immediately removes a non-pinned task when it transitions from undone → done.
+**Fix:** Reverted 📌 back to a static, non-interactive `<span select-none>` as it was before B-104. Unpin is available only via the Pencil (editingTags) panel, which requires a deliberate multi-step interaction.
+**Lesson:** On mobile, any left-aligned icon in a tap-target row will be hit accidentally. Destructive or state-changing actions must be behind a deliberate UI surface (edit panel, swipe action, confirmation), never inline in the display row.
+
 ### B-107 · Payroll/MPF recurring cycles never refreshed and could not be ticked
 **Symptom:** The HR Payroll, MPF Filing and HR Overhead Cost cycles did not come back for the new period. They sat with every item still ticked from the previous month and the checkboxes were inert — there was no way to start this month's payroll.
 **Root cause:** `computeSkipDate` in `sort-utils.ts` had a legacy branch (for non-`every … from …` labels) that computed the next due date *independently* of `isTriggerDueToday`, and the two disagreed:

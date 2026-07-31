@@ -119,11 +119,7 @@ function TodayTaskCard({ task }: { task: TodayTaskData }) {
         <div className="flex items-center gap-2">
           {task.pinned ? (
             <>
-              <span
-                className="flex-shrink-0 text-sm leading-none cursor-pointer opacity-80 hover:opacity-50 transition-opacity"
-                title="Unpin task"
-                onClick={e => { e.stopPropagation(); setTodayTaskPinned(task.id, false) }}
-              >📌</span>
+              <span className="flex-shrink-0 text-sm leading-none select-none">📌</span>
               {subItems.length > 0 && (
                 <span className="flex-shrink-0 text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded bg-white/8 text-white/40">
                   {doneCount}/{subItems.length}
