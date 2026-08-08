@@ -151,6 +151,7 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
   const [personalOthersCycles,  setPersonalOthersCycles]  = useState<Cycle[]>([])
   const [completedTitles,       setCompletedTitles]       = useState<string[]>([])
   const sbReady = useRef(false)
+  const dirtyCycles = useRef<Map<string, Cycle>>(new Map())
   const { showToast } = useToast()
   const pendingCompletions = useRef<Map<string, { cycle: Cycle; area: PersonalArea; timerId: ReturnType<typeof setTimeout>; completionId: string }>>(new Map())
 
@@ -163,7 +164,11 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
   }, [])
 
   function syncCycle(cycle: Cycle) {
-    if (sbReady.current) dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(cycle) })
+    if (sbReady.current) {
+      dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(cycle) })
+    } else {
+      dirtyCycles.current.set(cycle.id, cycle)
+    }
   }
 
   const loadFromSupabase = useCallback(async () => {
@@ -203,7 +208,21 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
   }, [])
 
   useEffect(() => {
-    loadFromSupabase().then(() => { sbReady.current = true })
+    loadFromSupabase().then(() => {
+      sbReady.current = true
+      const dc = dirtyCycles.current
+      if (dc.size > 0) {
+        // Flush cycles edited during load: write to DB and re-apply on top of loaded state
+        dc.forEach(c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
+        const reapply = (prev: Cycle[]) => prev.map(c => dc.get(c.id) ?? c)
+        setHouseworkCycles(reapply)
+        setPersonalFinanceCycles(reapply)
+        setSidoiCycles(reapply)
+        setTobuyCycles(reapply)
+        setPersonalOthersCycles(reapply)
+        dc.clear()
+      }
+    })
   }, [loadFromSupabase])
 
   const addCycle = useCallback((area: PersonalArea, cycle: Cycle) => {

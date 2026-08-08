@@ -219,6 +219,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
   const [completedTitles, setCompletedTitles] = useState<string[]>([])
   const [topCompletedItems, setTopCompletedItems] = useState<{ label: string; area: WorkArea; count: number }[]>([])
   const sbReady = useRef(false)
+  const dirtyDuringLoad = useRef(false)
   const { showToast } = useToast()
   const pendingCompletions = useRef<Map<string, { cycle: Cycle; area: WorkArea; timerId: ReturnType<typeof setTimeout>; archiveId: string; completionId: string }>>(new Map())
 
@@ -329,17 +330,48 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
       // Today tasks — use already-read allTodayRows (avoids a second round-trip)
       const singletonRow = allTodayRows.find(r => r.id === 'singleton')
       if (singletonRow) {
-        setTodayTasks(singletonRow.data)
+        if (dirtyDuringLoad.current) {
+          // User added tasks during load — merge: keep new in-memory tasks, use DB for the rest
+          setTodayTasks(prev => {
+            const dbTasks: TodayTaskData[] = singletonRow.data
+            const dbIds = new Set(dbTasks.map((t: TodayTaskData) => t.id))
+            const newFromMemory = prev.filter((t: TodayTaskData) => !dbIds.has(t.id))
+            return [...newFromMemory, ...dbTasks]
+          })
+        } else {
+          setTodayTasks(singletonRow.data)
+        }
       } else {
         dbWrite({ table: 'today_tasks', operation: 'upsert', data: { id: 'singleton', data: initToday } })
       }
     } finally {
       sbReady.current = true
       setTodayLoaded(true)
+      if (dirtyDuringLoad.current) {
+        // Flush the merged in-memory state to DB now that sbReady is true
+        setTodayTasks(prev => {
+          dbWrite({ table: 'today_tasks', operation: 'upsert', data: { id: 'singleton', data: prev } })
+          return prev
+        })
+        dirtyDuringLoad.current = false
+      }
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { loadFromSupabase() }, [loadFromSupabase])
+
+  // On iOS, switching apps kills in-flight fetch requests. Flush on background so edits survive.
+  useEffect(() => {
+    const flush = () => {
+      if (!document.hidden || !sbReady.current) return
+      setTodayTasks(prev => {
+        dbWrite({ table: 'today_tasks', operation: 'upsert', data: { id: 'singleton', data: prev } })
+        return prev
+      })
+    }
+    document.addEventListener('visibilitychange', flush)
+    return () => document.removeEventListener('visibilitychange', flush)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Refresh (pull-to-refresh) ─────────────────────────────────────────────
   const refreshData = useCallback(async () => {
@@ -388,7 +420,11 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
     if (sbReady.current) dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(cycle) })
   }
   function syncToday(tasks: TodayTaskData[]) {
-    if (sbReady.current) dbWrite({ table: 'today_tasks', operation: 'upsert', data: { id: 'singleton', data: tasks } })
+    if (sbReady.current) {
+      dbWrite({ table: 'today_tasks', operation: 'upsert', data: { id: 'singleton', data: tasks } })
+    } else {
+      dirtyDuringLoad.current = true
+    }
   }
 
   // ── Setters ───────────────────────────────────────────────────────────────

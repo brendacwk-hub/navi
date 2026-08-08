@@ -4,6 +4,18 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-108 · All mobile iPhone Safari edits silently lost on next app open
+**Symptom:** Every edit made in the PWA on iPhone (task additions, cycle item ticks, etc.) was gone the next time the app was opened.
+**Root cause:** Two compounding causes:
+1. `sbReady` race: `syncToday` / `syncCycle` silently dropped writes while `sbReady=false` (the ~3-10s DB load window). Any task added via QuickAdd during loading was never written to DB.
+2. iOS app-kill race: when the user switches apps, iOS cancels in-flight `fetch` requests. A `syncToday` call that fired (after `sbReady=true`) but whose network request was cancelled by iOS before it reached the server was silently lost.
+**Fix:**
+- `work-data-context.tsx`: Added `dirtyDuringLoad` ref. `syncToday` now sets this flag instead of silently dropping when `sbReady=false`. In `loadFromSupabase`'s `finally` block, if dirty: flushes in-memory state to DB. In the today-tasks merge on load: if dirty, new in-memory tasks are prepended to DB tasks instead of being overwritten. Added `visibilitychange` listener that triggers a fresh `syncToday` flush whenever the app goes to the background — catches the iOS kill race.
+- `personal-data-context.tsx`: Added `dirtyCycles` ref (Map). `syncCycle` now stores dirty cycles in the map when `sbReady=false`. After `loadFromSupabase` completes: writes all dirty cycles to DB and re-applies them on top of the loaded state.
+**Lesson:** On mobile PWAs, assume any in-flight `fetch` can be killed at any time. Belt-and-suspenders: (1) dirty flag to protect the load-window, and (2) `visibilitychange` flush to protect the app-kill window. Never silently drop writes.
+
+---
+
 ### B-107 · Clickable 📌 caused accidental unpinning → visual regression + task deletion
 **Symptom:** After B-104 fix, newly created pinned tasks would (a) show as normal tasks (checkbox instead of 📌) and (b) sometimes disappear entirely. Existing pinned tasks also appeared visually identical to regular tasks after a single tap.
 **Root cause:** Making 📌 a clickable unpin button was mobile-hostile. A tap on the left side of the card header — a natural interaction — would hit 📌 first and call `setTodayTaskPinned(id, false)`. The task lost its pinned state and gained a checkbox. A second accidental tap on the checkbox then called `toggleTodayTask`, which (per the B-105 fix) immediately removes a non-pinned task when it transitions from undone → done.
