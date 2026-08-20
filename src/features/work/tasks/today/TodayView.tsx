@@ -516,6 +516,21 @@ export function TodayView() {
   const [sheetCycle, setSheetCycle] = useState<Cycle | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
 
+  // Force re-render when the calendar day rolls over (app backgrounded past midnight).
+  // Without this, cyclesToday stays frozen at the previous day and recurring cycles
+  // that trigger on a specific date (e.g. "Every 20th of month") never appear.
+  const [, setDateKey] = useState(() => new Date().toDateString())
+  useEffect(() => {
+    const checkDate = () => {
+      setDateKey(prev => {
+        const now = new Date().toDateString()
+        return prev !== now ? now : prev
+      })
+    }
+    document.addEventListener('visibilitychange', checkDate)
+    return () => document.removeEventListener('visibilitychange', checkDate)
+  }, [])
+
   const today = new Date()
   const todayStr0 = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
   const ORDER_KEY = `navi-today-order-${todayStr0}`

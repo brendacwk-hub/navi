@@ -22,6 +22,28 @@ Before building any feature that touches an existing area, re-read the relevant 
 
 ---
 
+# Recurring cycle reset rules (B-109)
+
+When writing or modifying `resetCycle()` or any function that resets a cycle to a fresh state:
+
+1. **Always reset `status` explicitly.** Never rely on `{ ...cycle }` to carry the right status — a completed cycle has `status='complete'`, which silently kills it after `applyRecurrenceResets` fires. The correct reset is `{ ...cycle, status: 'upcoming' as const, ... }`.
+
+2. **Always shift sub-item `due` dates forward.** Sub-item `due` dates are relative to the cycle's period. Resetting item `status` but not `due` leaves stale dates from the previous period, which makes items appear overdue immediately and breaks analytics. Use `inferInterval(triggerLabel)` + `shiftDueDate()` (both in `sort-utils.ts`) to advance each `due` by one recurrence interval.
+
+3. **`applyRecurrenceResets` only fires when `nextDueAt` is set.** Cycles that are never fully completed (partial ticks only) never get `nextDueAt`, so `applyRecurrenceResets` never runs for them. Sub-item dates on such cycles must be fixed manually or via a one-time migration.
+
+---
+
+# Date-dependent `useMemo` in PWA views (B-109)
+
+Any `useMemo` that filters or classifies data by "today's date" (`cyclesToday`, `chainItems`, etc.) must account for the app being backgrounded past midnight on iOS.
+
+- `today = new Date()` is called fresh each render, but a memoized result only updates when its deps change.
+- If the iOS app is kept alive in background and foregrounded the next day, no re-render fires unless triggered explicitly.
+- **Pattern**: add a `visibilitychange` listener that calls `setDateKey(prev => now !== prev ? now : prev)` using `new Date().toDateString()`. Add this state to the component that holds the date-dependent memo, so foregrounding on a new day forces a re-render and the memo recalculates with the correct date.
+
+---
+
 # Due date / recurrence UI — consistency rule
 
 **Every place where users set a due date or schedule must have identical options:**

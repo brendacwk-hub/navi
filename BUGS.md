@@ -4,6 +4,20 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-109 · Recurring cycle not renewed on trigger date
+**Symptom:** Budget cycle (triggerLabel "Every 20th of month") did not appear on Today's tab on Aug 20.
+**Root cause:** Three compounding issues:
+1. `resetCycle()` in `sort-utils.ts` spread `{ ...cycle }` without overriding `status`, so any cycle whose `status='complete'` was set via the `updateCycle` fallthrough path (patch.status='complete' bypasses the `!isRecurring` guard at line 447 and hits the generic `{ ...c, ...patch }` at line 461) came back from `applyRecurrenceResets` still `status='complete'` and was filtered by `active.filter(c => c.status !== 'complete')`.
+2. `resetCycle()` reset item `status` back to `'todo'` but never advanced the `due` dates on sub-items — stale June due dates accumulated each month the cycle ran.
+3. `TodayView` computes `today = new Date()` inline (fresh each render) but `cyclesToday` is a `useMemo` that only re-evaluates when its deps change. If the app is kept alive past midnight in iOS background, the component doesn't re-render and `cyclesToday` stays frozen at the previous day — "Every 20th" would return false if checked against the 19th. The overdue sub-item dates rescued Budget specifically, but any cycle with no item due dates would silently miss its trigger day.
+**Fix:**
+- `sort-utils.ts` `resetCycle`: added `status: 'upcoming' as const` to base object; added `inferInterval(triggerLabel)` + `shiftDueDate()` helpers to shift sub-item `due` dates forward by one recurrence period on reset.
+- `TodayView.tsx`: added `visibilitychange` listener that calls `setDateKey` when the calendar day changes, forcing a re-render so `today`, `todayStr`, and `cyclesToday` all update to the current date.
+- One-time DB fix needed (blocked in auto-mode): Budget's sub-item dates stuck at June 2026; need manual shift in Finance tab or via script.
+**Lesson:** Never write `{ ...cycle }` in a reset function — always enumerate the fields being reset explicitly, including top-level `status`. For any `useMemo` whose output depends on "today's date", add a `visibilitychange` trigger to force re-evaluation when the app is foregrounded after midnight.
+
+---
+
 ### B-108 · All mobile iPhone Safari edits silently lost on next app open
 **Symptom:** Every edit made in the PWA on iPhone (task additions, cycle item ticks, etc.) was gone the next time the app was opened.
 **Root cause:** Two compounding causes:

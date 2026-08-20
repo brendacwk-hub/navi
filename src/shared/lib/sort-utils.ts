@@ -460,17 +460,48 @@ export function allCycleDone(cycle: Cycle): boolean {
   return checkItems(cycle.items ?? [])
 }
 
+// Infer the recurrence interval from any trigger label format.
+function inferInterval(triggerLabel: string | undefined): { n: number; unit: string } | null {
+  if (!triggerLabel) return null
+  const rp = parseRecurrFields(triggerLabel)
+  if (rp) return { n: rp.n, unit: rp.unit }
+  const l = triggerLabel.toLowerCase()
+  const weekdays = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
+  if (weekdays.some(w => l.includes(w))) return { n: 1, unit: 'week' }
+  if ((l.includes('last') && l.includes('day')) || (l.includes('1st') && l.includes('work'))) return { n: 1, unit: 'month' }
+  if (/\b\d{1,2}(?:st|nd|rd|th)\b/.test(l)) return { n: 1, unit: 'month' }
+  if (l.includes('every day') || l.includes('daily')) return { n: 1, unit: 'day' }
+  return null
+}
+
+function shiftDueDate(due: string, iv: { n: number; unit: string }): string {
+  const d = new Date(due + 'T00:00:00')
+  if (iv.unit === 'day')   d.setDate(d.getDate() + iv.n)
+  else if (iv.unit === 'week')  d.setDate(d.getDate() + iv.n * 7)
+  else if (iv.unit === 'month') d.setMonth(d.getMonth() + iv.n)
+  else if (iv.unit === 'year')  d.setFullYear(d.getFullYear() + iv.n)
+  return localIso(d)
+}
+
 export function resetCycle(cycle: Cycle): Cycle {
+  const iv = inferInterval(cycle.triggerLabel)
   const resetItems = (items: ChecklistItem[]): ChecklistItem[] =>
     items.map(item => ({
-      ...item, status: 'todo' as const,
-      subItems: item.subItems?.map(s => ({ ...s, status: 'todo' as const })),
+      ...item,
+      status: 'todo' as const,
+      due: item.due && iv ? shiftDueDate(item.due, iv) : item.due,
+      subItems: item.subItems?.map(s => ({
+        ...s, status: 'todo' as const,
+        due: s.due && iv ? shiftDueDate(s.due, iv) : s.due,
+      })),
     }))
-  const base = { ...cycle, lastCompletedAt: undefined, nextDueAt: undefined }
+  // Reset cycle-level status so recurring cycles resurface after completion.
+  // Without this, a cycle whose status=complete is never passed through
+  // active.filter(c => c.status !== 'complete') after applyRecurrenceResets fires.
+  const base = { ...cycle, status: 'upcoming' as const, lastCompletedAt: undefined, nextDueAt: undefined }
   if (cycle.phases) {
     return {
       ...base,
-      // All phases back to upcoming — user can open each when the time comes
       phases: cycle.phases.map(p => ({
         ...p,
         status: 'upcoming' as const,
