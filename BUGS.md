@@ -4,6 +4,17 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-110 · Sub-task and checklist item completions written with no date
+**Symptom:** When a sub-item inside a Today task was ticked done, no completion record was written at all. When a checklist item inside a cycle was ticked, also no record. The parent Today task's own record (written only when all sub-items done) had no explicit `completed_at` — relying silently on a Supabase DB default.
+**Root cause:** `toggleTodaySubItem` only recorded the parent task (when all sub-items were finished), never the individual sub-item. `toggleItem` only wrote `cycle_completions` for the whole cycle — never a per-item record. Neither sent `completed_at` explicitly.
+**Fix:** Three changes in `work-data-context.tsx`:
+1. `toggleTodayTask`: added `completed_at: new Date().toISOString()` to the existing insert.
+2. `toggleTodaySubItem`: when a sub-item is ticked to done, immediately write a `task_completions` row (`task_id = "${parentId}::${subId}"`) with `completed_at`. When the last sub-item finishes the parent, also adds `completed_at` to the parent record.
+3. `toggleItem` (cycles): captures the item's new status inside the `patchCycleItem` transform; if it became `done`, writes a `task_completions` row (`task_id = "${cycleId}::${itemId}"`) with `completed_at`.
+**Lesson:** Always send `completed_at` explicitly rather than relying on a DB default — it may not be set in all environments or during tests. Every level of completion (parent task, sub-item, cycle item) needs its own record. Un-ticking does NOT write a record.
+
+---
+
 ### B-109 · Recurring cycle not renewed on trigger date
 **Symptom:** Budget cycle (triggerLabel "Every 20th of month") did not appear on Today's tab on Aug 20.
 **Root cause:** Three compounding issues:

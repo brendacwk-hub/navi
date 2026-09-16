@@ -466,11 +466,26 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
 
   const toggleItem = useCallback((area: WorkArea, cycleId: string, itemId: string) => {
     cycleSetter(area)(prev => {
+      let itemBecameDone = false
+      let itemLabel = ''
+      let itemUrgent = false
       const toggled = prev.map(c => c.id === cycleId
-        ? patchCycleItem(c, itemId, i => ({ ...i, status: i.status === 'done' ? 'todo' : 'done' } as ChecklistItem))
+        ? patchCycleItem(c, itemId, i => {
+            const newStatus = i.status === 'done' ? 'todo' : 'done'
+            if (newStatus === 'done') { itemBecameDone = true; itemLabel = i.label; itemUrgent = i.urgent ?? false }
+            return { ...i, status: newStatus } as ChecklistItem
+          })
         : c)
       const changed = toggled.find(c => c.id === cycleId)
       if (!changed) return toggled
+      // Record individual item completion
+      if (itemBecameDone) {
+        dbWrite({
+          table: 'task_completions',
+          operation: 'insert',
+          data: { task_id: `${cycleId}::${itemId}`, title: itemLabel, area: changed.area, effort: changed.effort, must: changed.must, urgent: itemUrgent, mode: 'work', completed_at: new Date().toISOString() },
+        })
+      }
       // If recurring and was marked done but items are now incomplete → un-done it
       if (isRecurring(changed.triggerLabel) && changed.nextDueAt && !allCycleDone(changed)) {
         const withCleared = { ...changed, nextDueAt: undefined }
@@ -609,7 +624,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
         dbWrite({
           table: 'task_completions',
           operation: 'insert',
-          data: { task_id: task.id, title: task.label, area: task.area, effort: task.effort, must: task.must, urgent: task.urgent ?? false, mode: 'work' },
+          data: { task_id: task.id, title: task.label, area: task.area, effort: task.effort, must: task.must, urgent: task.urgent ?? false, mode: 'work', completed_at: new Date().toISOString() },
         })
         const next = prev.filter(t => t.id !== taskId)
         syncToday(next)
@@ -631,12 +646,21 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
       const parent = patched.find(t => t.id === taskId)
       if (parent && !parent.pinned) {
         const subs = parent.subItems ?? []
-        if (subs.length > 0 && subs.every(s => s.done)) {
-          // All sub-items done: log completion and remove parent task
+        const tickedSub = subs.find(s => s.id === subId)
+        // If this tick made the sub-item done (not un-done), record it
+        if (tickedSub?.done) {
           dbWrite({
             table: 'task_completions',
             operation: 'insert',
-            data: { task_id: parent.id, title: parent.label, area: parent.area, effort: parent.effort, must: parent.must, urgent: parent.urgent ?? false, mode: 'work' },
+            data: { task_id: `${taskId}::${subId}`, title: tickedSub.label, area: parent.area, effort: parent.effort, must: parent.must, urgent: tickedSub.urgent ?? false, mode: 'work', completed_at: new Date().toISOString() },
+          })
+        }
+        if (subs.length > 0 && subs.every(s => s.done)) {
+          // All sub-items done: log parent completion and remove parent task
+          dbWrite({
+            table: 'task_completions',
+            operation: 'insert',
+            data: { task_id: parent.id, title: parent.label, area: parent.area, effort: parent.effort, must: parent.must, urgent: parent.urgent ?? false, mode: 'work', completed_at: new Date().toISOString() },
           })
           const next = patched.filter(t => t.id !== taskId)
           syncToday(next)
