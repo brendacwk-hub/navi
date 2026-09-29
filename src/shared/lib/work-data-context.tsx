@@ -67,29 +67,6 @@ function toRow(c: Cycle) {
   return row
 }
 
-// Merge static phase structure with DB phase statuses.
-// Static wins for structure (items, subItems, labels); DB wins for status fields only.
-function mergePhases(staticPhases: Cycle['phases'], dbPhases: Cycle['phases']): Cycle['phases'] {
-  if (!staticPhases) return dbPhases
-  if (!dbPhases) return staticPhases
-  const dbById = new Map(dbPhases.map(p => [p.id, p]))
-  return staticPhases.map(sp => {
-    const dbP = dbById.get(sp.id)
-    if (!dbP) return sp
-    const dbItemById = new Map(dbP.items.map(i => [i.id, i]))
-    const mergedItems = sp.items.map(si => {
-      const dbI = dbItemById.get(si.id)
-      if (!dbI) return si
-      const mergedSubs = si.subItems?.map(ss => {
-        const dbS = dbI.subItems?.find(ds => ds.id === ss.id)
-        return dbS ? { ...ss, status: dbS.status } : ss
-      })
-      return { ...si, status: dbI.status, ...(mergedSubs ? { subItems: mergedSubs } : {}) }
-    })
-    return { ...sp, status: dbP.status, items: mergedItems }
-  })
-}
-
 // Check and reset any cycles whose nextDueAt has passed
 function applyRecurrenceResets(cycles: Cycle[], onReset: (c: Cycle) => void): Cycle[] {
   const _d = new Date(); const today = `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`
@@ -274,7 +251,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
             if (!s) return row
             return {
               ...row,
-              phases: s.phases ? mergePhases(s.phases, row.phases) : row.phases,
+              phases: row.phases ?? s.phases,
             }
           }),
           ...toInsert,
@@ -393,7 +370,7 @@ export function WorkDataProvider({ children }: { children: React.ReactNode }) {
           const row = fromRow(r)
           const s = staticById.get(row.id)
           if (!s) return row
-          return { ...row, phases: s.phases ? mergePhases(s.phases, row.phases) : row.phases }
+          return { ...row, phases: row.phases ?? s.phases }
         })
         const resetRefreshed = applyRecurrenceResets(hydrated, c => dbWrite({ table: 'cycles', operation: 'upsert', data: toRow(c) }))
         const now2 = new Date()

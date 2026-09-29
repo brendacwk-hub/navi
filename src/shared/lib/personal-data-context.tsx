@@ -74,27 +74,6 @@ function applyRecurrenceResets(cycles: Cycle[], onReset: (c: Cycle) => void): Cy
   })
 }
 
-function mergePhases(staticPhases: Cycle['phases'], dbPhases: Cycle['phases']): Cycle['phases'] {
-  if (!staticPhases) return dbPhases
-  if (!dbPhases) return staticPhases
-  const dbById = new Map(dbPhases.map(p => [p.id, p]))
-  return staticPhases.map(sp => {
-    const dbP = dbById.get(sp.id)
-    if (!dbP) return sp
-    const dbItemById = new Map(dbP.items.map(i => [i.id, i]))
-    const mergedItems = sp.items.map(si => {
-      const dbI = dbItemById.get(si.id)
-      if (!dbI) return si
-      const mergedSubs = si.subItems?.map(ss => {
-        const dbS = dbI.subItems?.find(ds => ds.id === ss.id)
-        return dbS ? { ...ss, status: dbS.status } : ss
-      })
-      return { ...si, status: dbI.status, ...(mergedSubs ? { subItems: mergedSubs } : {}) }
-    })
-    return { ...sp, status: dbP.status, items: mergedItems }
-  })
-}
-
 // ── Item patchers ─────────────────────────────────────────────────────────────
 function patchItem(items: ChecklistItem[], id: string, fn: (i: ChecklistItem) => ChecklistItem): ChecklistItem[] {
   return items.map(item => {
@@ -187,7 +166,7 @@ export function PersonalDataProvider({ children }: { children: React.ReactNode }
         ...rows.map(r => {
           const row = fromRow(r)
           const s = staticById.get(row.id)
-          return s?.phases ? { ...row, phases: mergePhases(s.phases, row.phases) } : row
+          return { ...row, phases: row.phases ?? s?.phases }
         }),
         ...toInsert,
       ]

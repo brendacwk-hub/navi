@@ -4,6 +4,12 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-111 · Structural edits to Payroll silently reverted on every reload
+**Symptom:** Brenda deleted two sub-items ("DT HSBC", "Duom bcom") from the Payroll cycle's Fiat checklist. The deletion saved correctly to Supabase, but both reappeared on the next page load. Ticking boxes persisted fine; adding, deleting or renaming a step never stuck.
+**Root cause:** `mergePhases()` in `work-data-context.tsx` (and a duplicate in `personal-data-context.tsx`) rebuilt phase structure from the hardcoded starter data on every load — its own comment stated "Static wins for structure (items, subItems, labels); DB wins for status fields only." It mapped over `staticPhases`, so any item the user removed in the DB was re-added from code, and any item they added was dropped. Only cycles present in the static seed *with* `phases` were affected — in practice just `payroll`.
+**Fix:** Deleted `mergePhases` from both contexts. The three call sites now read `phases: row.phases ?? s.phases` — the DB row is the source of truth, with the static seed used only as a fallback when a row has no phases at all (and still for first insert of a brand-new cycle).
+**Lesson:** Never let hardcoded seed data override user-editable structure on load. Seed data is for first insert only. If a merge is ever genuinely needed, it must iterate over the DB rows and treat code as the additive side — never map over the static array.
+
 ### B-110 · Sub-task and checklist item completions written with no date
 **Symptom:** When a sub-item inside a Today task was ticked done, no completion record was written at all. When a checklist item inside a cycle was ticked, also no record. The parent Today task's own record (written only when all sub-items done) had no explicit `completed_at` — relying silently on a Supabase DB default.
 **Root cause:** `toggleTodaySubItem` only recorded the parent task (when all sub-items were finished), never the individual sub-item. `toggleItem` only wrote `cycle_completions` for the whole cycle — never a per-item record. Neither sent `completed_at` explicitly.
