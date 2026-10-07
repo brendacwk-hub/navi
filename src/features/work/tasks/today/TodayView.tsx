@@ -19,7 +19,7 @@ import { CycleCard } from '@/shared/components/CycleCard'
 import { WeeklyReview } from '@/shared/components/WeeklyReview'
 import { WeeklyFocusStrip } from '@/shared/components/WeeklyFocusStrip'
 import { CycleDetailSheet } from '@/shared/components/CycleDetailSheet'
-import type { Cycle } from '@/shared/types'
+import type { Cycle, WorkArea } from '@/shared/types'
 import type { TodayTaskData } from './data'
 
 const areaColor = {
@@ -509,7 +509,7 @@ function HabitStrip() {
 
 export function TodayView() {
   const { query } = useSearch()
-  const { todayTasks, todayLoaded, financeCycles, hrCycles, opsCycles, othersCycles } = useWorkData()
+  const { todayTasks, todayLoaded, financeCycles, hrCycles, opsCycles, othersCycles, updateCycle } = useWorkData()
   const { items: inboxItems } = useInbox()
   const { thisWeekFocus, isReviewDue, saveReview, dismissReview } = useWeeklyReview()
   const [showReview, setShowReview] = useState(false)
@@ -861,6 +861,12 @@ export function TodayView() {
       <WeeklyReview
         allCycles={allCycles}
         onSave={async (data) => { await saveReview(data); setShowReview(false) }}
+        onApply={(actions) => {
+          for (const a of actions) {
+            if (a.act === 'reschedule' && a.toDate) updateCycle(a.area as WorkArea, a.id, { triggerLabel: a.toDate })
+            else if (a.act === 'archive') updateCycle(a.area as WorkArea, a.id, { status: 'complete' })
+          }
+        }}
         onDismiss={() => { dismissReview(); setShowReview(false) }}
         todayStr={todayStr}
       />

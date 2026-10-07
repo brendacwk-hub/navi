@@ -21,6 +21,19 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-110 · Weekly Review: dead "Slipped" actions, truncated Focus list, HKT date drift
+**Symptom:** Three faults in the Monday check-in, found while the user was mid-review. (1) Tagging an overdue item "Move to next week" did nothing — the task kept its old date. (2) Step 4 Focus offered only 8 options and only MUST/Urgent cycles, so most open tasks could never be picked. (3) Step 1 reached back a day too far and Step 3 stopped at Thursday, hiding anything due Friday.
+**Root cause:**
+1. `handleComplete` wrote a `deferred` array into `weekly_reviews` but never called `updateCycle` — the reasons were recorded as data and never acted on. Every reason also got the same `toDate` (next Monday) regardless of which one was chosen.
+2. `focusSuggestions` filtered `c.must || c.urgent` then `.slice(0, 8)`. It also omitted the `nextDueAt` guard, so a recurring cycle already done for this period still appeared as a focus option (same class as B-69).
+3. `lastMondayStr`, `weekEndStr` and `nextMondayStr` built a Date at **local** midnight then read it back with `.toISOString().slice(0,10)`. In HKT local midnight is 16:00 UTC the previous day, so every derived date came out one day early.
+**Fix:**
+- `WeeklyReview.tsx`: added local `toISO()` and `sameWeekdayNextWeek()`; replaced all three `.toISOString().slice(0,10)` calls.
+- `DEFER_REASONS` became objects carrying `effect` + `act` (`reschedule` | `none` | `archive`). The chip row shows each effect, and the resolved date, before the user commits.
+- New `onApply(actions)` prop; `TodayView` runs it against `updateCycle` — reschedule sets `triggerLabel` to the same weekday next week, archive sets `status: 'complete'`.
+- `focusSuggestions` → `focusOptions`: every cycle where `status !== 'complete' && !nextDueAt && !allCycleDone(c)`, MUST/Urgent first then by due date, with a search box and a scrollable list.
+**Lesson:** A choice recorded in the DB is not a choice acted on — if a control implies an effect, wire the effect in the same commit or the UI lies. And any picker over "open" cycles needs the full B-69 guard (`status`, `nextDueAt`, `allCycleDone`), not just `status`. The `toISOString().slice(0,10)` pattern is still live elsewhere (analytics, see audit memory) — it is always wrong in HKT when the Date was built at local midnight.
+
 ### B-109 · Recurring cycle not renewed on trigger date
 **Symptom:** Budget cycle (triggerLabel "Every 20th of month") did not appear on Today's tab on Aug 20.
 **Root cause:** Three compounding issues:
@@ -852,5 +865,5 @@ Because `next_due_at` was a month away, `applyRecurrenceResets` (which only rese
 
 - Add a new entry immediately after each fix, while context is fresh.
 - Each entry must include: **symptom**, **root cause**, **fix**, **lesson**.
-- Number sequentially (next is B-100).
+- Number sequentially (next is B-111).
 - Before building a new feature that touches an area — re-read relevant entries to avoid repeating past mistakes.

@@ -1,8 +1,24 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { X, Check, ChevronRight, Star } from 'lucide-react'
+import { X, Check, ChevronRight, Star, Search, ArrowRight, Archive, Clock } from 'lucide-react'
+import { allCycleDone } from '@/shared/lib/sort-utils'
 import type { Cycle } from '@/shared/types'
+
+// Local date string. Never toISOString() — in HKT that returns the previous day.
+function toISO(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// Same weekday, in the week that starts next Monday.
+function sameWeekdayNextWeek(dueISO: string, todayStr: string): string {
+  const due = new Date(dueISO + 'T00:00:00')
+  const today = new Date(todayStr + 'T00:00:00')
+  const nextMon = new Date(today)
+  nextMon.setDate(today.getDate() + (8 - (today.getDay() || 7)))
+  nextMon.setDate(nextMon.getDate() + ((due.getDay() + 6) % 7))
+  return toISO(nextMon)
+}
 
 const AREA_DOT: Record<string, string> = {
   finance: 'bg-finance', hr: 'bg-hr', ops: 'bg-ops', others: 'bg-others',
@@ -11,15 +27,21 @@ const AREA_TEXT: Record<string, string> = {
   finance: 'text-finance', hr: 'text-hr', ops: 'text-ops', others: 'text-others',
 }
 
+// Each reason says what it actually does, so nothing happens by surprise.
 const DEFER_REASONS = [
-  'Waiting on someone',
-  'Still in progress',
-  'Not needed',
-  'Move to next week',
+  { label: 'Move to next week', effect: 'moves to the same weekday next week', act: 'reschedule' },
+  { label: 'Still in progress', effect: 'keeps its date', act: 'none' },
+  { label: 'Waiting on someone', effect: 'keeps its date', act: 'none' },
+  { label: 'Not needed', effect: 'archives it', act: 'archive' },
 ] as const
-type DeferReason = (typeof DEFER_REASONS)[number]
+type DeferReason = (typeof DEFER_REASONS)[number]['label']
+const ACT_OF = Object.fromEntries(DEFER_REASONS.map(r => [r.label, r.act])) as Record<DeferReason, 'reschedule' | 'none' | 'archive'>
+const REASON_ICON: Record<string, typeof ArrowRight> = {
+  reschedule: ArrowRight, none: Clock, archive: Archive,
+}
 
 interface DeferDecision { id: string; reason: DeferReason }
+export interface DeferAction { id: string; area: string; act: 'reschedule' | 'none' | 'archive'; toDate?: string }
 
 interface WeeklyReviewProps {
   allCycles: Cycle[]
@@ -30,24 +52,26 @@ interface WeeklyReviewProps {
     notes?: string
   }) => Promise<void>
   onDismiss: () => void
+  onApply: (actions: DeferAction[]) => void
   todayStr: string
 }
 
 const STEPS = ['Wins', 'Slipped', 'Rhythm', 'Focus'] as const
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
-export function WeeklyReview({ allCycles, onSave, onDismiss, todayStr }: WeeklyReviewProps) {
+export function WeeklyReview({ allCycles, onSave, onDismiss, onApply, todayStr }: WeeklyReviewProps) {
   const [step, setStep] = useState(1)
   const [notes, setNotes] = useState('')
   const [deferDecisions, setDeferDecisions] = useState<DeferDecision[]>([])
   const [focusIds, setFocusIds] = useState<string[]>([])
+  const [focusQuery, setFocusQuery] = useState('')
   const [saving, setSaving] = useState(false)
 
   // Last Monday (7 days ago)
   const lastMondayStr = useMemo(() => {
     const d = new Date(todayStr + 'T00:00:00')
     d.setDate(d.getDate() - 7)
-    return d.toISOString().slice(0, 10)
+    return toISO(d)
   }, [todayStr])
 
   // Friday of this week
@@ -55,7 +79,7 @@ export function WeeklyReview({ allCycles, onSave, onDismiss, todayStr }: WeeklyR
     const d = new Date(todayStr + 'T00:00:00')
     const daysLeft = (5 - d.getDay() + 7) % 7
     d.setDate(d.getDate() + daysLeft)
-    return d.toISOString().slice(0, 10)
+    return toISO(d)
   }, [todayStr])
 
   // Step 1: completed last week
@@ -94,17 +118,26 @@ export function WeeklyReview({ allCycles, onSave, onDismiss, todayStr }: WeeklyR
     [allCycles, todayStr, weekEndStr]
   )
 
-  // Step 4: suggested focus picks (must + urgent, not done)
-  const focusSuggestions = useMemo(() =>
+  // Step 4: every open cycle — must/urgent first, then the rest.
+  // nextDueAt means a recurring cycle is already done for this period (B-69).
+  const focusOptions = useMemo(() =>
     allCycles
-      .filter(c => c.status !== 'complete' && (c.must || c.urgent))
+      .filter(c => c.status !== 'complete' && !c.nextDueAt && !allCycleDone(c))
       .sort((a, b) => {
         const score = (c: Cycle) => (c.must ? 2 : 0) + (c.urgent ? 1 : 0)
-        return score(b) - score(a)
-      })
-      .slice(0, 8),
+        const d = score(b) - score(a)
+        if (d) return d
+        const due = (c: Cycle) => (ISO_DATE.test(c.triggerLabel ?? '') ? c.triggerLabel! : '9999')
+        return due(a).localeCompare(due(b)) || a.title.localeCompare(b.title)
+      }),
     [allCycles]
   )
+  const visibleFocus = useMemo(() => {
+    const q = focusQuery.trim().toLowerCase()
+    if (!q) return focusOptions
+    return focusOptions.filter(c =>
+      c.title.toLowerCase().includes(q) || (c.subArea ?? '').toLowerCase().includes(q) || c.area.includes(q))
+  }, [focusOptions, focusQuery])
 
   function toggleFocus(id: string) {
     setFocusIds(prev =>
@@ -126,16 +159,22 @@ export function WeeklyReview({ allCycles, onSave, onDismiss, todayStr }: WeeklyR
 
   async function handleComplete() {
     setSaving(true)
-    const nextMonday = new Date(todayStr + 'T00:00:00')
-    nextMonday.setDate(nextMonday.getDate() + 7)
-    const nextMondayStr = nextMonday.toISOString().slice(0, 10)
+    const byId = new Map(overdueCycles.map(c => [c.id, c]))
+    const actions: DeferAction[] = deferDecisions.map(d => {
+      const c = byId.get(d.id)
+      const act = ACT_OF[d.reason]
+      const toDate = act === 'reschedule' && c && ISO_DATE.test(c.triggerLabel ?? '')
+        ? sameWeekdayNextWeek(c.triggerLabel!, todayStr) : undefined
+      return { id: d.id, area: c?.area ?? '', act, toDate }
+    })
+    onApply(actions)
 
     await onSave({
       completedIds: completedLastWeek.map(c => c.id),
-      deferred: deferDecisions.map(d => ({
-        id: d.id,
-        toDate: nextMondayStr,
-        reason: d.reason,
+      deferred: actions.map(a => ({
+        id: a.id,
+        toDate: a.toDate ?? '',
+        reason: deferDecisions.find(d => d.id === a.id)!.reason,
       })),
       focusIds,
       notes: notes.trim() || undefined,
@@ -256,20 +295,32 @@ export function WeeklyReview({ allCycles, onSave, onDismiss, todayStr }: WeeklyR
                             <span className="text-[10px] text-white/25 flex-shrink-0">{c.triggerLabel}</span>
                           </div>
                           <div className="flex gap-1.5 flex-wrap">
-                            {DEFER_REASONS.map(r => (
-                              <button
-                                key={r}
-                                onClick={() => setDeferReason(c.id, r)}
-                                className={`text-[10px] px-2 py-1 rounded-lg border transition-all ${
-                                  decision?.reason === r
-                                    ? 'bg-navi-blue/20 border-navi-blue/40 text-navi-blue'
-                                    : 'border-white/10 text-white/35 hover:border-white/20 hover:text-white/55'
-                                }`}
-                              >
-                                {r}
-                              </button>
-                            ))}
+                            {DEFER_REASONS.map(r => {
+                              const Icon = REASON_ICON[r.act]
+                              const on = decision?.reason === r.label
+                              return (
+                                <button
+                                  key={r.label}
+                                  onClick={() => setDeferReason(c.id, r.label)}
+                                  className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg border transition-all ${
+                                    on
+                                      ? 'bg-navi-blue/20 border-navi-blue/40 text-navi-blue'
+                                      : 'border-white/10 text-white/35 hover:border-white/20 hover:text-white/55'
+                                  }`}
+                                >
+                                  <Icon className="w-2.5 h-2.5" />{r.label}
+                                </button>
+                              )
+                            })}
                           </div>
+                          {decision && (
+                            <p className="text-[10px] text-white/30 mt-2">
+                              On save: {DEFER_REASONS.find(r => r.label === decision.reason)?.effect}
+                              {ACT_OF[decision.reason] === 'reschedule' && ISO_DATE.test(c.triggerLabel ?? '') && (
+                                <span className="text-navi-blue"> — {sameWeekdayNextWeek(c.triggerLabel!, todayStr)}</span>
+                              )}
+                            </p>
+                          )}
                         </div>
                       )
                     })}
@@ -333,17 +384,32 @@ export function WeeklyReview({ allCycles, onSave, onDismiss, todayStr }: WeeklyR
                 Pick up to 3 things to protect this week.
               </p>
               <p className="text-xs text-white/40 -mt-2 leading-relaxed">
-                Not the full list — just the ones you commit to finishing.
-                These stay pinned at the top of Today all week.
+                Every open task is listed — Must and Urgent first. These stay pinned
+                at the top of Today all week.
               </p>
 
-              {focusSuggestions.length === 0 ? (
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-white/25 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  id="focus-search"
+                  value={focusQuery}
+                  onChange={e => setFocusQuery(e.target.value)}
+                  placeholder={`Search ${focusOptions.length} open tasks...`}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-3 py-2 text-sm text-white/75 placeholder:text-white/20 focus:outline-none focus:border-navi-blue/40 transition-colors"
+                />
+              </div>
+
+              {focusOptions.length === 0 ? (
                 <p className="text-xs text-white/30 py-4 text-center">
-                  No must/urgent cycles right now. Add some via the area tabs.
+                  Nothing open right now.
+                </p>
+              ) : visibleFocus.length === 0 ? (
+                <p className="text-xs text-white/30 py-4 text-center">
+                  No task matches &ldquo;{focusQuery}&rdquo;.
                 </p>
               ) : (
-                <div className="space-y-1.5">
-                  {focusSuggestions.map(c => {
+                <div className="space-y-1.5 max-h-[38vh] overflow-y-auto -mx-1 px-1">
+                  {visibleFocus.map(c => {
                     const selected = focusIds.includes(c.id)
                     const blocked = !selected && focusIds.length >= 3
                     return (
@@ -368,6 +434,7 @@ export function WeeklyReview({ allCycles, onSave, onDismiss, todayStr }: WeeklyR
                         <span className={`text-sm flex-1 min-w-0 truncate ${selected ? 'text-white/85' : 'text-white/60'}`}>
                           {c.title}
                         </span>
+                        {c.subArea && <span className="text-[10px] text-white/25 flex-shrink-0 hidden sm:inline">{c.subArea}</span>}
                         {c.must && <span className="text-[10px] text-red-400 flex-shrink-0">Must</span>}
                         {c.urgent && !c.must && <span className="text-[10px] text-orange-400 flex-shrink-0">⚠</span>}
                       </button>
@@ -386,6 +453,11 @@ export function WeeklyReview({ allCycles, onSave, onDismiss, todayStr }: WeeklyR
                 ))}
                 <span className="text-[11px] text-white/35 ml-1 tabular-nums">{focusIds.length}/3</span>
               </div>
+              {focusIds.length >= 3 && (
+                <p className="text-[10px] text-white/30 -mt-2">
+                  Three picked — deselect one to swap it out.
+                </p>
+              )}
 
               <button
                 onClick={handleComplete}
