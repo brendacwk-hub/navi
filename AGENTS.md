@@ -156,3 +156,43 @@ Header reads `usePathname()` to determine active mode for the badge pill.
 
 ## Components reused from Work mode (no changes needed)
 CycleCard, ChecklistItem, RecurrencePicker, sort-utils, filter-utils, search-utils, QuickAddButton (area selector extended)
+
+---
+
+# Diary question rules (`personal/diary-questions.json`)
+
+These rules are non-negotiable. Brenda reviews every batch and has cut questions that break them.
+
+## What a good question looks like
+- **One glance readable.** No nested clauses or stacked qualifications. If it takes two reads, simplify it.
+- **Feeling and noticing frame.** "How does X feel?" not "Did you do X?" Reflection, not reporting.
+- **Specific enough to anchor a response.** Vague questions ("Is your body telling you something?") get cut. Give the reader a clear starting point.
+- **Plausible time scale.** "Today" only works for things that realistically happen in a single day. Questions about conversations, decisions, or moods that unfold over days should drop the "today" framing.
+- **Positive or curious tone.** Never "did you fail to X" or avoidance/guilt framing.
+
+## Hard rules by category
+
+**Finance** — feelings about trajectory ONLY. No strategic moves, no habits to build, no investment decisions. Brenda uses a separate AI agent for finance planning; the diary is not the place for it.
+
+**Sidoi** — creative feeling and energy ONLY. No planning, no strategy, no aesthetic direction, no ideas to develop. Brenda uses a separate AI agent for Sidoi planning.
+
+**Work reflection** — already well-stocked (18+ questions). Add sparingly. No team dynamics, no operational detail, no "today was busy" questions.
+
+**Home** — keep concrete. No abstract metaphors (sanctuary, backdrop). No questions that duplicate the existing home bank.
+
+**Relationships** — warmth and connection quality only. No accountability ("have you been neglecting X?"), no family-specific questions, no implausible daily prompts.
+
+## What gets cut
+Based on actual review feedback, these patterns reliably get cut:
+- Wording that's hard to parse on first read
+- Any question where the theme already exists in the bank (check before writing)
+- Finance/Sidoi questions that cross into planning territory
+- "Someday" aspirations — too distant for a daily diary
+- Confidence-boosting framing ("Did you feel like an expert?") — performative, not genuine
+- Too many work questions in one batch
+- Questions where "today" doesn't make sense (e.g. deep personal honesty conversations)
+
+## Bank rules
+- **100-question floor.** If (total − questions with skip_count ≥ 2) < 50, generate new questions to bring total back above 100.
+- IDs are stable and never renumbered. Only append (next ID continues from highest existing).
+- Always run a duplicate check against the existing bank before finalising a new batch.
