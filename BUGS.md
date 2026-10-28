@@ -4,6 +4,18 @@ A living document. Update after every fix session to avoid repeating the same mi
 
 ---
 
+### B-112 · Monday review read the wrong records — undercounted wins, no follow-up, blind to stuck repeating work
+**Symptom:** Three faults in the same step chain. (1) Wins showed far fewer completions than really happened — saved reviews recorded 4, 2 and 6 wins for weeks where the real figure was 16, 15 and 17. (2) The review asked for 3 focus tasks every Monday but never reported back on last Monday's three. (3) Slipped only flagged one-off cycles with an ISO date; a recurring cycle that fired and was left unfinished never appeared.
+**Root cause:** Wins was derived from `cycles.last_completed_at`, a single field that is overwritten on every completion — a cycle finished four times in a week counts once, and a cycle finished again later loses its earlier date entirely. The real log (`cycle_completions` + `task_completions`) was never read by the review. Focus ids were written to `weekly_reviews` but no code ever read the previous week's row back. Slipped's filter required `ISO_DATE.test(c.triggerLabel)`, which recurring labels like "Every 17th of month" never match.
+**Fix:**
+- New `src/shared/lib/use-review-data.ts` — one loader that fetches `cycle_completions` + `task_completions` (filtered by mode, newest first) and last week's `weekly_reviews` row. Timestamps are converted to the LOCAL calendar day, never via `toISOString()`. Only runs while the review modal is mounted, so Today is unaffected.
+- `WeeklyReview.tsx` Wins now counts from that log, separating whole completions from checklist steps and adding a per-area breakdown. `completedIds` is saved from the log too.
+- `lastMondayStr` now derives from the Monday of the current week minus 7, instead of `todayStr - 7` (which gave "last Wednesday" on a Wednesday).
+- Step 1 opens with last Monday's three picks marked done / part-done / not done, matching focus ids against the log (`id` or `parentId`), the cycle's status and `lastCompletedAt`. Skipped silently when there is no prior review.
+- Slipped gained a second group: recurring cycles that are not complete, have no `nextDueAt`, are not `allCycleDone`, are not due today, whose last occurrence was >= 3 days ago and which show no completion since that occurrence. Verified against live data: 1 flagged out of 176 cycles, every exclusion reason accounted for.
+- Repeating work gets its own reason chips — "Move to next week" is meaningless for something that already returns, so it offers **Skip this round** (`computeSkipDate` -> `nextDueAt`) instead. `DeferAction.act` gained `'skip'`, wired in `TodayView`.
+**Lesson:** A mutable "last X at" column is a pointer, not a history — never count with it. If a log table exists, read the log. And any step that asks the user to commit to something must have a matching step that reads that commitment back, or the loop is decorative.
+
 ### B-111 · Structural edits to Payroll silently reverted on every reload
 **Symptom:** Brenda deleted two sub-items ("DT HSBC", "Duom bcom") from the Payroll cycle's Fiat checklist. The deletion saved correctly to Supabase, but both reappeared on the next page load. Ticking boxes persisted fine; adding, deleting or renaming a step never stuck.
 **Root cause:** `mergePhases()` in `work-data-context.tsx` (and a duplicate in `personal-data-context.tsx`) rebuilt phase structure from the hardcoded starter data on every load — its own comment stated "Static wins for structure (items, subItems, labels); DB wins for status fields only." It mapped over `staticPhases`, so any item the user removed in the DB was re-added from code, and any item they added was dropped. Only cycles present in the static seed *with* `phases` were affected — in practice just `payroll`.
@@ -857,13 +869,11 @@ Because `next_due_at` was a month away, `applyRecurrenceResets` (which only rese
 2. Stale cleanup: replaced direct `webPush.sendNotification()` calls with `safeSend()` helper that catches 410/404 errors and deletes the stale row from `push_subscriptions`.
 **Lesson:** Never assume a push subscription persists indefinitely on mobile browsers, especially iOS Safari. Always handle the "permission granted but no subscription" state by auto-renewing. Always clean up expired endpoints on send failure.
 
----
-
 ## How to use this doc
 
 **MANDATORY RULE:** Every bug fixed must be logged here. This is a build record, not optional cleanup.
 
 - Add a new entry immediately after each fix, while context is fresh.
 - Each entry must include: **symptom**, **root cause**, **fix**, **lesson**.
-- Number sequentially (next is B-111).
+- Number sequentially (next is B-113).
 - Before building a new feature that touches an area — re-read relevant entries to avoid repeating past mistakes.

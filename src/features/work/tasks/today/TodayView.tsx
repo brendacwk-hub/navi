@@ -864,6 +864,7 @@ export function TodayView() {
         onApply={(actions) => {
           for (const a of actions) {
             if (a.act === 'reschedule' && a.toDate) updateCycle(a.area as WorkArea, a.id, { triggerLabel: a.toDate })
+            else if (a.act === 'skip' && a.toDate) updateCycle(a.area as WorkArea, a.id, { nextDueAt: a.toDate })
             else if (a.act === 'archive') updateCycle(a.area as WorkArea, a.id, { status: 'complete' })
           }
         }}
