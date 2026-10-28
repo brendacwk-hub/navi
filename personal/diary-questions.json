@@ -640,24 +640,9 @@
     "text": "What's one thing you genuinely cared about today — not what you had to care about, but what you actually did?"
   },
   {
-    "id": 193,
-    "category": "growth_learning",
-    "text": "Did you show up for something meaningful today — even for a short while?"
-  },
-  {
-    "id": 194,
-    "category": "growth_learning",
-    "text": "Did an idea catch your attention today — something that made you want to follow it?"
-  },
-  {
     "id": 195,
     "category": "growth_learning",
     "text": "Is there something you've been doing long enough to feel real passion for it — not just passing interest?"
-  },
-  {
-    "id": 196,
-    "category": "growth_learning",
-    "text": "Did you do what needed to be done today, without making it harder than it had to be?"
   },
   {
     "id": 197,
@@ -665,88 +650,8 @@
     "text": "Did you feel comfortable in your own skin today — not performing, just at ease?"
   },
   {
-    "id": 198,
-    "category": "health_energy",
-    "text": "How wound up or settled do you feel right now — and what do you think is behind it?"
-  },
-  {
-    "id": 199,
-    "category": "health_energy",
-    "text": "How did your body feel when you woke up this morning — rested, foggy, or still catching up?"
-  },
-  {
-    "id": 200,
-    "category": "home",
-    "text": "Is there something in your home right now that makes you smile when you look at it?"
-  },
-  {
-    "id": 201,
-    "category": "home",
-    "text": "Do you like how much social time you have at home right now — or would you want more of it?"
-  },
-  {
-    "id": 202,
-    "category": "looking_ahead",
-    "text": "Do you have a clear sense right now of why you're doing what you're doing — beyond just the tasks?"
-  },
-  {
-    "id": 203,
-    "category": "looking_ahead",
-    "text": "Is there a version of your life you imagine that feels genuinely exciting — not just comfortable?"
-  },
-  {
-    "id": 204,
-    "category": "looking_ahead",
-    "text": "Is there something in your life right now that feels like it's quietly waiting for more of your attention?"
-  },
-  {
-    "id": 205,
-    "category": "personal_finance",
-    "text": "How do you feel about your financial situation this month — steady, shaky, or building?"
-  },
-  {
-    "id": 206,
-    "category": "personal_finance",
-    "text": "Does the idea of financial freedom feel like something you're moving toward — even slowly?"
-  },
-  {
-    "id": 207,
-    "category": "relationships",
-    "text": "Did any interaction today feel easy and real — where you didn't have to manage how you came across?"
-  },
-  {
-    "id": 208,
-    "category": "relationships",
-    "text": "Is there someone you'd like to know better — someone interesting who's been around but you haven't really connected with yet?"
-  },
-  {
-    "id": 209,
-    "category": "relationships",
-    "text": "Did any conversation today leave you feeling good — energised rather than drained?"
-  },
-  {
-    "id": 210,
-    "category": "relationships",
-    "text": "Is there a relationship in your life that feels like it's gotten closer lately — quietly, without much effort?"
-  },
-  {
-    "id": 211,
-    "category": "sidoi",
-    "text": "Did Sidoi feel like yours today — something personal and alive — or more like a background task?"
-  },
-  {
-    "id": 212,
-    "category": "sidoi",
-    "text": "Is Sidoi calling to you lately — or does it feel like something you're keeping at arm's length for now?"
-  },
-  {
     "id": 213,
     "category": "work_reflection",
     "text": "Did you end today feeling like you moved something forward — even a small thing?"
-  },
-  {
-    "id": 214,
-    "category": "work_reflection",
-    "text": "Did work feel like something worth doing today — or just something to get through?"
   }
 ]
