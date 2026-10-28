@@ -438,5 +438,95 @@
     "id": 129,
     "category": "looking_ahead",
     "text": "What's one thing you've built — for work, for Sidoi, or for yourself — that you feel genuinely proud of right now?"
+  },
+  {
+    "id": 130,
+    "category": "growth_learning",
+    "text": "Was there a moment today when you were so absorbed in something that time just disappeared — what were you doing?"
+  },
+  {
+    "id": 131,
+    "category": "growth_learning",
+    "text": "Looking back six months, is there something you can do now — or feel now — that would have surprised you then?"
+  },
+  {
+    "id": 132,
+    "category": "growth_learning",
+    "text": "Did something stretch you today in a way that felt like growth — where you can actually feel yourself expanding?"
+  },
+  {
+    "id": 133,
+    "category": "growth_learning",
+    "text": "Is there something you're doing right now purely because it matters to you — apart from recognition, obligation, or results?"
+  },
+  {
+    "id": 134,
+    "category": "growth_learning",
+    "text": "Is there something you're playing a long game on — quietly building over months or years — that you rarely stop to notice?"
+  },
+  {
+    "id": 135,
+    "category": "work_reflection",
+    "text": "Did you get a real stretch of focused time today — the kind where something actually moved forward properly?"
+  },
+  {
+    "id": 136,
+    "category": "work_reflection",
+    "text": "Did you do something today that you gave your real attention to — not just finished it, but actually cared about getting it right?"
+  },
+  {
+    "id": 137,
+    "category": "work_reflection",
+    "text": "Is there a standard you hold yourself to in your work that you feel like you're meeting right now — or getting closer to?"
+  },
+  {
+    "id": 138,
+    "category": "looking_ahead",
+    "text": "What are you genuinely committed to right now — not just obligated to, but actually committed to, in your bones?"
+  },
+  {
+    "id": 139,
+    "category": "looking_ahead",
+    "text": "Is there something you've decided about who you want to be — not what you want to achieve, but who — that you've been quietly living out?"
+  },
+  {
+    "id": 140,
+    "category": "looking_ahead",
+    "text": "Did today feel like it had a point — even a quiet, small one?"
+  },
+  {
+    "id": 141,
+    "category": "health_energy",
+    "text": "Were there moments today when you were fully just there — not in your head, not planning anything, just present?"
+  },
+  {
+    "id": 142,
+    "category": "health_energy",
+    "text": "Was there a point today when you felt genuinely energised — not just awake, but actually alive to something?"
+  },
+  {
+    "id": 143,
+    "category": "health_energy",
+    "text": "Is there a small habit quietly building in your life right now — something that doesn't feel like much yet but is slowly becoming something?"
+  },
+  {
+    "id": 144,
+    "category": "relationships",
+    "text": "Did you feel genuinely seen by someone today — properly understood, not just acknowledged?"
+  },
+  {
+    "id": 145,
+    "category": "relationships",
+    "text": "Is there someone in your life right now who brings out a better version of you — just by being around them?"
+  },
+  {
+    "id": 146,
+    "category": "personal_finance",
+    "text": "Do your money choices lately feel like they're pointing toward what you actually want — or running on autopilot?"
+  },
+  {
+    "id": 147,
+    "category": "sidoi",
+    "text": "Is there something you quietly know you want to make or explore — something creative that keeps coming back no matter how many times you push it aside?"
   }
 ]
