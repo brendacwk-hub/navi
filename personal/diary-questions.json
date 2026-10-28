@@ -530,11 +530,6 @@
     "text": "Is there something you quietly know you want to make or explore — something creative that keeps coming back no matter how many times you push it aside?"
   },
   {
-    "id": 148,
-    "category": "growth_learning",
-    "text": "Is there a problem you've been sitting with long enough that you can feel it starting to open up?"
-  },
-  {
     "id": 149,
     "category": "growth_learning",
     "text": "Did you make something today — or move something creative forward — even a little?"
@@ -570,21 +565,6 @@
     "text": "Is there a creative ritual or habit that reliably puts you in the right state — and what does it feel like when you do it?"
   },
   {
-    "id": 156,
-    "category": "health_energy",
-    "text": "How has your sleep been this week — and can you feel the difference it makes in your days?"
-  },
-  {
-    "id": 157,
-    "category": "health_energy",
-    "text": "Did you check in with your body at any point today — tension, energy, how you're actually feeling physically?"
-  },
-  {
-    "id": 158,
-    "category": "health_energy",
-    "text": "Is there something your body has been quietly signalling lately — something you've half-noticed but not really sat with?"
-  },
-  {
     "id": 159,
     "category": "health_energy",
     "text": "Did you give yourself actual downtime today — the kind where you genuinely switched off, not just sat down?"
@@ -593,26 +573,6 @@
     "id": 160,
     "category": "health_energy",
     "text": "Pausing right now — how is your body actually feeling? Tight somewhere, tired, or surprisingly okay?"
-  },
-  {
-    "id": 161,
-    "category": "home",
-    "text": "Is your home feeling like a good base right now — somewhere that genuinely helps you recharge?"
-  },
-  {
-    "id": 162,
-    "category": "home",
-    "text": "Did you do anything recently that made your space feel more like yours — more intentional, more you?"
-  },
-  {
-    "id": 163,
-    "category": "home",
-    "text": "Is there something in your space you've been meaning to change or add — something small that would make it feel noticeably better?"
-  },
-  {
-    "id": 164,
-    "category": "home",
-    "text": "How has your home been feeling lately — ordered and supportive, or a bit all over the place?"
   },
   {
     "id": 165,
@@ -625,34 +585,9 @@
     "text": "What would make this month feel like it mattered — not the tasks, but the feeling?"
   },
   {
-    "id": 167,
-    "category": "looking_ahead",
-    "text": "Is there a 'someday' you've been holding — something you genuinely want that might be closer to possible than you've allowed yourself to think?"
-  },
-  {
     "id": 168,
     "category": "looking_ahead",
     "text": "What does a really good day look like for you — not perfect, just genuinely good — and how close was today to that?"
-  },
-  {
-    "id": 169,
-    "category": "looking_ahead",
-    "text": "Is there a decision that's been sitting quietly with you — one where you sense the answer but haven't committed to it yet?"
-  },
-  {
-    "id": 170,
-    "category": "personal_finance",
-    "text": "Is there a financial move you've been sitting with — and what's your gut telling you about it?"
-  },
-  {
-    "id": 171,
-    "category": "personal_finance",
-    "text": "How does your financial situation feel right now — like something you're building, or something that's just happening to you?"
-  },
-  {
-    "id": 172,
-    "category": "personal_finance",
-    "text": "Is there a money habit you've been quietly maintaining that you feel good about — even a small one?"
   },
   {
     "id": 173,
@@ -660,24 +595,9 @@
     "text": "Did you feel a real spark of connection with someone today — a moment that was more than just functional?"
   },
   {
-    "id": 174,
-    "category": "relationships",
-    "text": "Is there a person in your life who you feel genuinely yourself around — easy, unguarded, just you?"
-  },
-  {
     "id": 175,
     "category": "relationships",
     "text": "Is there someone whose company you'd like more of right now — someone who just makes your days feel better?"
-  },
-  {
-    "id": 176,
-    "category": "relationships",
-    "text": "Did you let yourself be honest with someone today — about how you're actually doing, not just the surface version?"
-  },
-  {
-    "id": 177,
-    "category": "sidoi",
-    "text": "Is there a Sidoi idea you haven't shared with anyone yet — something still just yours?"
   },
   {
     "id": 178,
@@ -685,29 +605,9 @@
     "text": "How does Sidoi feel as a creative project right now — alive and calling to you, or waiting for energy you haven't had?"
   },
   {
-    "id": 179,
-    "category": "sidoi",
-    "text": "Is there a style or aesthetic direction for Sidoi you've been exploring in your head — something that excites you visually?"
-  },
-  {
-    "id": 180,
-    "category": "work_reflection",
-    "text": "Did your focus today feel like something you shaped — or did the day pull you wherever it wanted?"
-  },
-  {
-    "id": 181,
-    "category": "work_reflection",
-    "text": "Is there something at work right now you're genuinely learning from — not just doing, but actually taking in?"
-  },
-  {
     "id": 182,
     "category": "work_reflection",
     "text": "Was there a moment today where you felt like you were driving something — initiating rather than just reacting?"
-  },
-  {
-    "id": 183,
-    "category": "work_reflection",
-    "text": "Is there a project or initiative at work right now that actually excites you — something beyond the baseline routine?"
   },
   {
     "id": 184,
@@ -720,16 +620,6 @@
     "text": "Was there a moment today where you handled something with more ease than you might have a year ago?"
   },
   {
-    "id": 186,
-    "category": "work_reflection",
-    "text": "Is there a change you've been quietly wanting to make at work — something where the timing is starting to feel right?"
-  },
-  {
-    "id": 187,
-    "category": "work_reflection",
-    "text": "Did you feel like an expert today — someone who knows their domain well enough to trust their own instincts?"
-  },
-  {
     "id": 188,
     "category": "growth_learning",
     "text": "Is there something you've read or heard recently that shifted how you see something — even slightly?"
@@ -738,11 +628,6 @@
     "id": 189,
     "category": "health_energy",
     "text": "When did you last feel genuinely light — physically and mentally just unburdened — and what was that about?"
-  },
-  {
-    "id": 190,
-    "category": "looking_ahead",
-    "text": "Is there a rhythm to your days that you've been wanting to settle into — something that would make your life feel more like yours?"
   },
   {
     "id": 191,
